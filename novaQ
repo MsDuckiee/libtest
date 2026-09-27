@@ -1,8 +1,7 @@
 --[[
-    ⭐ NovaLib v2.0 "Aurora"  [FIXED BUILD]
-    A next-generation Roblox UI library.
-    Not an Orion reskin: reactive state, command palette, dockable widgets,
-    config diffing, accessibility modes, theme lab, console, panic/streamer mode.
+    ⭐ NovaLib v2.0 "Aurora"  [FIXED BUILD — UI Visible]
+    Next-gen Roblox UI library — reactive state, command palette,
+    dockable widgets, config diffing, accessibility, theme lab, console.
 ]]
 
 local RunService = game:GetService("RunService")
@@ -111,9 +110,7 @@ task.spawn(function()
     if ok then Icons = res or {} else Icons = {} end
 end)
 
-local function Icon(name)
-    return Icons[name] or name
-end
+local function Icon(name) return Icons[name] or name end
 
 local function destroyOld(parent)
     if not parent then return end
@@ -132,13 +129,18 @@ Nova.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Nova:SetAttribute("NovaOwner", tostring(LocalPlayer and LocalPlayer.UserId or 0))
 Nova:SetAttribute("Library", "NovaLib v2 Aurora")
 
-local ok = pcall(function()
-    if gethui then Nova.Parent = gethui()
-    elseif syn and syn.protect_gui then syn.protect_gui(Nova); Nova.Parent = game:GetService("CoreGui")
-    elseif RunService:IsStudio() and LocalPlayer then Nova.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    else Nova.Parent = game:GetService("CoreGui") end
-end)
-if not ok or not Nova.Parent then Nova.Parent = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui") or game:GetService("CoreGui") end
+-- ============================================================
+-- FIX: Always parent to PlayerGui first (safe), then try to
+-- upgrade to gethui/CoreGui if the executor supports it.
+-- ============================================================
+do
+    local ok = pcall(function()
+        Nova.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end)
+    if not ok or not Nova.Parent then
+        pcall(function() Nova.Parent = game:GetService("CoreGui") end)
+    end
+end
 destroyOld(Nova.Parent)
 
 function NovaLib:IsRunning() return Nova.Parent ~= nil end
@@ -187,7 +189,6 @@ local function UnpackColor(t) return Color3.fromRGB(t[1] or 255, t[2] or 255, t[
 local function clamp(n, a, b) return math.max(a, math.min(b, n)) end
 local function round(n, inc) inc = inc or 1; if n >= 0 then return math.floor(n/inc + 0.5)*inc else return math.ceil(n/inc - 0.5)*inc end end
 local function lerp(a,b,t) return a+(b-a)*t end
-local function colorLerp(a,b,t) return Color3.fromRGB(lerp(a.R*255,b.R*255,t), lerp(a.G*255,b.G*255,t), lerp(a.B*255,b.B*255,t)) end
 local function relativeLuminance(c) return 0.2126*c.R + 0.7152*c.G + 0.0722*c.B end
 local function bestText(bg) return relativeLuminance(bg) > 0.58 and Color3.fromRGB(12,16,24) or Color3.fromRGB(244,247,251) end
 local function shiftColor(c, amt) return Color3.fromRGB(clamp(c.R*255+amt,0,255), clamp(c.G*255+amt,0,255), clamp(c.B*255+amt,0,255)) end
@@ -272,19 +273,22 @@ end
 -- ============================================================
 -- NOTIFICATIONS
 -- ============================================================
-local NotifHolder = Children(Props(New("Frame", {BackgroundTransparency = 1}), {
+local NotifHolder = New("Frame", {
+    BackgroundTransparency = 1,
     AnchorPoint = Vector2.new(1, 1),
     Position = UDim2.new(1, -18, 1, -18),
     Size = UDim2.new(0, 360, 1, -36),
-}), {
-    Props(New("UIListLayout", {
+    ZIndex = 500,
+})
+NotifHolder.Parent = Nova
+Children(NotifHolder, {
+    New("UIListLayout", {
         SortOrder = Enum.SortOrder.LayoutOrder,
         Padding = UDim.new(0, 8),
         VerticalAlignment = Enum.VerticalAlignment.Bottom,
         HorizontalAlignment = Enum.HorizontalAlignment.Center,
-    }), {})
+    }),
 })
-NotifHolder.Parent = Nova
 
 function NovaLib:Notify(cfg)
     cfg = cfg or {}
@@ -303,33 +307,33 @@ function NovaLib:Notify(cfg)
         Size = UDim2.new(1,0,0,0),
         AutomaticSize = Enum.AutomaticSize.Y,
         Position = UDim2.new(1,70,0,0),
+        ZIndex = 501,
     })
     card.Parent = holder
-    AddTheme(card, "Panel")
     Children(card, {New("UICorner", {CornerRadius = UDim.new(0,14)})})
-    AddTheme(Children(card, {New("UIStroke", {Color = Themes[NovaLib.SelectedTheme].Stroke, Transparency = 0.25, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})}), "Stroke")
+    Children(card, {New("UIStroke", {Color = Themes[NovaLib.SelectedTheme].Stroke, Transparency = 0.25, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})})
 
-    local stripe = New("Frame", {BorderSizePixel = 0, Size = UDim2.new(0,4,1,0), BackgroundColor3 = color})
+    local stripe = New("Frame", {BorderSizePixel = 0, Size = UDim2.new(0,4,1,0), BackgroundColor3 = color, ZIndex = 502})
     stripe.Parent = card
     Children(stripe, {New("UICorner", {CornerRadius = UDim.new(1,0)})})
 
-    local icon = New("ImageLabel", {BackgroundTransparency = 1, Image = image, ImageColor3 = color, Size = UDim2.new(0,22,0,22), Position = UDim2.new(0,16,0,14)})
+    local icon = New("ImageLabel", {BackgroundTransparency = 1, Image = image, ImageColor3 = color, Size = UDim2.new(0,22,0,22), Position = UDim2.new(0,16,0,14), ZIndex = 502})
     icon.Parent = card
 
-    local titleLbl = New("TextLabel", {BackgroundTransparency = 1, Text = name, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = Themes[NovaLib.SelectedTheme].Text, Position = UDim2.new(0,48,0,13), Size = UDim2.new(1,-64,0,20)})
+    local titleLbl = New("TextLabel", {BackgroundTransparency = 1, Text = name, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = Themes[NovaLib.SelectedTheme].Text, Position = UDim2.new(0,48,0,13), Size = UDim2.new(1,-64,0,20), ZIndex = 502})
     titleLbl.Parent = card
 
-    local bodyLbl = New("TextLabel", {BackgroundTransparency = 1, Text = content, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Font = Enum.Font.Gotham, TextSize = 13, TextColor3 = Themes[NovaLib.SelectedTheme].TextDark, Position = UDim2.new(0,16,0,42), Size = UDim2.new(1,-32,0,0), AutomaticSize = Enum.AutomaticSize.Y})
+    local bodyLbl = New("TextLabel", {BackgroundTransparency = 1, Text = content, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Font = Enum.Font.Gotham, TextSize = 13, TextColor3 = Themes[NovaLib.SelectedTheme].TextDark, Position = UDim2.new(0,16,0,42), Size = UDim2.new(1,-32,0,0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 502})
     bodyLbl.Parent = card
 
     Children(card, {New("UIPadding", {PaddingTop = UDim.new(0,12), PaddingBottom = UDim.new(0,12), PaddingLeft = UDim.new(0,12), PaddingRight = UDim.new(0,12)})})
 
-    local actionsFrame = New("Frame", {Name = "Actions", BackgroundTransparency = 1, Position = UDim2.new(0,16,1,-4), Size = UDim2.new(1,-32,0,0), AutomaticSize = Enum.AutomaticSize.Y})
+    local actionsFrame = New("Frame", {Name = "Actions", BackgroundTransparency = 1, Position = UDim2.new(0,16,1,-4), Size = UDim2.new(1,-32,0,0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 502})
     actionsFrame.Parent = card
     Children(actionsFrame, {New("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,8), SortOrder = Enum.SortOrder.LayoutOrder})})
 
     for i, action in ipairs(actions) do
-        local b = New("TextButton", {Text = action.Name or ("Action "..i), Font = Enum.Font.GothamSemibold, TextSize = 12, TextColor3 = bestText(color), BackgroundColor3 = color, Size = UDim2.new(0,0,0,28), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = i, AutoButtonColor = false})
+        local b = New("TextButton", {Text = action.Name or ("Action "..i), Font = Enum.Font.GothamSemibold, TextSize = 12, TextColor3 = bestText(color), BackgroundColor3 = color, Size = UDim2.new(0,0,0,28), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = i, AutoButtonColor = false, ZIndex = 503})
         b.Parent = actionsFrame
         Children(b, {
             New("UICorner", {CornerRadius = UDim.new(1,0)}),
@@ -338,7 +342,7 @@ function NovaLib:Notify(cfg)
         Connect(b.MouseButton1Click, function() pcall(action.Callback) end)
     end
 
-    local life = New("Frame", {BackgroundColor3 = color, BorderSizePixel = 0, Size = UDim2.new(1,0,0,3), Position = UDim2.new(0,0,1,-3)})
+    local life = New("Frame", {BackgroundColor3 = color, BorderSizePixel = 0, Size = UDim2.new(1,0,0,3), Position = UDim2.new(0,0,1,-3), ZIndex = 502})
     life.Parent = card
     Children(life, {New("UICorner", {CornerRadius = UDim.new(1,0)})})
 
@@ -426,6 +430,7 @@ local function WriteCfg(name)
     if #NovaLib.ConfigHistory > 30 then table.remove(NovaLib.ConfigHistory) end
     pcall(function()
         local path = NovaLib.Folder .. "/" .. tostring(name or game.GameId) .. ".json"
+        if isfolder and not isfolder(NovaLib.Folder) then makefolder(NovaLib.Folder) end
         writefile(path, HttpService:JSONEncode(snap))
     end)
     return changed
@@ -464,8 +469,7 @@ end
 -- ============================================================
 -- BASE ATOMS
 -- ============================================================
-local function Corner(r) return New("UICorner", {CornerRadius = UDim.new(0, r or 10)}) end
-local function Stroke(color, transparency, thickness)
+local function NewStroke(color, transparency, thickness)
     return New("UIStroke", {Color = color or Themes[NovaLib.SelectedTheme].Stroke, Transparency = transparency or 0.35, Thickness = thickness or 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
 end
 local function Padding(l,t,r,b)
@@ -476,16 +480,37 @@ local function List(pad, dir)
 end
 local function Label(text, size, bold)
     local t = Themes[NovaLib.SelectedTheme]
-    return AddTheme(New("TextLabel", {BackgroundTransparency = 1, Text = text or "", TextColor3 = t.Text, TextSize = (size or 14) * NovaLib.TextScale, Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center, RichText = true}), "Text")
+    local l = New("TextLabel", {BackgroundTransparency = 1, Text = text or "", TextColor3 = t.Text, TextSize = (size or 14) * NovaLib.TextScale, Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center, RichText = true})
+    AddTheme(l, "Text")
+    return l
 end
+
+-- FIX: AuroraWash now sits behind everything with ZIndex=0
 local function AuroraWash()
-    local holder = New("Frame", {BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), ClipsDescendants = true})
-    local a = New("Frame", {BackgroundColor3 = Color3.new(1,1,1), BackgroundTransparency = 0.86, Size = UDim2.fromScale(2.2,2.2), Position = UDim2.fromScale(-0.4,-0.5)})
+    local holder = New("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1,1),
+        ClipsDescendants = true,
+        ZIndex = 0,
+    })
+    local a = New("Frame", {
+        BackgroundColor3 = Color3.new(1,1,1),
+        BackgroundTransparency = 0.94,
+        Size = UDim2.fromScale(2.2,2.2),
+        Position = UDim2.fromScale(-0.4,-0.5),
+        ZIndex = 0,
+    })
     a.Parent = holder
     Children(a, {New("UICorner", {CornerRadius = UDim.new(1,0)})})
     AddTheme(New("UIGradient", {Rotation = 35, Parent = a}), "AuroraWash")
 
-    local b = New("Frame", {BackgroundColor3 = Color3.new(1,1,1), BackgroundTransparency = 0.92, Size = UDim2.fromScale(1.8,1.8), Position = UDim2.fromScale(0.2,0.2)})
+    local b = New("Frame", {
+        BackgroundColor3 = Color3.new(1,1,1),
+        BackgroundTransparency = 0.96,
+        Size = UDim2.fromScale(1.8,1.8),
+        Position = UDim2.fromScale(0.2,0.2),
+        ZIndex = 0,
+    })
     b.Parent = holder
     Children(b, {New("UICorner", {CornerRadius = UDim.new(1,0)})})
     AddTheme(New("UIGradient", {Rotation = 125, Parent = b}), "AuroraWash")
@@ -566,29 +591,27 @@ local function OpenPalette()
     if Palette and Palette.Parent then Palette.Visible = not Palette.Visible return end
     local t = Themes[NovaLib.SelectedTheme]
 
-    Palette = New("Frame", {Name = "CommandPalette", BackgroundColor3 = Color3.new(0,0,0), BackgroundTransparency = 0.25, Size = UDim2.fromScale(1,1), Visible = true})
+    Palette = New("Frame", {Name = "CommandPalette", BackgroundColor3 = Color3.new(0,0,0), BackgroundTransparency = 0.35, Size = UDim2.fromScale(1,1), Visible = true, ZIndex = 900})
     Palette.Parent = Nova
 
-    local dismiss = New("TextButton", {Name = "Dismiss", Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1,1)})
+    local dismiss = New("TextButton", {Name = "Dismiss", Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), ZIndex = 901})
     dismiss.Parent = Palette
 
-    local root = New("Frame", {AnchorPoint = Vector2.new(0.5,0.25), Position = UDim2.new(0.5,0,0.25,0), Size = UDim2.new(0,560,0,420), BackgroundColor3 = t.Panel, BackgroundTransparency = 0.03})
+    local root = New("Frame", {AnchorPoint = Vector2.new(0.5,0.25), Position = UDim2.new(0.5,0,0.25,0), Size = UDim2.new(0,560,0,420), BackgroundColor3 = t.Panel, BackgroundTransparency = 0.03, ZIndex = 902})
     root.Parent = Palette
     Children(root, {
         New("UICorner", {CornerRadius = UDim.new(0,16)}),
         New("UIStroke", {Color = t.Stroke, Transparency = 0.15, Thickness = 1.2}),
     })
-    local wash = AuroraWash()
-    wash.Parent = root
 
-    local query = New("TextBox", {Name = "Query", BackgroundTransparency = 1, Text = "", PlaceholderText = "Search actions, tabs, toggles...  (Esc to close)", PlaceholderColor3 = t.TextDark, TextColor3 = t.Text, TextSize = 18 * NovaLib.TextScale, Font = Enum.Font.GothamSemibold, ClearTextOnFocus = false, Size = UDim2.new(1,-28,0,52), Position = UDim2.new(0,14,0,8)})
+    local query = New("TextBox", {Name = "Query", BackgroundTransparency = 1, Text = "", PlaceholderText = "Search actions, tabs, toggles...  (Esc to close)", PlaceholderColor3 = t.TextDark, TextColor3 = t.Text, TextSize = 18 * NovaLib.TextScale, Font = Enum.Font.GothamSemibold, ClearTextOnFocus = false, Size = UDim2.new(1,-28,0,52), Position = UDim2.new(0,14,0,8), ZIndex = 903})
     query.Parent = root
     Children(query, {Padding(4,0,4,0)})
 
-    local line = New("Frame", {Name = "Line", BackgroundColor3 = t.Stroke, BorderSizePixel = 0, Size = UDim2.new(1,-24,0,1), Position = UDim2.new(0,12,0,64)})
+    local line = New("Frame", {Name = "Line", BackgroundColor3 = t.Stroke, BorderSizePixel = 0, Size = UDim2.new(1,-24,0,1), Position = UDim2.new(0,12,0,64), ZIndex = 903})
     line.Parent = root
 
-    local results = New("ScrollingFrame", {Name = "Results", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1,-24,1,-76), Position = UDim2.new(0,12,0,72), CanvasSize = UDim2.new(), ScrollBarThickness = 4, ScrollBarImageColor3 = t.Accent})
+    local results = New("ScrollingFrame", {Name = "Results", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1,-24,1,-76), Position = UDim2.new(0,12,0,72), CanvasSize = UDim2.new(), ScrollBarThickness = 4, ScrollBarImageColor3 = t.Accent, ZIndex = 903})
     results.Parent = root
     Children(results, {List(6)})
 
@@ -608,7 +631,7 @@ local function OpenPalette()
         for rank, entry in ipairs(ranked) do
             local item = entry.item
             local isSel = rank == selected
-            local b = New("TextButton", {AutoButtonColor = false, BackgroundColor3 = isSel and t.Accent or t.Elevated, BackgroundTransparency = 0.15, Text = "", Size = UDim2.new(1,0,0,46)})
+            local b = New("TextButton", {AutoButtonColor = false, BackgroundColor3 = isSel and t.Accent or t.Elevated, BackgroundTransparency = 0.15, Text = "", Size = UDim2.new(1,0,0,46), ZIndex = 904})
             b.Parent = results
             Children(b, {New("UICorner", {CornerRadius = UDim.new(0,10)})})
 
@@ -616,12 +639,14 @@ local function OpenPalette()
             nameLbl.Size = UDim2.new(1,-130,0,20)
             nameLbl.Position = UDim2.new(0,12,0,6)
             nameLbl.TextColor3 = isSel and bestText(t.Accent) or t.Text
+            nameLbl.ZIndex = 905
             nameLbl.Parent = b
 
             local descLbl = Label(item.Description, 12)
             descLbl.Size = UDim2.new(1,-130,0,16)
             descLbl.Position = UDim2.new(0,12,0,25)
             descLbl.TextColor3 = isSel and bestText(t.Accent) or t.TextDark
+            descLbl.ZIndex = 905
             descLbl.Parent = b
 
             local scopeLbl = Label(item.Scope, 11, true)
@@ -629,6 +654,7 @@ local function OpenPalette()
             scopeLbl.Position = UDim2.new(1,-102,0,15)
             scopeLbl.TextXAlignment = Enum.TextXAlignment.Right
             scopeLbl.TextColor3 = isSel and bestText(t.Accent) or t.Accent
+            scopeLbl.ZIndex = 905
             scopeLbl.Parent = b
 
             table.insert(buttons, b)
@@ -669,7 +695,7 @@ local function ElementHost(page)
     local t = Themes[NovaLib.SelectedTheme]
 
     local function card(height)
-        local f = AddTheme(New("Frame", {BackgroundColor3 = t.Panel, BackgroundTransparency = 0.08, Size = UDim2.new(1,0,0,height or 44), AutomaticSize = Enum.AutomaticSize.Y}), "Panel")
+        local f = AddTheme(New("Frame", {BackgroundColor3 = t.Panel, BackgroundTransparency = 0.08, Size = UDim2.new(1,0,0,height or 44), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 5}), "Panel")
         f.Parent = page
         Children(f, {
             New("UICorner", {CornerRadius = UDim.new(0,14)}),
@@ -681,10 +707,10 @@ local function ElementHost(page)
     end
 
     local function titleRow(parent, name)
-        local row = New("Frame", {BackgroundTransparency = 1, Size = UDim2.new(1,0,0,34)})
+        local row = New("Frame", {BackgroundTransparency = 1, Size = UDim2.new(1,0,0,34), ZIndex = 6})
         row.Parent = parent
         Children(row, {List(8, Enum.FillDirection.Horizontal)})
-        local title = New("TextLabel", {Name = "Title", BackgroundTransparency = 1, Text = name or "", TextColor3 = t.Text, TextSize = 15 * NovaLib.TextScale, Font = Enum.Font.GothamSemibold, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1,0,1,0)})
+        local title = New("TextLabel", {Name = "Title", BackgroundTransparency = 1, Text = name or "", TextColor3 = t.Text, TextSize = 15 * NovaLib.TextScale, Font = Enum.Font.GothamSemibold, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1,0,1,0), ZIndex = 7})
         title.Parent = row
         AddTheme(title, "Text")
         return row, title
@@ -696,20 +722,20 @@ local function ElementHost(page)
 
     function api:AddSection(secCfg)
         secCfg = secCfg or {}
-        local holder = New("Frame", {BackgroundTransparency = 1, Size = UDim2.new(1,0,0,30), AutomaticSize = Enum.AutomaticSize.Y})
+        local holder = New("Frame", {BackgroundTransparency = 1, Size = UDim2.new(1,0,0,30), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 4})
         holder.Parent = page
         Children(holder, {List(8)})
 
-        local head = New("Frame", {BackgroundTransparency = 1, Size = UDim2.new(1,0,0,28)})
+        local head = New("Frame", {BackgroundTransparency = 1, Size = UDim2.new(1,0,0,28), ZIndex = 5})
         head.Parent = holder
-        local headLbl = New("TextLabel", {Name = "Heading", BackgroundTransparency = 1, Text = secCfg.Name or "Section", TextColor3 = t.TextDark, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.fromScale(1,1)})
+        local headLbl = New("TextLabel", {Name = "Heading", BackgroundTransparency = 1, Text = secCfg.Name or "Section", TextColor3 = t.TextDark, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.fromScale(1,1), ZIndex = 6})
         headLbl.Parent = head
-        local headLine = New("Frame", {Name = "Underline", AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), BackgroundColor3 = t.Divider, BorderSizePixel = 0, Size = UDim2.new(0,90,0,1)})
+        local headLine = New("Frame", {Name = "Underline", AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), BackgroundColor3 = t.Divider, BorderSizePixel = 0, Size = UDim2.new(0,90,0,1), ZIndex = 6})
         headLine.Parent = head
         AddTheme(headLbl, "TextDark")
         AddTheme(headLine, "Divider")
 
-        local body = New("Frame", {BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1,0,0,0)})
+        local body = New("Frame", {BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1,0,0,0), ZIndex = 5})
         body.Parent = holder
         local bodyList = List(7)
         bodyList.Parent = body
@@ -735,8 +761,8 @@ local function ElementHost(page)
     function api:AddParagraph(cfg)
         cfg = cfg or {}
         local f = card(58)
-        local title = AddTheme(New("TextLabel", {BackgroundTransparency = 1, Text = cfg.Title or cfg[1] or "Title", TextColor3 = t.Text, TextSize = 15 * NovaLib.TextScale, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1,0,0,18), Position = UDim2.new(0,0,0,0)}), "Text")
-        local body = AddTheme(New("TextLabel", {BackgroundTransparency = 1, Text = cfg.Content or cfg[2] or "", TextWrapped = true, TextColor3 = t.TextDark, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1,0,0,0), Position = UDim2.new(0,0,0,22)}), "TextDark")
+        local title = AddTheme(New("TextLabel", {BackgroundTransparency = 1, Text = cfg.Title or cfg[1] or "Title", TextColor3 = t.Text, TextSize = 15 * NovaLib.TextScale, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1,0,0,18), Position = UDim2.new(0,0,0,0), ZIndex = 6}), "Text")
+        local body = AddTheme(New("TextLabel", {BackgroundTransparency = 1, Text = cfg.Content or cfg[2] or "", TextWrapped = true, TextColor3 = t.TextDark, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1,0,0,0), Position = UDim2.new(0,0,0,22), ZIndex = 6}), "TextDark")
         title.Parent = f; body.Parent = f
         Connect(body:GetPropertyChangedSignal("AbsoluteSize"), function()
             f.Size = UDim2.new(1,0,0, 30 + body.TextBounds.Y)
@@ -757,11 +783,11 @@ local function ElementHost(page)
     function api:AddButton(cfg)
         cfg = cfg or {}
         local f = card(44)
-        local click = New("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1,1)})
+        local click = New("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), ZIndex = 8})
         click.Parent = f
         MakeHoverable(click, f)
         local _, title = titleRow(f, cfg.Name or "Button")
-        local img = AddTheme(New("ImageLabel", {BackgroundTransparency = 1, Image = Icon(cfg.Icon or "arrow-right"), ImageColor3 = t.Accent, Size = UDim2.new(0,20,0,20), AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-4,0.5,0)}), "Accent")
+        local img = AddTheme(New("ImageLabel", {BackgroundTransparency = 1, Image = Icon(cfg.Icon or "arrow-right"), ImageColor3 = t.Accent, Size = UDim2.new(0,20,0,20), AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-4,0.5,0), ZIndex = 7}), "Accent")
         img.Name = "AccentDynamic"
         img.Parent = f
         Connect(click.MouseButton1Click, function() task.spawn(cfg.Callback or function() end) end)
@@ -775,18 +801,18 @@ local function ElementHost(page)
         cfg = cfg or {}
         local f = card(44)
         local obj = {Value = cfg.Default == true, Save = cfg.Save == true, Type = "Toggle"}
-        local click = New("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1,1)})
+        local click = New("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), ZIndex = 8})
         click.Parent = f
         MakeHoverable(click, f)
         local _, title = titleRow(f, cfg.Name or "Toggle")
 
-        local pill = New("Frame", {AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), Size = UDim2.new(0,46,0,26), BackgroundColor3 = t.Divider, BackgroundTransparency = 0.1})
+        local pill = New("Frame", {AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), Size = UDim2.new(0,46,0,26), BackgroundColor3 = t.Divider, BackgroundTransparency = 0.1, ZIndex = 7})
         pill.Parent = f
         Children(pill, {
             New("UICorner", {CornerRadius = UDim.new(1,0)}),
             New("UIStroke", {Color = t.Stroke, Transparency = 0.35}),
         })
-        local knob = New("Frame", {Name = "Knob", AnchorPoint = Vector2.new(0,0.5), Position = UDim2.new(0,3,0.5,0), Size = UDim2.new(0,20,0,20), BackgroundColor3 = Color3.new(1,1,1), BackgroundTransparency = 0.05})
+        local knob = New("Frame", {Name = "Knob", AnchorPoint = Vector2.new(0,0.5), Position = UDim2.new(0,3,0.5,0), Size = UDim2.new(0,20,0,20), BackgroundColor3 = Color3.new(1,1,1), BackgroundTransparency = 0.05, ZIndex = 8})
         knob.Parent = pill
         Children(knob, {New("UICorner", {CornerRadius = UDim.new(1,0)})})
 
@@ -815,17 +841,17 @@ local function ElementHost(page)
         local obj = {Value = cfg.Default, Save = cfg.Save == true, Type = "Slider"}
         local _, title = titleRow(f, (cfg.Name or "Slider") .. "  <font color=\"#" .. t.Accent:ToHex() .. "\">" .. tostring(cfg.Default) .. " " .. (cfg.ValueName or "") .. "</font>")
 
-        local bar = New("Frame", {Name = "Bar", BackgroundColor3 = t.Elevated, BackgroundTransparency = 0.05, Size = UDim2.new(1,0,0,22), Position = UDim2.new(0,0,0,38)})
+        local bar = New("Frame", {Name = "Bar", BackgroundColor3 = t.Elevated, BackgroundTransparency = 0.05, Size = UDim2.new(1,0,0,22), Position = UDim2.new(0,0,0,38), ZIndex = 6})
         bar.Parent = f
         Children(bar, {
             New("UICorner", {CornerRadius = UDim.new(1,0)}),
             New("UIStroke", {Color = t.Stroke, Transparency = 0.45}),
         })
-        local fill = New("Frame", {Name = "Fill", BackgroundColor3 = cfg.Color or t.Accent, Size = UDim2.fromScale(0,1), BackgroundTransparency = 0.05})
+        local fill = New("Frame", {Name = "Fill", BackgroundColor3 = cfg.Color or t.Accent, Size = UDim2.fromScale(0,1), BackgroundTransparency = 0.05, ZIndex = 7})
         fill.Parent = bar
         Children(fill, {New("UICorner", {CornerRadius = UDim.new(1,0)})})
         fill.Name = "AccentDynamic"
-        local hit = New("TextButton", {Name = "Hit", Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1,1)})
+        local hit = New("TextButton", {Name = "Hit", Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), ZIndex = 8})
         hit.Parent = bar
 
         local dragging = false
@@ -859,12 +885,12 @@ local function ElementHost(page)
         local f = card(44)
         local _, title = titleRow(f, cfg.Name or "Dropdown")
 
-        local selected = AddTheme(New("TextLabel", {BackgroundTransparency = 1, Text = tostring(obj.Value), TextColor3 = t.TextDark, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-28,0.5,0), Size = UDim2.new(0,160,0,22)}), "TextDark")
+        local selected = AddTheme(New("TextLabel", {BackgroundTransparency = 1, Text = tostring(obj.Value), TextColor3 = t.TextDark, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-28,0.5,0), Size = UDim2.new(0,160,0,22), ZIndex = 7}), "TextDark")
         selected.Parent = f
-        local chev = AddTheme(New("ImageLabel", {BackgroundTransparency = 1, Image = Icon("chevron-down"), ImageColor3 = t.TextDark, AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-4,0.5,0), Size = UDim2.new(0,18,0,18)}), "TextDark")
+        local chev = AddTheme(New("ImageLabel", {BackgroundTransparency = 1, Image = Icon("chevron-down"), ImageColor3 = t.TextDark, AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-4,0.5,0), Size = UDim2.new(0,18,0,18), ZIndex = 7}), "TextDark")
         chev.Parent = f
 
-        local menu = New("ScrollingFrame", {Name = "Menu", Visible = false, BackgroundColor3 = t.Elevated, BackgroundTransparency = 0.03, BorderSizePixel = 0, Position = UDim2.new(0,0,1,8), Size = UDim2.new(1,0,0,0), CanvasSize = UDim2.new(), ScrollBarThickness = 4})
+        local menu = New("ScrollingFrame", {Name = "Menu", Visible = false, BackgroundColor3 = t.Elevated, BackgroundTransparency = 0.03, BorderSizePixel = 0, Position = UDim2.new(0,0,1,8), Size = UDim2.new(1,0,0,0), CanvasSize = UDim2.new(), ScrollBarThickness = 4, ZIndex = 20})
         menu.Parent = f
         local menuList = List(5)
         menuList.Parent = menu
@@ -873,7 +899,6 @@ local function ElementHost(page)
             New("UIStroke", {Color = t.Stroke, Transparency = 0.25}),
             Padding(8,8,8,8),
         })
-        AddTheme(menu:FindFirstChildOfClass("UIStroke"), "Stroke")
 
         local open = false
         local function refresh(opts, del)
@@ -883,7 +908,7 @@ local function ElementHost(page)
             end
             obj.Options = opts or obj.Options
             for i, opt in ipairs(obj.Options) do
-                local b = New("TextButton", {Text = tostring(opt), AutoButtonColor = false, Font = Enum.Font.GothamSemibold, TextSize = 13 * NovaLib.TextScale, TextColor3 = t.Text, BackgroundColor3 = t.Panel, BackgroundTransparency = opt == obj.Value and 0.05 or 0.35, Size = UDim2.new(1,0,0,30), LayoutOrder = i})
+                local b = New("TextButton", {Text = tostring(opt), AutoButtonColor = false, Font = Enum.Font.GothamSemibold, TextSize = 13 * NovaLib.TextScale, TextColor3 = t.Text, BackgroundColor3 = t.Panel, BackgroundTransparency = opt == obj.Value and 0.05 or 0.35, Size = UDim2.new(1,0,0,30), LayoutOrder = i, ZIndex = 21})
                 b.Parent = menu
                 Children(b, {New("UICorner", {CornerRadius = UDim.new(0,9)})})
                 Connect(b.MouseButton1Click, function() obj:Set(opt) end)
@@ -905,7 +930,7 @@ local function ElementHost(page)
         end
         refresh(obj.Options, false); obj:Set(obj.Value)
 
-        local click = New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,44)})
+        local click = New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,44), ZIndex = 8})
         click.Parent = f
         Connect(click.MouseButton1Click, function()
             open = not open
@@ -922,19 +947,19 @@ local function ElementHost(page)
         cfg = cfg or {}
         local obj = {Value = cfg.Default or Enum.KeyCode.Unknown, Binding = false, Save = cfg.Save == true, Type = "Bind"}
         local f = card(44)
-        local click = New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1,1)})
+        local click = New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), ZIndex = 8})
         click.Parent = f
         MakeHoverable(click, f)
         local _, title = titleRow(f, cfg.Name or "Keybind")
 
-        local box = New("Frame", {AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0,0,0,28), BackgroundColor3 = t.Elevated, BackgroundTransparency = 0.05})
+        local box = New("Frame", {AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0,0,0,28), BackgroundColor3 = t.Elevated, BackgroundTransparency = 0.05, ZIndex = 7})
         box.Parent = f
         Children(box, {
             New("UICorner", {CornerRadius = UDim.new(0,9)}),
             New("UIStroke", {Color = t.Stroke, Transparency = 0.35}),
             Padding(12,6,12,6),
         })
-        local boxValue = New("TextLabel", {Name = "Value", BackgroundTransparency = 1, Text = tostring(obj.Value.Name or obj.Value), TextColor3 = t.Text, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.GothamBold, Size = UDim2.new(0,0,1,0), AutomaticSize = Enum.AutomaticSize.X})
+        local boxValue = New("TextLabel", {Name = "Value", BackgroundTransparency = 1, Text = tostring(obj.Value.Name or obj.Value), TextColor3 = t.Text, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.GothamBold, Size = UDim2.new(0,0,1,0), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 8})
         boxValue.Parent = box
 
         function obj:Set(k)
@@ -978,14 +1003,14 @@ local function ElementHost(page)
         local f = card(44)
         local _, title = titleRow(f, cfg.Name or "Textbox")
 
-        local box = New("Frame", {AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0,120,0,30), BackgroundColor3 = t.Elevated, BackgroundTransparency = 0.05})
+        local box = New("Frame", {AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0,120,0,30), BackgroundColor3 = t.Elevated, BackgroundTransparency = 0.05, ZIndex = 7})
         box.Parent = f
         Children(box, {
             New("UICorner", {CornerRadius = UDim.new(0,9)}),
             New("UIStroke", {Color = t.Stroke, Transparency = 0.35}),
             Padding(12,5,12,5),
         })
-        local input = New("TextBox", {Name = "Input", BackgroundTransparency = 1, Text = cfg.Default or "", PlaceholderText = cfg.Placeholder or "Type...", PlaceholderColor3 = t.TextDark, TextColor3 = t.Text, Font = Enum.Font.GothamSemibold, TextSize = 13 * NovaLib.TextScale, ClearTextOnFocus = false, Size = UDim2.new(0,100,1,0), TextXAlignment = Enum.TextXAlignment.Center})
+        local input = New("TextBox", {Name = "Input", BackgroundTransparency = 1, Text = cfg.Default or "", PlaceholderText = cfg.Placeholder or "Type...", PlaceholderColor3 = t.TextDark, TextColor3 = t.Text, Font = Enum.Font.GothamSemibold, TextSize = 13 * NovaLib.TextScale, ClearTextOnFocus = false, Size = UDim2.new(0,100,1,0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 8})
         input.Parent = box
 
         Connect(input:GetPropertyChangedSignal("Text"), function()
@@ -1004,11 +1029,11 @@ local function ElementHost(page)
         cfg = cfg or {}
         local obj = {Value = cfg.Default or Color3.fromRGB(255,255,255), Toggled = false, Save = cfg.Save == true, Type = "Colorpicker"}
         local f = card(44)
-        local click = New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,44)})
+        local click = New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,44), ZIndex = 8})
         click.Parent = f
         local _, title = titleRow(f, cfg.Name or "Color")
 
-        local swatch = New("Frame", {AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), Size = UDim2.new(0,42,0,28), BackgroundColor3 = obj.Value, BackgroundTransparency = 0})
+        local swatch = New("Frame", {AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,0,0.5,0), Size = UDim2.new(0,42,0,28), BackgroundColor3 = obj.Value, BackgroundTransparency = 0, ZIndex = 7})
         swatch.Parent = f
         Children(swatch, {
             New("UICorner", {CornerRadius = UDim.new(0,9)}),
@@ -1017,19 +1042,19 @@ local function ElementHost(page)
 
         local h,s,v = Color3.toHSV(obj.Value)
 
-        local picker = New("Frame", {Name = "Picker", Visible = false, BackgroundTransparency = 1, Position = UDim2.new(0,0,1,10), Size = UDim2.new(1,0,0,132)})
+        local picker = New("Frame", {Name = "Picker", Visible = false, BackgroundTransparency = 1, Position = UDim2.new(0,0,1,10), Size = UDim2.new(1,0,0,132), ZIndex = 10})
         picker.Parent = f
 
-        local sv = New("ImageLabel", {Name = "SV", Image = "rbxassetid://4155801252", Size = UDim2.new(1,-28,1,0), BackgroundColor3 = Color3.fromHSV(h,1,1)})
+        local sv = New("ImageLabel", {Name = "SV", Image = "rbxassetid://4155801252", Size = UDim2.new(1,-28,1,0), BackgroundColor3 = Color3.fromHSV(h,1,1), ZIndex = 11})
         sv.Parent = picker
         Children(sv, {
             New("UICorner", {CornerRadius = UDim.new(0,12)}),
             New("UIStroke", {Color = t.Stroke, Transparency = 0.45}),
         })
-        local svSel = New("ImageLabel", {Name = "Sel", Image = "rbxassetid://4805639000", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5,0.5), Size = UDim2.new(0,16,0,16), Position = UDim2.fromScale(s, 1-v)})
+        local svSel = New("ImageLabel", {Name = "Sel", Image = "rbxassetid://4805639000", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5,0.5), Size = UDim2.new(0,16,0,16), Position = UDim2.fromScale(s, 1-v), ZIndex = 12})
         svSel.Parent = sv
 
-        local hue = New("Frame", {Name = "Hue", Size = UDim2.new(0,18,1,0), Position = UDim2.new(1,0,0,0), BackgroundColor3 = Color3.new(1,1,1)})
+        local hue = New("Frame", {Name = "Hue", Size = UDim2.new(0,18,1,0), Position = UDim2.new(1,0,0,0), BackgroundColor3 = Color3.new(1,1,1), ZIndex = 11})
         hue.Parent = picker
         Children(hue, {
             New("UICorner", {CornerRadius = UDim.new(1,0)}),
@@ -1043,7 +1068,7 @@ local function ElementHost(page)
                 ColorSequenceKeypoint.new(1, Color3.fromRGB(255,0,0)),
             }}),
         })
-        local hueSel = New("ImageLabel", {Name = "Sel", Image = "rbxassetid://4805639000", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5,0.5), Size = UDim2.new(0,18,0,18), Position = UDim2.new(0.5,0,1-h,0)})
+        local hueSel = New("ImageLabel", {Name = "Sel", Image = "rbxassetid://4805639000", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5,0.5), Size = UDim2.new(0,18,0,18), Position = UDim2.new(0.5,0,1-h,0), ZIndex = 12})
         hueSel.Parent = hue
 
         local function update(fromSV, fromHue)
@@ -1113,31 +1138,44 @@ function NovaLib:MakeWindow(cfg)
     local size = cfg.Size or UDim2.new(0, 720, 0, 430)
     local pos = cfg.Position or UDim2.new(0.5, -360, 0.5, -215)
 
-    local root = New("Frame", {Name = win.Name, BackgroundColor3 = t.Main, BackgroundTransparency = 0.04, Size = size, Position = pos, ClipsDescendants = true})
+    -- Root frame
+    local root = New("Frame", {
+        Name = win.Name,
+        BackgroundColor3 = t.Main,
+        BackgroundTransparency = 0.04,
+        Size = size,
+        Position = pos,
+        ClipsDescendants = true,
+        Visible = true,
+        ZIndex = 1,
+    })
     root.Parent = Nova
     Children(root, {
         New("UICorner", {CornerRadius = UDim.new(0,18)}),
         New("UIStroke", {Color = t.Stroke, Transparency = 0.18, Thickness = 1.2}),
         New("UIScale", {Scale = NovaLib.UIScale}),
     })
+
+    -- FIX: Wash first (behind)
     local wash = AuroraWash()
     wash.Parent = root
 
-    local top = New("Frame", {Name = "Top", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,52)})
+    -- Top bar
+    local top = New("Frame", {Name = "Top", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,52), ZIndex = 10})
     top.Parent = root
-    local titleLbl = New("TextLabel", {Name = "Title", BackgroundTransparency = 1, Text = win.Name, TextColor3 = t.Text, TextSize = 17 * NovaLib.TextScale, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,18,0,8), Size = UDim2.new(1,-220,0,22)})
+    local titleLbl = New("TextLabel", {Name = "Title", BackgroundTransparency = 1, Text = win.Name, TextColor3 = t.Text, TextSize = 17 * NovaLib.TextScale, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,18,0,8), Size = UDim2.new(1,-220,0,22), ZIndex = 11})
     titleLbl.Parent = top
-    local subtitleLbl = New("TextLabel", {Name = "Subtitle", BackgroundTransparency = 1, Text = win.Subtitle, TextColor3 = t.TextDark, TextSize = 12 * NovaLib.TextScale, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,18,0,30), Size = UDim2.new(1,-220,0,14)})
+    local subtitleLbl = New("TextLabel", {Name = "Subtitle", BackgroundTransparency = 1, Text = win.Subtitle, TextColor3 = t.TextDark, TextSize = 12 * NovaLib.TextScale, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,18,0,30), Size = UDim2.new(1,-220,0,14), ZIndex = 11})
     subtitleLbl.Parent = top
-    local topLine = New("Frame", {Name = "TopLine", BackgroundColor3 = t.Stroke, BackgroundTransparency = 0.2, BorderSizePixel = 0, Position = UDim2.new(0,0,1,-1), Size = UDim2.new(1,0,0,1)})
+    local topLine = New("Frame", {Name = "TopLine", BackgroundColor3 = t.Stroke, BackgroundTransparency = 0.2, BorderSizePixel = 0, Position = UDim2.new(0,0,1,-1), Size = UDim2.new(1,0,0,1), ZIndex = 11})
     topLine.Parent = top
 
-    local controls = New("Frame", {Name = "Controls", BackgroundTransparency = 1, AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-14,0.5,0), Size = UDim2.new(0,142,0,34)})
+    local controls = New("Frame", {Name = "Controls", BackgroundTransparency = 1, AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-14,0.5,0), Size = UDim2.new(0,142,0,34), ZIndex = 11})
     controls.Parent = top
     Children(controls, {New("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right})})
 
     local function ctrlBtn(name, text, sizeX, order)
-        local b = New("TextButton", {Name = name, Text = text, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = t.Text, AutoButtonColor = false, BackgroundColor3 = t.Elevated, Size = UDim2.new(0,sizeX,1,0), LayoutOrder = order})
+        local b = New("TextButton", {Name = name, Text = text, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = t.Text, AutoButtonColor = false, BackgroundColor3 = t.Elevated, Size = UDim2.new(0,sizeX,1,0), LayoutOrder = order, ZIndex = 12})
         b.Parent = controls
         Children(b, {
             New("UICorner", {CornerRadius = UDim.new(1,0)}),
@@ -1149,57 +1187,61 @@ function NovaLib:MakeWindow(cfg)
     local miniBtn = ctrlBtn("Mini", "–", 34, 2)
     local closeBtn = ctrlBtn("Close", "×", 34, 3)
 
-    local body = New("Frame", {Name = "Body", BackgroundTransparency = 1, Position = UDim2.new(0,0,0,52), Size = UDim2.new(1,0,1,-52)})
+    -- Body
+    local body = New("Frame", {Name = "Body", BackgroundTransparency = 1, Position = UDim2.new(0,0,0,52), Size = UDim2.new(1,0,1,-52), ZIndex = 10})
     body.Parent = root
 
-    local sidebar = New("Frame", {Name = "Sidebar", BackgroundColor3 = t.Panel, BackgroundTransparency = 0.08, Size = UDim2.new(0,176,1,0)})
+    local sidebar = New("Frame", {Name = "Sidebar", BackgroundColor3 = t.Panel, BackgroundTransparency = 0.08, Size = UDim2.new(0,176,1,0), ZIndex = 11})
     sidebar.Parent = body
     Children(sidebar, {
         New("UICorner", {CornerRadius = UDim.new(0,18)}),
         New("UIStroke", {Color = t.Stroke, Transparency = 0.3, Thickness = 1}),
     })
-    local tabs = New("ScrollingFrame", {Name = "Tabs", BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.new(0,10,0,14), Size = UDim2.new(1,-20,1,-92), CanvasSize = UDim2.new(), ScrollBarThickness = 0})
+    local tabs = New("ScrollingFrame", {Name = "Tabs", BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.new(0,10,0,14), Size = UDim2.new(1,-20,1,-92), CanvasSize = UDim2.new(), ScrollBarThickness = 0, ZIndex = 12})
     tabs.Parent = sidebar
     local tabsList = List(6)
     tabsList.Parent = tabs
 
-    local profile = New("Frame", {Name = "Profile", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0,1), Position = UDim2.new(0,12,1,-12), Size = UDim2.new(1,-24,0,58)})
+    local profile = New("Frame", {Name = "Profile", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0,1), Position = UDim2.new(0,12,1,-12), Size = UDim2.new(1,-24,0,58), ZIndex = 12})
     profile.Parent = sidebar
     Children(profile, {
         New("UICorner", {CornerRadius = UDim.new(0,14)}),
         New("UIStroke", {Color = t.Stroke, Transparency = 0.35}),
     })
-    local avatar = New("ImageLabel", {Name = "Avatar", BackgroundColor3 = t.Elevated, Size = UDim2.new(0,38,0,38), Position = UDim2.new(0,10,0.5,0), AnchorPoint = Vector2.new(0,0.5), Image = LocalPlayer and ("https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=150&height=150&format=png") or ""})
+    local avatar = New("ImageLabel", {Name = "Avatar", BackgroundColor3 = t.Elevated, Size = UDim2.new(0,38,0,38), Position = UDim2.new(0,10,0.5,0), AnchorPoint = Vector2.new(0,0.5), Image = LocalPlayer and ("https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=150&height=150&format=png") or "", ZIndex = 13})
     avatar.Parent = profile
     Children(avatar, {New("UICorner", {CornerRadius = UDim.new(1,0)})})
-    local dispLbl = New("TextLabel", {Name = "Display", BackgroundTransparency = 1, Text = NovaLib.StreamerMode and "Streamer" or (LocalPlayer and LocalPlayer.DisplayName or "Player"), TextColor3 = t.Text, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,58,0,10), Size = UDim2.new(1,-66,0,16)})
+    local dispLbl = New("TextLabel", {Name = "Display", BackgroundTransparency = 1, Text = NovaLib.StreamerMode and "Streamer" or (LocalPlayer and LocalPlayer.DisplayName or "Player"), TextColor3 = t.Text, TextSize = 13 * NovaLib.TextScale, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,58,0,10), Size = UDim2.new(1,-66,0,16), ZIndex = 13})
     dispLbl.Parent = profile
-    local userLbl = New("TextLabel", {Name = "User", BackgroundTransparency = 1, Text = NovaLib.StreamerMode and "@hidden" or (LocalPlayer and ("@" .. LocalPlayer.Name) or "@player"), TextColor3 = t.TextDark, TextSize = 11 * NovaLib.TextScale, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,58,0,28), Size = UDim2.new(1,-66,0,14)})
+    local userLbl = New("TextLabel", {Name = "User", BackgroundTransparency = 1, Text = NovaLib.StreamerMode and "@hidden" or (LocalPlayer and ("@" .. LocalPlayer.Name) or "@player"), TextColor3 = t.TextDark, TextSize = 11 * NovaLib.TextScale, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,58,0,28), Size = UDim2.new(1,-66,0,14), ZIndex = 13})
     userLbl.Parent = profile
 
-    local content = New("Frame", {Name = "Content", BackgroundTransparency = 1, Position = UDim2.new(0,188,0,0), Size = UDim2.new(1,-200,1,0)})
-    content.Parent = body
-    Children(content, {
-        Padding(10,12,10,12),
-        New("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0,10)}),
+    -- ============================================================
+    -- CONTENT AREA
+    -- FIX: no UIListLayout here (it was reflowing the page to 0x0)
+    -- ============================================================
+    local content = New("Frame", {
+        Name = "Content",
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,188,0,0),
+        Size = UDim2.new(1,-200,1,0),
+        ZIndex = 11,
     })
+    content.Parent = body
+    Children(content, {Padding(10,12,10,12)})
 
-    local dragHandle = New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,52), ZIndex = 4})
+    -- Drag handle
+    local dragHandle = New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,52), ZIndex = 20})
     dragHandle.Parent = root
     Dragify(dragHandle, root)
 
     function win:SetVisible(v)
         self.Visible = v
         root.Visible = v
-        if v then
-            root.Size = UDim2.new(0,0,0,0)
-            Tween(root, TweenInfo.new(0.24, Enum.EasingStyle.Quint), {Size = size})
-        else
-            Tween(root, TweenInfo.new(0.18, Enum.EasingStyle.Quint), {Size = UDim2.new(0,0,0,0)})
-        end
     end
     function win:Toggle() self:SetVisible(not self.Visible) end
     function win:Destroy() root:Destroy() end
+    win.Root = root
 
     Connect(closeBtn.MouseButton1Click, function()
         win:SetVisible(false)
@@ -1235,23 +1277,38 @@ function NovaLib:MakeWindow(cfg)
         local tabName = tabCfg.Name or "Tab"
         local tabIcon = Icon(tabCfg.Icon or "circle")
 
-        local btn = New("TextButton", {Name = tabName, Text = "", AutoButtonColor = false, BackgroundColor3 = t.Elevated, BackgroundTransparency = firstTab and 0.05 or 0.25, Size = UDim2.new(1,0,0,38)})
+        local btn = New("TextButton", {Name = tabName, Text = "", AutoButtonColor = false, BackgroundColor3 = t.Elevated, BackgroundTransparency = firstTab and 0.05 or 0.25, Size = UDim2.new(1,0,0,38), ZIndex = 13})
         btn.Parent = tabs
         Children(btn, {
             New("UICorner", {CornerRadius = UDim.new(0,12)}),
             New("UIStroke", {Color = firstTab and t.Accent or t.Stroke, Transparency = firstTab and 0.15 or 0.5, Thickness = 1}),
         })
-        local iconLbl = New("ImageLabel", {Name = "Ico", BackgroundTransparency = 1, Image = tabIcon, ImageColor3 = firstTab and t.Accent or t.TextDark, ImageTransparency = firstTab and 0 or 0.25, Size = UDim2.new(0,18,0,18), AnchorPoint = Vector2.new(0,0.5), Position = UDim2.new(0,12,0.5,0)})
+        local iconLbl = New("ImageLabel", {Name = "Ico", BackgroundTransparency = 1, Image = tabIcon, ImageColor3 = firstTab and t.Accent or t.TextDark, ImageTransparency = firstTab and 0 or 0.25, Size = UDim2.new(0,18,0,18), AnchorPoint = Vector2.new(0,0.5), Position = UDim2.new(0,12,0.5,0), ZIndex = 14})
         iconLbl.Parent = btn
-        local nameLbl = New("TextLabel", {Name = "Title", BackgroundTransparency = 1, Text = tabName, TextColor3 = firstTab and t.Text or t.TextDark, TextTransparency = firstTab and 0 or 0.25, TextSize = 14 * NovaLib.TextScale, Font = firstTab and Enum.Font.GothamBold or Enum.Font.GothamSemibold, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1,-48,1,0), Position = UDim2.new(0,40,0,0)})
+        local nameLbl = New("TextLabel", {Name = "Title", BackgroundTransparency = 1, Text = tabName, TextColor3 = firstTab and t.Text or t.TextDark, TextTransparency = firstTab and 0 or 0.25, TextSize = 14 * NovaLib.TextScale, Font = firstTab and Enum.Font.GothamBold or Enum.Font.GothamSemibold, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1,-48,1,0), Position = UDim2.new(0,40,0,0), ZIndex = 14})
         nameLbl.Parent = btn
-        local dockBtn = New("TextButton", {Name = "Dock", Text = "⇱", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = t.TextDark, BackgroundTransparency = 1, AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-8,0.5,0), Size = UDim2.new(0,26,0,26)})
+        local dockBtn = New("TextButton", {Name = "Dock", Text = "⇱", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = t.TextDark, BackgroundTransparency = 1, AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-8,0.5,0), Size = UDim2.new(0,26,0,26), ZIndex = 14})
         dockBtn.Parent = btn
 
-        local page = New("ScrollingFrame", {Name = "Page", Visible = firstTab, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1,1), CanvasSize = UDim2.new(), ScrollBarThickness = 5, ScrollBarImageColor3 = t.Accent})
+        -- Page: full-size ScrollingFrame positioned at content origin
+        local page = New("ScrollingFrame", {
+            Name = "Page",
+            Visible = firstTab,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Position = UDim2.new(0, 0, 0, 0),
+            Size = UDim2.new(1, 0, 1, 0),
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            ScrollBarThickness = 5,
+            ScrollBarImageColor3 = t.Accent,
+            ZIndex = 12,
+        })
         page.Parent = content
         local pageList = List(9)
         pageList.Parent = page
+        Connect(pageList:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+            page.CanvasSize = UDim2.new(0,0,0, pageList.AbsoluteContentSize.Y + 24)
+        end)
 
         local tab = {Name = tabName, Button = btn, Page = page, Icon = iconLbl, Label = nameLbl, Container = page, Window = win}
         local host = ElementHost(page)
@@ -1285,14 +1342,9 @@ function NovaLib:MakeWindow(cfg)
 
         RegisterCommand("Open " .. tabName, "Switch to tab", select, win.Name)
 
-        Connect(pageList:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-            page.CanvasSize = UDim2.new(0,0,0, pageList.AbsoluteContentSize.Y + 24)
-        end)
-
         firstTab = false
         table.insert(win.Tabs, tab)
 
-        -- Expose element methods on the tab itself
         setmetatable(tab, {
             __index = function(self, k)
                 local e = rawget(self, "_elements")
