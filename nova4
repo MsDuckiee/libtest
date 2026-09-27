@@ -1044,7 +1044,7 @@ function NovaLib:Window(cfg)
                 api.Type = "Toggle"
                 api.Value = value
 
-                if flag then self.Flags[flag] = api end
+                if flag then NovaLib.Flags[flag] = api end
                 registerElement(row, cfg.Name or "Toggle")
                 return api
             end
@@ -1156,7 +1156,7 @@ function NovaLib:Window(cfg)
                     api:Set(min + (max - min) * pct)
                 end)
 
-                if flag then self.Flags[flag] = api end
+                if flag then NovaLib.Flags[flag] = api end
                 registerElement(row, cfg.Name or "Slider")
                 return api
             end
@@ -1401,7 +1401,7 @@ function NovaLib:Window(cfg)
                 api.Type = "Dropdown"
                 api.Multi = multi
 
-                if cfg.Flag then self.Flags[cfg.Flag] = api end
+                if cfg.Flag then NovaLib.Flags[cfg.Flag] = api end
                 registerElement(row, cfg.Name or "Dropdown")
                 return api
             end
@@ -1472,7 +1472,7 @@ function NovaLib:Window(cfg)
                 function api:Get() return key end
                 api.Type = "Keybind"
 
-                if cfg.Flag then self.Flags[cfg.Flag] = api end
+                if cfg.Flag then NovaLib.Flags[cfg.Flag] = api end
                 registerElement(row, cfg.Name or "Keybind")
                 return api
             end
@@ -1673,7 +1673,8 @@ function NovaLib:Window(cfg)
                 api.Type = "Colorpicker"
                 api.Value = current
 
-                if cfg.Flag then self.Flags[cfg.Flag] = api end
+                if cfg.Flag then NovaLib.Flags[cfg.Flag] = api end
+
                 registerElement(row, cfg.Name or "Color")
                 return api
             end
