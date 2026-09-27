@@ -1,7 +1,6 @@
 --[[
-    ⭐ NovaLib v2.0 "Aurora"  [FIXED BUILD — UI Visible]
-    Next-gen Roblox UI library — reactive state, command palette,
-    dockable widgets, config diffing, accessibility, theme lab, console.
+    ⭐ NovaLib v2.0 "Aurora"  [FINAL — UI Visible]
+    Parent is ALWAYS PlayerGui. No gethui, no CoreGui fallback.
 ]]
 
 local RunService = game:GetService("RunService")
@@ -40,7 +39,6 @@ local NovaLib = {
     MaxLogs = 500,
     Debug = false,
     _lastConfigSnapshot = nil,
-    _hoveredDebug = nil,
 }
 
 local Themes = {
@@ -112,36 +110,38 @@ end)
 
 local function Icon(name) return Icons[name] or name end
 
-local function destroyOld(parent)
-    if not parent then return end
-    for _, gui in ipairs(parent:GetChildren()) do
-        if gui.Name == "NovaLib_Aurora" and gui:GetAttribute("NovaOwner") == tostring(LocalPlayer.UserId) then
-            gui:Destroy()
+-- Clean up any old Nova GUIs
+for _, parent in ipairs({game:GetService("CoreGui")}) do
+    pcall(function()
+        for _, gui in ipairs(parent:GetChildren()) do
+            if gui.Name == "NovaLib_Aurora" then gui:Destroy() end
+        end
+    end)
+end
+pcall(function()
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if pg then
+        for _, gui in ipairs(pg:GetChildren()) do
+            if gui.Name == "NovaLib_Aurora" then gui:Destroy() end
         end
     end
-end
+end)
 
+-- ============================================================
+-- SCREEN GUI — ALWAYS PlayerGui (works in every executor)
+-- ============================================================
 local Nova = Instance.new("ScreenGui")
 Nova.Name = "NovaLib_Aurora"
 Nova.ResetOnSpawn = false
 Nova.IgnoreGuiInset = true
 Nova.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Nova:SetAttribute("NovaOwner", tostring(LocalPlayer and LocalPlayer.UserId or 0))
-Nova:SetAttribute("Library", "NovaLib v2 Aurora")
+Nova.Enabled = true
+Nova.DisplayOrder = 999999
 
--- ============================================================
--- FIX: Always parent to PlayerGui first (safe), then try to
--- upgrade to gethui/CoreGui if the executor supports it.
--- ============================================================
 do
-    local ok = pcall(function()
-        Nova.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    end)
-    if not ok or not Nova.Parent then
-        pcall(function() Nova.Parent = game:GetService("CoreGui") end)
-    end
+    local pg = LocalPlayer:FindFirstChild("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui")
+    Nova.Parent = pg
 end
-destroyOld(Nova.Parent)
 
 function NovaLib:IsRunning() return Nova.Parent ~= nil end
 
@@ -188,7 +188,6 @@ local function PackColor(c) return {math.floor(c.R*255+0.5), math.floor(c.G*255+
 local function UnpackColor(t) return Color3.fromRGB(t[1] or 255, t[2] or 255, t[3] or 255) end
 local function clamp(n, a, b) return math.max(a, math.min(b, n)) end
 local function round(n, inc) inc = inc or 1; if n >= 0 then return math.floor(n/inc + 0.5)*inc else return math.ceil(n/inc - 0.5)*inc end end
-local function lerp(a,b,t) return a+(b-a)*t end
 local function relativeLuminance(c) return 0.2126*c.R + 0.7152*c.G + 0.0722*c.B end
 local function bestText(bg) return relativeLuminance(bg) > 0.58 and Color3.fromRGB(12,16,24) or Color3.fromRGB(244,247,251) end
 local function shiftColor(c, amt) return Color3.fromRGB(clamp(c.R*255+amt,0,255), clamp(c.G*255+amt,0,255), clamp(c.B*255+amt,0,255)) end
@@ -358,7 +357,7 @@ end
 NovaLib.MakeNotification = function(self, cfg) return self:Notify(cfg) end
 
 -- ============================================================
--- CONSOLE / LOGS
+-- LOGS
 -- ============================================================
 local ConsoleState = {Visible = false, Filter = "", Level = "All"}
 function NovaLib:Log(level, message, data)
@@ -469,9 +468,6 @@ end
 -- ============================================================
 -- BASE ATOMS
 -- ============================================================
-local function NewStroke(color, transparency, thickness)
-    return New("UIStroke", {Color = color or Themes[NovaLib.SelectedTheme].Stroke, Transparency = transparency or 0.35, Thickness = thickness or 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
-end
 local function Padding(l,t,r,b)
     return New("UIPadding", {PaddingLeft = UDim.new(0,l or 12), PaddingTop = UDim.new(0,t or 12), PaddingRight = UDim.new(0,r or 12), PaddingBottom = UDim.new(0,b or 12)})
 end
@@ -485,7 +481,6 @@ local function Label(text, size, bold)
     return l
 end
 
--- FIX: AuroraWash now sits behind everything with ZIndex=0
 local function AuroraWash()
     local holder = New("Frame", {
         BackgroundTransparency = 1,
@@ -683,7 +678,6 @@ NovaLib.OpenCommandPalette = OpenPalette
 RegisterCommand("Command Palette", "Open fuzzy command search", OpenPalette)
 RegisterCommand("Toggle UI", "Hide/show main UI", function() for _, w in ipairs(NovaLib.Windows) do if w.SetVisible then w:SetVisible(not w.Visible) end end end)
 RegisterCommand("Reduced Motion", "Toggle animation reduction", function() NovaLib.ReducedMotion = not NovaLib.ReducedMotion NovaLib:Notify({Name="Accessibility", Content="Reduced motion "..(NovaLib.ReducedMotion and "on" or "off")}) end)
-RegisterCommand("High Contrast", "Toggle high contrast", function() NovaLib.HighContrast = not NovaLib.HighContrast NovaLib:Notify({Name="Accessibility", Content="High contrast "..(NovaLib.HighContrast and "on" or "off")}) end)
 RegisterCommand("Streamer Mode", "Hide identity details", function() NovaLib.StreamerMode = not NovaLib.StreamerMode NovaLib:Notify({Name="Privacy", Content="Streamer mode "..(NovaLib.StreamerMode and "on" or "off")}) end)
 RegisterCommand("Panic", "Disable callbacks and hide", function() NovaLib.PanicEnabled = not NovaLib.PanicEnabled NovaLib:Notify({Name="Panic", Content=NovaLib.PanicEnabled and "Panic enabled" or "Panic disabled", Color=NovaLib.PanicEnabled and Themes[NovaLib.SelectedTheme].Bad or Themes[NovaLib.SelectedTheme].Good}) end)
 
@@ -1138,7 +1132,6 @@ function NovaLib:MakeWindow(cfg)
     local size = cfg.Size or UDim2.new(0, 720, 0, 430)
     local pos = cfg.Position or UDim2.new(0.5, -360, 0.5, -215)
 
-    -- Root frame
     local root = New("Frame", {
         Name = win.Name,
         BackgroundColor3 = t.Main,
@@ -1156,11 +1149,9 @@ function NovaLib:MakeWindow(cfg)
         New("UIScale", {Scale = NovaLib.UIScale}),
     })
 
-    -- FIX: Wash first (behind)
     local wash = AuroraWash()
     wash.Parent = root
 
-    -- Top bar
     local top = New("Frame", {Name = "Top", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,52), ZIndex = 10})
     top.Parent = root
     local titleLbl = New("TextLabel", {Name = "Title", BackgroundTransparency = 1, Text = win.Name, TextColor3 = t.Text, TextSize = 17 * NovaLib.TextScale, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,18,0,8), Size = UDim2.new(1,-220,0,22), ZIndex = 11})
@@ -1187,7 +1178,6 @@ function NovaLib:MakeWindow(cfg)
     local miniBtn = ctrlBtn("Mini", "–", 34, 2)
     local closeBtn = ctrlBtn("Close", "×", 34, 3)
 
-    -- Body
     local body = New("Frame", {Name = "Body", BackgroundTransparency = 1, Position = UDim2.new(0,0,0,52), Size = UDim2.new(1,0,1,-52), ZIndex = 10})
     body.Parent = root
 
@@ -1216,10 +1206,6 @@ function NovaLib:MakeWindow(cfg)
     local userLbl = New("TextLabel", {Name = "User", BackgroundTransparency = 1, Text = NovaLib.StreamerMode and "@hidden" or (LocalPlayer and ("@" .. LocalPlayer.Name) or "@player"), TextColor3 = t.TextDark, TextSize = 11 * NovaLib.TextScale, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0,58,0,28), Size = UDim2.new(1,-66,0,14), ZIndex = 13})
     userLbl.Parent = profile
 
-    -- ============================================================
-    -- CONTENT AREA
-    -- FIX: no UIListLayout here (it was reflowing the page to 0x0)
-    -- ============================================================
     local content = New("Frame", {
         Name = "Content",
         BackgroundTransparency = 1,
@@ -1230,7 +1216,6 @@ function NovaLib:MakeWindow(cfg)
     content.Parent = body
     Children(content, {Padding(10,12,10,12)})
 
-    -- Drag handle
     local dragHandle = New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.new(1,0,0,52), ZIndex = 20})
     dragHandle.Parent = root
     Dragify(dragHandle, root)
@@ -1290,7 +1275,6 @@ function NovaLib:MakeWindow(cfg)
         local dockBtn = New("TextButton", {Name = "Dock", Text = "⇱", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = t.TextDark, BackgroundTransparency = 1, AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-8,0.5,0), Size = UDim2.new(0,26,0,26), ZIndex = 14})
         dockBtn.Parent = btn
 
-        -- Page: full-size ScrollingFrame positioned at content origin
         local page = New("ScrollingFrame", {
             Name = "Page",
             Visible = firstTab,
