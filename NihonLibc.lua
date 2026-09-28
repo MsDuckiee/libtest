@@ -4359,7 +4359,25 @@ function Nihon:Init()
         Nihon._ready = true
         if window then window.Show() end
     end
-    loadingScreen(cfg, window and window.Name or "Nihon Lib", finish)
+
+    -- NEW: Check key system BEFORE loading the menu
+    if KeySystem.Enabled then
+        local saved = loadKey()
+        if keyIsValid(saved) then
+            KeySystem._verified = true
+            loadingScreen(cfg, window and window.Name or "Nihon Lib", finish)
+        else
+            -- Show key prompt first, load menu after success
+            local originalSuccess = KeySystem.OnSuccess
+            KeySystem.OnSuccess = function()
+                if originalSuccess then task.spawn(originalSuccess) end
+                loadingScreen(cfg, window and window.Name or "Nihon Lib", finish)
+            end
+            Nihon:ShowKeyPrompt()
+        end
+    else
+        loadingScreen(cfg, window and window.Name or "Nihon Lib", finish)
+    end
 end
 
 function Nihon:Destroy()
