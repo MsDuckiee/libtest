@@ -28,7 +28,6 @@ local Nihon = {
     Profile = "default",
     SaveConfig = false,
     IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
-    -- New Config Options
     ShowKeySystem = false,
     KeySystemAnswer = "",
     ShowTabsOnTop = false,
@@ -52,7 +51,7 @@ local Themes = {
         Stroke = Color3.fromRGB(48, 48, 56),
         Text = Color3.fromRGB(240, 240, 245),
         Sub = Color3.fromRGB(140, 140, 150),
-        Accent = Color3.fromRGB(255, 70, 90), -- Red/Pink default
+        Accent = Color3.fromRGB(255, 70, 90),
         Accent2 = Color3.fromRGB(255, 130, 100),
     },
     Light = {
@@ -462,29 +461,25 @@ function spawnNote(entry)
     n.expires = os.clock() + n.time
     local content = tostring(cfg.Content or "")
 
-    -- Minimalistic Card Design
     local frame = mk("CanvasGroup", {
         Name = "Note", Size = UDim2.fromOffset(w, 0), AutomaticSize = Enum.AutomaticSize.Y,
         GroupTransparency = 1, Parent = noteLayer,
     })
     bind(frame, "BackgroundColor3", "Surface")
-    round(frame, 6) -- Slightly rounded, not too much
+    round(frame, 6)
     outline(frame, "Stroke", 1, 0.2)
     mk("UISizeConstraint", {MinSize = Vector2.new(0, 60), Parent = frame})
 
-    -- Thin colored accent line on the left
     local accentStrip = mk("Frame", {
         Size = UDim2.new(0, 2, 1, 0), BackgroundColor3 = color, BackgroundTransparency = 0, ZIndex = 3, Parent = frame,
     })
 
-    -- Title
     n.title = tx("TextLabel", {
         Text = tostring(cfg.Name or cfg.Title or "Notification"), 
         TextSize = 14, Size = UDim2.new(1, -20, 0, 20), Position = UDim2.fromOffset(12, 8),
         TextWrapped = true, TextColor3 = color, ZIndex = 3, Parent = frame,
     }, 3)
 
-    -- Body
     n.body = tx("TextLabel", {
         Text = content, Size = UDim2.new(1, -20, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, 
         Position = UDim2.fromOffset(12, 28), TextWrapped = true, TextSize = 12, 
@@ -494,7 +489,6 @@ function spawnNote(entry)
     local est = TextService:GetTextSize(content, 12, Fonts[currentFont][1], Vector2.new(w - 24, 1000))
     n.height = math.max(50, 36 + est.Y + 14)
 
-    -- Actions
     if type(cfg.Actions) == "table" and #cfg.Actions > 0 then
         local row = mk("Frame", {Size = UDim2.new(1, -20, 0, 30), Position = UDim2.fromOffset(12, 36 + est.Y), BackgroundTransparency = 1, ZIndex = 3, Parent = frame})
         mk("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder, Parent = row})
@@ -626,7 +620,6 @@ local function createKeySystem(cfg)
         BackgroundTransparency = 0.5, ZIndex = 500, Parent = Root,
     })
     
-    -- Sidebar-style card, positioned where the player chip normally is
     local card = mk("Frame", {
         AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 10, 1, -10), 
         Size = UDim2.fromOffset(220, 170), BackgroundColor3 = Pal.Surface, ZIndex = 501, Parent = keyLayer,
@@ -639,7 +632,6 @@ local function createKeySystem(cfg)
         TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 502, Parent = card,
     }, 3)
     
-    -- Math Problem Display
     local mathLabel = tx("TextLabel", {
         Text = "", TextSize = 16, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 34),
         TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = Pal.Accent, ZIndex = 502, Parent = card,
@@ -676,7 +668,6 @@ local function createKeySystem(cfg)
         TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = Status.Error, ZIndex = 502, Parent = card,
     }, 1)
     
-    -- Generate Math Problem
     local num1 = math.random(1, 10)
     local num2 = math.random(1, 10)
     local answer = num1 + num2
@@ -714,7 +705,6 @@ local function createKeySystem(cfg)
             status.Text = "Invalid key, try again."
             status.TextColor3 = Status.Error
             input.Text = ""
-            -- Simple shake
             local base = card.Position
             task.spawn(function()
                 for _, dx in ipairs({6, -6, 4, -4, 2, 0}) do
@@ -987,8 +977,6 @@ function Nihon:MakeWindow(cfg)
 
     Nihon.Folder = tostring(cfg.ConfigFolder or Nihon.Folder)
     Nihon.SaveConfig = cfg.SaveConfig == true
-    
-    -- Apply new config options
     Nihon.ShowKeySystem = cfg.ShowKeySystem == true
     Nihon.ShowTabsOnTop = cfg.ShowTabsOnTop == true
     Nihon.KeySystemAnswer = cfg.KeySystemAnswer or ""
@@ -1055,7 +1043,6 @@ function Nihon:MakeWindow(cfg)
 
     local body = mk("Frame", {Name = "Body", Position = UDim2.fromOffset(0, topH), Size = UDim2.new(1, 0, 1, -topH), BackgroundTransparency = 1, ZIndex = 11, Parent = clip})
 
-    -- Layout: Tabs on Top or Sidebar
     local side, tabScroll
     if Nihon.ShowTabsOnTop then
         side = mk("Frame", {Name = "TopTabs", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.new(1, -16, 0, 36), ZIndex = 12, Parent = body})
@@ -1088,11 +1075,10 @@ function Nihon:MakeWindow(cfg)
     round(footer, 8)
     outline(footer, "Stroke", 1, 0.55)
     
-    -- Player chip content
+    -- FIX: Create avatar and labels BEFORE _parts
     local avatar = mk("ImageLabel", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 6, 0.5, 0), Size = UDim2.fromOffset(24, 24), ZIndex = 15, Parent = footer})
     bind(avatar, "BackgroundColor3", "Surface")
     round(avatar, 12)
-    -- We'll load avatar later in attachStats
     
     local chipName = tx("TextLabel", {Text = LocalPlayer.DisplayName, TextSize = 11, Position = UDim2.new(0, 36, 0, 6), Size = UDim2.new(1, -50, 0, 14), TextTruncate = Enum.TextTruncate.AtEnd, Visible = not mobile, ZIndex = 15, Parent = footer}, 3)
     local chipSub = tx("TextLabel", {Text = "@" .. LocalPlayer.Name, TextSize = 9, Position = UDim2.new(0, 36, 0, 20), Size = UDim2.new(1, -50, 0, 12), TextTruncate = Enum.TextTruncate.AtEnd, Visible = not mobile, ZIndex = 15, Parent = footer}, 1, "Sub")
@@ -1129,7 +1115,7 @@ function Nihon:MakeWindow(cfg)
         play(resizeGlyph.Glyph, 0.2, {TextColor3 = Pal.Sub})
     end)
 
-    -- Dragging logic
+    -- Dragging
     local function dragClamp(topLeft)
         local v = viewport()
         local s = shell.AbsoluteSize
@@ -1157,7 +1143,6 @@ function Nihon:MakeWindow(cfg)
         canDrag = function() return not Window.Hidden end,
     })
 
-    -- Scaling
     local function fitScale()
         local v = viewport()
         local fit = math.min((v.X - 20) / baseW, (v.Y - 20) / baseH, 1)
@@ -1172,7 +1157,6 @@ function Nihon:MakeWindow(cfg)
     local cam = workspace.CurrentCamera
     if cam then keep(cam:GetPropertyChangedSignal("ViewportSize"):Connect(function() if not Window.Hidden then applyScale(true) end end)) end
 
-    -- Launcher
     local launcher = mk("TextButton", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 34, 0.5, 0), Size = UDim2.fromOffset(mobile and 50 or 44, mobile and 50 or 44), BackgroundColor3 = Color3.new(1, 1, 1), Visible = false, ZIndex = 250, Parent = Root})
     round(launcher, 25)
     accentGradient(launcher, 45)
@@ -1194,7 +1178,6 @@ function Nihon:MakeWindow(cfg)
         else local tw = play(launcherScale, 0.2, {Scale = 0}, Enum.EasingStyle.Quint, Enum.EasingDirection.In) after(tw, function() launcher.Visible = false end) end
     end
 
-    -- Show/Hide/Minimize
     local fullH = baseH
     local closeToken = 0
     local placed = false
@@ -1297,6 +1280,8 @@ function Nihon:MakeWindow(cfg)
     minBtn.Activated:Connect(function() Window:SetMinimized(not Window.Minimized) end)
 
     Window.RequestOpen = function() if Window.Hidden then show() end end
+    
+    -- FIX: Now we can safely put avatar in _parts
     Window._parts = {
         shell = shell, clip = clip, header = header, body = body, side = side, tabScroll = tabScroll, pill = pill,
         content = content, footer = footer, searchBtn = searchBtn, helpBtn = helpBtn, uiScale = uiScale, applyScale = applyScale,
@@ -1306,7 +1291,6 @@ function Nihon:MakeWindow(cfg)
         searchIco = searchIco, minIco = minIco, resizeGrip = resizeGrip, resizeGlyph = resizeGlyph,
     }
 
-    -- Sidebar visibility toggle
     local function setSidebarVisible(on)
         on = on and true or false
         side.Visible = on
@@ -1644,7 +1628,6 @@ function ElementFactory(Window, Tab, parent, sectionName)
         Nihon:MakeNotification({Name = (label or "Action") .. " failed", Content = tostring(err), Type = "Error", Time = 5})
     end
 
-    -- Elements
     function E:AddLabel(o)
         o = type(o) == "table" and o or {Name = o}
         local c = card(rowH - 6, false)
