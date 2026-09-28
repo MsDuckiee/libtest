@@ -1721,8 +1721,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
 
         local function paint(v, animated)
             state.shown = v
-            local dur = animated and 0.28 or 0.001
-            play(fill, dur, {BackgroundTransparency = v and 0 or 1})
+            local dur = animated and 0.28 or 0.001            play(fill, dur, {BackgroundTransparency = v and 0 or 1})
             play(knob, dur, {Position = UDim2.new(0, v and 20 or 2, 0.5, 0)}, Enum.EasingStyle.Back)
             play(trackStroke, dur, {Transparency = v and 1 or 0.25})
         end
