@@ -41,6 +41,8 @@ local Nihon = {
     ShowHelp = true,
     ShowMinimize = true,
     ShowClose = true,
+    ShowTabsOnTop = false, -- New: Tabs on top layout
+    ShowKeySystem = false, -- New: Key system
 }
 env.NihonLibInstance = Nihon
 
@@ -1669,6 +1671,8 @@ function Nihon:MakeWindow(cfg)
     Nihon.ShowHelp = cfg.ShowHelp ~= false
     Nihon.ShowMinimize = cfg.ShowMinimize ~= false
     Nihon.ShowClose = cfg.ShowClose ~= false
+    Nihon.ShowTabsOnTop = cfg.ShowTabsOnTop == true -- New
+    Nihon.ShowKeySystem = cfg.ShowKeySystem == true -- New
     Hud.title = title
 
     if cfg.Theme and Themes[cfg.Theme] then setTheme(cfg.Theme, false) end
@@ -1802,20 +1806,41 @@ function Nihon:MakeWindow(cfg)
         Name = "Body", Position = UDim2.fromOffset(0, topH), Size = UDim2.new(1, 0, 1, -topH), BackgroundTransparency = 1, ZIndex = 11, Parent = clip,
     })
 
-    local side = mk("Frame", {
-        Name = "Sidebar", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 6), Size = UDim2.new(0, sideW - 10, 1, -16), ZIndex = 12, Parent = body,
-    })
-    bind(side, "BackgroundColor3", "Surface")
-    side.BackgroundTransparency = 0.25
-    round(side, 12)
-    outline(side, "Stroke", 1, 0.5)
-
-    local tabScroll = mk("ScrollingFrame", {
-        Name = "Tabs", Size = UDim2.new(1, 0, 1, -footH - 4), BackgroundTransparency = 1, ScrollBarThickness = 0,
-        CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 13, Parent = side,
-    })
-    inset(tabScroll, 8, 6, 8, 6)
-    stack(tabScroll, 4)
+    -- New: Sidebar or Tabs on Top
+    local side, tabScroll
+    if Nihon.ShowTabsOnTop then
+        -- Tabs on Top Layout
+        side = mk("Frame", {
+            Name = "TopTabs", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.new(1, -16, 0, 38), ZIndex = 12, Parent = body,
+        })
+        bind(side, "BackgroundColor3", "Surface")
+        side.BackgroundTransparency = 0.25
+        round(side, 12)
+        outline(side, "Stroke", 1, 0.5)
+        tabScroll = mk("ScrollingFrame", {
+            Name = "Tabs", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ScrollBarThickness = 0,
+            CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.XY, ScrollingDirection = Enum.ScrollingDirection.X, ZIndex = 13, Parent = side,
+        })
+        inset(tabScroll, 4, 4, 4, 4)
+        stack(tabScroll, 4, Enum.FillDirection.Horizontal)
+        -- Hide footer in top tabs mode
+        footH = 0
+    else
+        -- Sidebar Layout
+        side = mk("Frame", {
+            Name = "Sidebar", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 6), Size = UDim2.new(0, sideW - 10, 1, -16), ZIndex = 12, Parent = body,
+        })
+        bind(side, "BackgroundColor3", "Surface")
+        side.BackgroundTransparency = 0.25
+        round(side, 12)
+        outline(side, "Stroke", 1, 0.5)
+        tabScroll = mk("ScrollingFrame", {
+            Name = "Tabs", Size = UDim2.new(1, 0, 1, -footH - 4), BackgroundTransparency = 1, ScrollBarThickness = 0,
+            CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 13, Parent = side,
+        })
+        inset(tabScroll, 8, 6, 8, 6)
+        stack(tabScroll, 4)
+    end
 
     local pill = mk("Frame", {
         Name = "Pill", Size = UDim2.new(1, -12, 0, 0), Position = UDim2.fromOffset(6, 8), BackgroundColor3 = Color3.new(1, 1, 1),
@@ -1832,7 +1857,7 @@ function Nihon:MakeWindow(cfg)
 
     local footer = mk("TextButton", {
         Name = "PlayerChip", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 6, 1, -6), Size = UDim2.new(1, -12, 0, footH - 4),
-        ZIndex = 14, Parent = side,
+        ZIndex = 14, Parent = side, Visible = not Nihon.ShowTabsOnTop,
     })
     bind(footer, "BackgroundColor3", "Elevated")
     footer.BackgroundTransparency = 0.2
@@ -1873,6 +1898,10 @@ function Nihon:MakeWindow(cfg)
         Name = "Content", Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -(sideW + 20), 1, -16),
         BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 12, Parent = body,
     })
+    if Nihon.ShowTabsOnTop then
+        content.Position = UDim2.fromOffset(10, 50)
+        content.Size = UDim2.new(1, -20, 1, -56)
+    end
     Window.Content = content
 
     local resizeGrip = mk("TextButton", {
@@ -1913,7 +1942,12 @@ function Nihon:MakeWindow(cfg)
         on = on and true or false
         Nihon.SidebarVisible = on
         side.Visible = on
-        content.Size = on and UDim2.new(1, -(sideW + 20), 1, -16) or UDim2.new(1, -20, 1, -16)
+        if Nihon.ShowTabsOnTop then
+            content.Size = on and UDim2.new(1, -20, 1, -56) or UDim2.new(1, -20, 1, -16)
+            content.Position = on and UDim2.fromOffset(10, 50) or UDim2.fromOffset(10, 6)
+        else
+            content.Size = on and UDim2.new(1, -(sideW + 20), 1, -16) or UDim2.new(1, -20, 1, -16)
+        end
         if Window.Selected then
             task.defer(function()
                 TabImpl.select(Window, Window.Selected, true)
@@ -2316,26 +2350,29 @@ function TabImpl.make(Window, tcfg)
     local index = #Window.Tabs + 1
     Tab.Index = index
 
+    local isTopTabs = Nihon.ShowTabsOnTop
     local btn = mk("TextButton", {
-        Name = "Tab_" .. name, Size = UDim2.new(1, 0, 0, mobile and 44 or 38), BackgroundColor3 = Color3.new(1, 1, 1),
-        BackgroundTransparency = 1, LayoutOrder = index, ZIndex = 14, Parent = P.tabScroll,
+        Name = "Tab_" .. name, Size = isTopTabs and UDim2.fromOffset(100, 30) or UDim2.new(1, 0, 0, mobile and 44 or 38),
+        BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, LayoutOrder = index, ZIndex = 14, Parent = P.tabScroll,
     })
     round(btn, 10)
     Tab.Button = btn
 
     local iconName = tcfg.Icon
     local ico = makeIcon(btn, iconName or name, mobile and 22 or 18, "Sub", {
-        AnchorPoint = Vector2.new(mobile and 0.5 or 0, 0.5),
-        Position = mobile and UDim2.fromScale(0.5, 0.5) or UDim2.new(0, 13, 0.5, 0), ZIndex = 15,
+        AnchorPoint = isTopTabs and Vector2.new(0, 0.5) or Vector2.new(mobile and 0.5 or 0, 0.5),
+        Position = isTopTabs and UDim2.new(0, 8, 0.5, 0) or (mobile and UDim2.fromScale(0.5, 0.5) or UDim2.new(0, 13, 0.5, 0)),
+        ZIndex = 15,
     })
     ico.Image.ZIndex = 15
     ico.Glyph.ZIndex = 15
     Tab.IconObj = ico
 
     local label
-    if not mobile then
+    if not mobile or isTopTabs then
         label = tx("TextLabel", {
-            Text = name, TextSize = 13, Position = UDim2.new(0, 40, 0, 0), Size = UDim2.new(1, -78, 1, 0),
+            Text = name, TextSize = 13, Position = isTopTabs and UDim2.fromOffset(30, 0) or UDim2.new(0, 40, 0, 0),
+            Size = isTopTabs and UDim2.new(1, -36, 1, 0) or UDim2.new(1, -78, 1, 0),
             TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 15, Parent = btn,
         }, 2, "Sub")
     end
@@ -2350,7 +2387,7 @@ function TabImpl.make(Window, tcfg)
         end
         if text == nil or text == "" then return end
         badgeFrame = mk("Frame", {
-            AnchorPoint = Vector2.new(1, 0.5), Position = mobile and UDim2.new(1, -1, 0, 9) or UDim2.new(1, -8, 0.5, 0),
+            AnchorPoint = Vector2.new(1, 0.5), Position = isTopTabs and UDim2.new(1, -4, 0.5, 0) or (mobile and UDim2.new(1, -1, 0, 9) or UDim2.new(1, -8, 0.5, 0)),
             Size = UDim2.fromOffset(0, 16), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 17, Parent = btn,
         })
         round(badgeFrame, 8)
@@ -2596,9 +2633,10 @@ function TabImpl.select(Window, target, instant)
         local pill = P.pill
         pill.Visible = true
         local y = b.AbsolutePosition.Y - P.side.AbsolutePosition.Y
+        local x = b.AbsolutePosition.X - P.side.AbsolutePosition.X
         local scale = math.max(currentScale, 0.01)
-        local targetPos = UDim2.fromOffset(6, y / scale)
-        local targetSize = UDim2.new(1, -12, 0, b.AbsoluteSize.Y / scale)
+        local targetPos = Nihon.ShowTabsOnTop and UDim2.fromOffset(x / scale, 6) or UDim2.fromOffset(6, y / scale)
+        local targetSize = Nihon.ShowTabsOnTop and UDim2.new(0, b.AbsoluteSize.X / scale, 0, b.AbsoluteSize.Y / scale) or UDim2.new(1, -12, 0, b.AbsoluteSize.Y / scale)
         if instant or not prev then
             pill.Position, pill.Size = targetPos, targetSize
         else
@@ -3760,6 +3798,72 @@ local function loadingScreen(cfg, title, done)
     end)
 end
 
+-- New: Key System implementation
+local function createKeySystem(cfg)
+    if not Nihon.ShowKeySystem then return true end
+    
+    local keyLayer = mk("Frame", {
+        Name = "KeySystem", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), 
+        BackgroundTransparency = 0.5, ZIndex = 500, Parent = Root,
+    })
+    local card = mk("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(300, 200),
+        BackgroundColor3 = Pal.Surface, ZIndex = 501, Parent = keyLayer,
+    })
+    round(card, 16)
+    outline(card, "Stroke", 1, 0.1)
+    
+    tx("TextLabel", {
+        Text = "Key System", TextSize = 18, Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 20),
+        TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 502, Parent = card,
+    }, 3)
+    
+    local input = tx("TextBox", {
+        Size = UDim2.new(1, -40, 0, 36), Position = UDim2.new(0, 20, 0, 70), 
+        PlaceholderText = "Enter Key...", TextSize = 14, ZIndex = 502, Parent = card,
+    }, 2)
+    bind(input, "BackgroundColor3", "Elevated")
+    input.BackgroundTransparency = 0
+    round(input, 8)
+    inset(input, 0, 10, 0, 10)
+    
+    local submit = tx("TextButton", {
+        Text = "Submit", TextSize = 14, Size = UDim2.new(1, -40, 0, 36), Position = UDim2.new(0, 20, 0, 120),
+        TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 502, Parent = card,
+    }, 3)
+    bind(submit, "BackgroundColor3", "Accent")
+    submit.BackgroundTransparency = 0
+    round(submit, 8)
+    
+    local status = tx("TextLabel", {
+        Text = "", TextSize = 12, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 0, 0, 165),
+        TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = Status.Error, ZIndex = 502, Parent = card,
+    }, 1)
+    
+    local verified = false
+    submit.Activated:Connect(function()
+        if input.Text == cfg.Key then
+            verified = true
+            keyLayer:Destroy()
+            Nihon:MakeNotification({Name = "Success", Content = "Key accepted!", Type = "Success"})
+        else
+            status.Text = "Invalid key!"
+            shake(card)
+        end
+    end)
+    
+    -- Wait for verification
+    local start = os.clock()
+    while not verified and os.clock() - start < 30 do
+        task.wait(0.1)
+    end
+    if not verified then
+        Nihon:Destroy()
+        return false
+    end
+    return true
+end
+
 local function defaultIconChoices()
     return {"home", "eye", "zap", "star", "shield", "sword", "globe", "cpu", "layers", "flag", "map", "wrench"}
 end
@@ -3796,6 +3900,10 @@ local function attachSettings(Window)
             Name = "Animation speed", Min = 50, Max = 200, Default = 100, Increment = 10, ValueName = "%", Flag = "_anim", Save = true,
             Callback = function(v) animSpeed = v / 100 end,
         })
+        look:AddToggle({Name = "Tabs on top", Default = Nihon.ShowTabsOnTop, Flag = "_tabsOnTop", Save = true, Callback = function(v)
+            Nihon.ShowTabsOnTop = v
+            Nihon:MakeNotification({Name = "Layout Changed", Content = "Restart the script to apply this layout change.", Type = "Warning"})
+        end})
 
         local tabs = tab:AddSection({Name = "Tab icons"})
         local names = {}
@@ -4349,6 +4457,10 @@ function Nihon:Init()
     if Nihon._ready then return end
     local window = Nihon.Windows[1]
     local cfg = window and window.Cfg or {}
+    
+    -- Key System Check
+    if not createKeySystem(cfg) then return end
+    
     local function finish()
         if Nihon.SaveConfig then
             local auto = Nihon:GetAutoload()
