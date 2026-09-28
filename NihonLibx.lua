@@ -4380,4 +4380,240 @@ function Nihon:Destroy()
     if env.NihonLibInstance == Nihon then env.NihonLibInstance = nil end
 end
 
+-- ==========================================
+-- BUILT-IN KEY SYSTEM
+-- ==========================================
+
+local KeySystem = {
+    Enabled = false,
+    Keys = {},
+    File = "key.txt",
+    Title = "Key System",
+    Description = "Please enter your key to continue.",
+    Placeholder = "Enter key...",
+    Discord = "",
+    OnSuccess = nil,
+    OnFail = nil,
+    _verified = false,
+}
+
+function Nihon:SetKeySystem(cfg)
+    cfg = cfg or {}
+    KeySystem.Enabled = cfg.Enabled ~= false
+    KeySystem.Keys = cfg.Keys or {}
+    KeySystem.File = cfg.File or "key.txt"
+    KeySystem.Title = cfg.Title or "Key System"
+    KeySystem.Description = cfg.Description or "Please enter your key to continue."
+    KeySystem.Placeholder = cfg.Placeholder or "Enter key..."
+    KeySystem.Discord = cfg.Discord or ""
+    KeySystem.OnSuccess = cfg.OnSuccess
+    KeySystem.OnFail = cfg.OnFail
+end
+
+local function keyIsValid(key)
+    if not KeySystem.Enabled then return true end
+    if not key or key == "" then return false end
+    for _, k in ipairs(KeySystem.Keys) do
+        if key == k then return true end
+    end
+    return false
+end
+
+local function saveKey(key)
+    if not fsReady() then return end
+    pcall(function()
+        ensureFolder()
+        writefile(Nihon.Folder .. "/" .. KeySystem.File, key)
+    end)
+end
+
+local function loadKey()
+    if not fsReady() then return nil end
+    local ok, data = pcall(function()
+        local path = Nihon.Folder .. "/" .. KeySystem.File
+        if isfile(path) then return readfile(path) end
+        return nil
+    end)
+    return ok and data or nil
+end
+
+function Nihon:ShowKeyPrompt()
+    if not KeySystem.Enabled then
+        if KeySystem.OnSuccess then KeySystem.OnSuccess() end
+        return
+    end
+    
+    local saved = loadKey()
+    if keyIsValid(saved) then
+        KeySystem._verified = true
+        if KeySystem.OnSuccess then KeySystem.OnSuccess() end
+        return
+    end
+
+    -- Create a modal key window
+    local keyWindow = mk("Frame", {
+        Name = "KeySystem",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(360, 240),
+        ZIndex = 500,
+        Parent = Root,
+    })
+    bind(keyWindow, "BackgroundColor3", "Bg")
+    round(keyWindow, 16)
+    outline(keyWindow, "Stroke", 1, 0.05)
+    
+    local keyScale = mk("UIScale", {Scale = 0.9, Parent = keyWindow})
+    play(keyScale, 0.4, {Scale = 1}, Enum.EasingStyle.Back)
+    
+    local col = mk("Frame", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        Parent = keyWindow,
+    })
+    inset(col, 24, 24, 24, 24)
+    stack(col, 10)
+    
+    -- Icon
+    local iconHolder = mk("Frame", {
+        Size = UDim2.fromOffset(48, 48),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        LayoutOrder = 1,
+        Parent = col,
+    })
+    round(iconHolder, 12)
+    accentGradient(iconHolder, 45)
+    local lockIcon = makeIcon(iconHolder, "lock", 24, false, {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        ZIndex = 502,
+    })
+    lockIcon.Color(Color3.new(1, 1, 1))
+    
+    -- Title
+    tx("TextLabel", {
+        Text = KeySystem.Title,
+        TextSize = 18,
+        Size = UDim2.new(1, 0, 0, 24),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        LayoutOrder = 2,
+        Parent = col,
+    }, 3)
+    
+    -- Description
+    tx("TextLabel", {
+        Text = KeySystem.Description,
+        TextSize = 12,
+        Size = UDim2.new(1, 0, 0, 36),
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextColor3 = Pal.Sub,
+        LayoutOrder = 3,
+        Parent = col,
+    }, 1, "Sub")
+    
+    -- Key Input
+    local inputBox = tx("TextBox", {
+        PlaceholderText = KeySystem.Placeholder,
+        TextSize = 13,
+        Size = UDim2.new(1, 0, 0, 34),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        LayoutOrder = 4,
+        Parent = col,
+    }, 2)
+    bind(inputBox, "BackgroundColor3", "Elevated")
+    inputBox.BackgroundTransparency = 0
+    round(inputBox, 8)
+    
+    -- Buttons Row
+    local btnRow = mk("Frame", {
+        Size = UDim2.new(1, 0, 0, 34),
+        BackgroundTransparency = 1,
+        LayoutOrder = 5,
+        Parent = col,
+    })
+    mk("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = btnRow,
+    })
+    
+    -- Get Key Button (if Discord provided)
+    if KeySystem.Discord ~= "" then
+        local getBtn = tx("TextButton", {
+            Text = "Get Key",
+            TextSize = 12,
+            Size = UDim2.fromOffset(100, 34),
+            TextXAlignment = Enum.TextXAlignment.Center,
+            LayoutOrder = 1,
+            Parent = btnRow,
+        }, 3)
+        bind(getBtn, "BackgroundColor3", "Elevated")
+        getBtn.BackgroundTransparency = 0
+        round(getBtn, 8)
+        getBtn.Activated:Connect(function()
+            if setclipboard then
+                setclipboard(KeySystem.Discord)
+                Nihon:MakeNotification({Name = "Key System", Content = "Discord link copied!", Type = "Info"})
+            end
+        end)
+    end
+    
+    -- Submit Button
+    local submitBtn = tx("TextButton", {
+        Text = "Submit",
+        TextSize = 12,
+        Size = UDim2.fromOffset(100, 34),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        LayoutOrder = 2,
+        Parent = btnRow,
+    }, 3)
+    bind(submitBtn, "BackgroundColor3", "Accent")
+    submitBtn.BackgroundTransparency = 0
+    round(submitBtn, 8)
+    submitBtn.TextColor3 = onAccent()
+    
+    local function attemptSubmit()
+        local key = inputBox.Text
+        if keyIsValid(key) then
+            saveKey(key)
+            KeySystem._verified = true
+            Nihon:MakeNotification({Name = "Key System", Content = "Key accepted! Loading...", Type = "Success"})
+            play(keyScale, 0.3, {Scale = 0.8}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            play(keyWindow, 0.3, {BackgroundTransparency = 1})
+            task.delay(0.35, function() keyWindow:Destroy() end)
+            if KeySystem.OnSuccess then task.spawn(KeySystem.OnSuccess) end
+        else
+            shake(keyWindow)
+            Nihon:MakeNotification({Name = "Key System", Content = "Invalid key. Please try again.", Type = "Error"})
+            if KeySystem.OnFail then task.spawn(KeySystem.OnFail, key) end
+        end
+    end
+    
+    submitBtn.Activated:Connect(attemptSubmit)
+    inputBox.FocusLost:Connect(function(enter)
+        if enter then attemptSubmit() end
+    end)
+    
+    task.delay(0.1, function()
+        if inputBox.Parent then inputBox:CaptureFocus() end
+    end)
+end
+
+function Nihon:IsKeyVerified()
+    return KeySystem._verified or not KeySystem.Enabled
+end
+
+function Nihon:ResetKey()
+    KeySystem._verified = false
+    if fsReady() and delfile then
+        pcall(function()
+            local path = Nihon.Folder .. "/" .. KeySystem.File
+            if isfile(path) then delfile(path) end
+        end)
+    end
+end
+
 return Nihon
