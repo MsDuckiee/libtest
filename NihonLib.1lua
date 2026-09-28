@@ -29,6 +29,18 @@ local Nihon = {
     Profile = "default",
     SaveConfig = false,
     IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
+    MinimizeToCorner = false,
+    MinimizedWidth = 220,
+    RestoreToMaximized = false,
+    ShowMinimizeHint = true,
+    ShowSidebarToggle = true,
+    SidebarVisible = true,
+    ShowLauncher = true,
+    ShowResize = true,
+    ShowSearch = true,
+    ShowHelp = true,
+    ShowMinimize = true,
+    ShowClose = true,
 }
 env.NihonLibInstance = Nihon
 
@@ -808,7 +820,7 @@ local function dismissNote(n)
         play(n.frame, 0.35, {Position = notePos(n.slot - 40)})
     end
     task.delay(0.5, function()
-        n.frame:Destroy()
+        if n.frame then n.frame:Destroy() end
     end)
     relayout()
     promoteQueue()
@@ -871,32 +883,38 @@ function spawnNote(entry)
     bind(frame, "BackgroundColor3", "Surface")
     round(frame, 12)
     outline(frame, "Stroke", 1, 0.2)
-    mk("UISizeConstraint", {MinSize = Vector2.new(0, 56), Parent = frame})
+    mk("UISizeConstraint", {MinSize = Vector2.new(0, 60), Parent = frame})
+
+    local accentStrip = mk("Frame", {
+        Size = UDim2.new(0, 3, 1, 0), BackgroundColor3 = color, BackgroundTransparency = 0.1, ZIndex = 3, Parent = frame,
+    })
 
     local disc = mk("Frame", {
-        Position = UDim2.fromOffset(12, 14), Size = UDim2.fromOffset(28, 28),
-        BackgroundColor3 = color, BackgroundTransparency = 0.82, Parent = frame,
+        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(34, 34),
+        BackgroundColor3 = color, BackgroundTransparency = 0.82, ZIndex = 3, Parent = frame,
     })
-    round(disc, 14)
-    local ico = makeIcon(disc, firstIcon(StatusIcons[entry.kind]), 16, false, {
-        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+    round(disc, 17)
+    outline(disc, "Text", 1, 0.9)
+    local ico = makeIcon(disc, cfg.Icon or firstIcon(StatusIcons[entry.kind]), 17, false, {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 4,
     })
     ico.Color(color)
+    n.disc = disc
 
-    local col = mk("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = frame})
-    inset(col, 12, 12, 13, 52)
+    local col = mk("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, ZIndex = 2, Parent = frame})
+    inset(col, 12, 62, 14, 16)
     stack(col, 3)
     n.title = tx("TextLabel", {
-        Text = tostring(cfg.Name or cfg.Title or "Notification"), Size = UDim2.new(1, -34, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, LayoutOrder = 1, Parent = col,
+        Text = tostring(cfg.Name or cfg.Title or "Notification"), Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, LayoutOrder = 1, ZIndex = 3, Parent = col,
     }, 3)
     n.body = tx("TextLabel", {
         Text = content, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
-        TextWrapped = true, TextSize = 12, LayoutOrder = 2, Visible = content ~= "", Parent = col,
+        TextWrapped = true, TextSize = 12, LayoutOrder = 2, Visible = content ~= "", ZIndex = 3, Parent = col,
     }, 1, "Sub")
 
-    local est = TextService:GetTextSize(content, 12, Fonts[currentFont][1], Vector2.new(w - 64, 1000))
-    n.height = math.max(56, 30 + est.Y + 14)
+    local est = TextService:GetTextSize(content, 12, Fonts[currentFont][1], Vector2.new(w - 76, 1000))
+    n.height = math.max(60, 40 + est.Y + 14)
 
     if type(cfg.Actions) == "table" and #cfg.Actions > 0 then
         local row = mk("Frame", {Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, LayoutOrder = 3, Parent = col})
@@ -932,7 +950,7 @@ function spawnNote(entry)
     end
 
     n.badge = tx("TextLabel", {
-        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(0, 20),
+        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, -2), Size = UDim2.fromOffset(0, 18), ZIndex = 6,
         AutomaticSize = Enum.AutomaticSize.X, Text = n.count .. "x", TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Center, BackgroundTransparency = 0.78, BackgroundColor3 = color,
         TextColor3 = color, Visible = n.count > 1, Parent = frame,
@@ -943,7 +961,7 @@ function spawnNote(entry)
 
     n.bar = mk("Frame", {
         AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2),
-        BackgroundColor3 = color, BackgroundTransparency = 0.25, Visible = not n.sticky, Parent = frame,
+        BackgroundColor3 = color, BackgroundTransparency = 0.25, Visible = not n.sticky, ZIndex = 5, Parent = frame,
     })
 
     n.frame = frame
@@ -990,6 +1008,12 @@ function spawnNote(entry)
     handle.n = n
     relayout()
     play(frame, 0.4, {GroupTransparency = 0})
+    task.defer(function()
+        if not n.dying and frame.Parent then
+            frame.GroupTransparency = 0
+            relayout()
+        end
+    end)
     ensureNoteLoop()
     return n
 end
@@ -1603,8 +1627,8 @@ Nihon.Started = os.clock()
 local Hooks = {}
 
 local Sizes = {
-    desktop = {w = 640, h = 420, side = 176, top = 50},
-    mobile = {w = 520, h = 300, side = 62, top = 46},
+    desktop = {w = 640, h = 420, side = 168, top = 46},
+    mobile = {w = 520, h = 300, side = 62, top = 42},
 }
 
 local IconPack = {
@@ -1633,6 +1657,18 @@ function Nihon:MakeWindow(cfg)
 
     Nihon.Folder = tostring(cfg.ConfigFolder or Nihon.Folder)
     Nihon.SaveConfig = cfg.SaveConfig == true
+    Nihon.MinimizeToCorner = cfg.MinimizeToCorner == true
+    Nihon.MinimizedWidth = tonumber(cfg.MinimizedWidth) or Nihon.MinimizedWidth
+    Nihon.RestoreToMaximized = cfg.RestoreToMaximized == true
+    Nihon.ShowMinimizeHint = cfg.ShowMinimizeHint ~= false
+    Nihon.ShowSidebarToggle = cfg.ShowSidebarToggle ~= false
+    Nihon.SidebarVisible = cfg.SidebarVisible ~= false
+    Nihon.ShowLauncher = cfg.ShowLauncher ~= false
+    Nihon.ShowResize = cfg.ShowResize ~= false
+    Nihon.ShowSearch = cfg.ShowSearch ~= false
+    Nihon.ShowHelp = cfg.ShowHelp ~= false
+    Nihon.ShowMinimize = cfg.ShowMinimize ~= false
+    Nihon.ShowClose = cfg.ShowClose ~= false
     Hud.title = title
 
     if cfg.Theme and Themes[cfg.Theme] then setTheme(cfg.Theme, false) end
@@ -1728,9 +1764,11 @@ function Nihon:MakeWindow(cfg)
         return btn, ico
     end
 
-    local searchBtn, searchIco = ctrlButton(1, "search")
-    local minBtn, minIco = ctrlButton(2, "minus")
-    local closeBtn = ctrlButton(3, "x", Status.Error)
+    local helpBtn = ctrlButton(1, "help-circle")
+    local searchBtn, searchIco = ctrlButton(2, "search")
+    local minBtn, minIco = ctrlButton(3, "minus")
+    local closeBtn = ctrlButton(4, "x", Status.Error)
+    local sideBtn, sideIco = ctrlButton(5, "sidebar")
 
     local headLine = mk("Frame", {
         AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2),
@@ -1765,7 +1803,7 @@ function Nihon:MakeWindow(cfg)
     })
 
     local side = mk("Frame", {
-        Name = "Sidebar", Position = UDim2.fromOffset(10, 6), Size = UDim2.new(0, sideW - 10, 1, -16), ZIndex = 12, Parent = body,
+        Name = "Sidebar", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 6), Size = UDim2.new(0, sideW - 10, 1, -16), ZIndex = 12, Parent = body,
     })
     bind(side, "BackgroundColor3", "Surface")
     side.BackgroundTransparency = 0.25
@@ -1821,7 +1859,7 @@ function Nihon:MakeWindow(cfg)
         Text = "@" .. LocalPlayer.Name, TextSize = 10, Position = UDim2.new(0, 40, 0, 21), Size = UDim2.new(1, -60, 0, 13),
         TextTruncate = Enum.TextTruncate.AtEnd, Visible = not mobile, ZIndex = 15, Parent = footer,
     }, 1, "Sub")
-    local chipArrow = makeIcon(footer, "chevron-up", 12, "Sub", {
+    local chipArrow = makeIcon(footer, "chevron-left", 12, "Sub", {
         AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Visible = not mobile, ZIndex = 15,
     })
     chipArrow.Image.ZIndex = 15
@@ -1832,10 +1870,59 @@ function Nihon:MakeWindow(cfg)
     end
 
     local content = mk("Frame", {
-        Name = "Content", Position = UDim2.fromOffset(sideW + 2, 6), Size = UDim2.new(1, -(sideW + 12), 1, -16),
+        Name = "Content", Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -(sideW + 20), 1, -16),
         BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 12, Parent = body,
     })
     Window.Content = content
+
+    local resizeGrip = mk("TextButton", {
+        Name = "ResizeGrip", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -6, 1, -6),
+        Size = UDim2.fromOffset(mobile and 28 or 22, mobile and 28 or 22), BackgroundTransparency = 1, ZIndex = 30, Parent = clip,
+    })
+    local resizeGlyph = makeIcon(resizeGrip, "chevron-right", 14, "Sub", {
+        AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -2, 1, -2), Rotation = 45, ZIndex = 31,
+    })
+    resizeGlyph.Image.ZIndex = 31
+    resizeGlyph.Glyph.ZIndex = 31
+    resizeGlyph.Image.Rotation = 45
+    resizeGlyph.Glyph.Rotation = 45
+    local resizing = false
+    local resizeStart, resizeShellPos, resizeShellSize
+    trackPointer(resizeGrip, function(input)
+        if Window.Hidden or Window.Minimized then return false end
+        resizing = true
+        resizeStart = v2(input)
+        resizeShellPos = shell.AbsolutePosition
+        resizeShellSize = shell.AbsoluteSize
+        play(resizeGlyph.Image, 0.12, {ImageColor3 = Pal.Accent})
+        play(resizeGlyph.Glyph, 0.12, {TextColor3 = Pal.Accent})
+    end, function(pos)
+        if not resizing then return end
+        local d = pos - resizeStart
+        local sc = math.max(uiScale.Scale, 0.01)
+        local newW = math.max(math.floor((baseW * sc) + d.X), math.floor(baseW * 0.55 * sc))
+        local newH = math.max(math.floor((fullH * sc) + d.Y), math.floor((topH + 120) * sc))
+        shell.Size = UDim2.fromOffset(math.floor(newW / sc), math.floor(newH / sc))
+    end, function()
+        resizing = false
+        play(resizeGlyph.Image, 0.2, {ImageColor3 = Pal.Sub})
+        play(resizeGlyph.Glyph, 0.2, {TextColor3 = Pal.Sub})
+    end)
+
+    local function setSidebarVisible(on)
+        on = on and true or false
+        Nihon.SidebarVisible = on
+        side.Visible = on
+        content.Size = on and UDim2.new(1, -(sideW + 20), 1, -16) or UDim2.new(1, -20, 1, -16)
+        if Window.Selected then
+            task.defer(function()
+                TabImpl.select(Window, Window.Selected, true)
+            end)
+        end
+    end
+    sideBtn.Activated:Connect(function()
+        setSidebarVisible(not Nihon.SidebarVisible)
+    end)
 
     local function dragClamp(topLeft)
         local v = viewport()
@@ -1945,6 +2032,8 @@ function Nihon:MakeWindow(cfg)
         end
     end
 
+    local fullH = baseH
+    local closeToken = 0
     local placed = false
     local function show()
         Window.Hidden = false
@@ -1954,21 +2043,88 @@ function Nihon:MakeWindow(cfg)
             uiScale.Scale = activeScale
             centerTopLeft()
         end
+        closeToken = closeToken + 1
+        controls.Position = UDim2.new(1, -8, 0.5, 0)
+        titleLbl.TextTransparency = 0
+        subLbl.TextTransparency = 0
+        body.Visible = not Window.Minimized
+        local targetW = shell.Size.X.Offset > topH + 10 and shell.Size.X.Offset or baseW
+        if Window.Minimized and Nihon.MinimizeToCorner then
+            targetW = Nihon.MinimizedWidth
+        end
+        shell.Size = UDim2.fromOffset(targetW, Window.Minimized and (topH + 4) or fullH)
         shell.Visible = true
         uiScale.Scale = activeScale * 0.9
         play(uiScale, 0.5, {Scale = activeScale}, Enum.EasingStyle.Back)
-        showLauncher(false)
+        if Nihon.ShowLauncher then showLauncher(false) end
     end
 
     local function hide(toLauncher)
         Window.Hidden = true
         Popup.close(true)
         hideTip()
-        local tw = play(uiScale, 0.22, {Scale = activeScale * 0.9}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        after(tw, function()
-            if Window.Hidden then shell.Visible = false end
+        closeToken = closeToken + 1
+        local mine = closeToken
+        if not toLauncher then
+            local tw = play(uiScale, 0.22, {Scale = activeScale * 0.9}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            after(tw, function()
+                if Window.Hidden and mine == closeToken then shell.Visible = false end
+            end)
+            if Nihon.ShowLauncher and Nihon.MinimizeToCorner then
+                task.delay(0.18, function()
+                    if mine ~= closeToken or not Window.Hidden then return end
+                    showLauncher(true)
+                end)
+            end
+            return
+        end
+        local w0 = shell.Size.X.Offset
+        local lift = topH + 4
+        if not Window.Minimized then
+            body.Visible = false
+            play(shell, 0.28, {Size = UDim2.fromOffset(w0, lift)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+        end
+        task.delay(0.22, function()
+            if mine ~= closeToken or not Window.Hidden then return end
+            local sh = shell.AbsoluteSize
+            local sp = shell.AbsolutePosition
+            local sc = math.max(uiScale.Scale, 0.01)
+            play(shell, 0.3, {Size = UDim2.fromOffset(lift, lift)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+            play(header, 0.18, {BackgroundTransparency = 1})
+            play(controls, 0.12, {Position = UDim2.new(1, 30, 0.5, 0)})
+            play(titleLbl, 0.12, {TextTransparency = 1})
+            play(subLbl, 0.12, {TextTransparency = 1})
+            Window._lastClosePos = Vector2.new(sp.X, sp.Y)
         end)
-        if toLauncher then showLauncher(true) end
+        task.delay(0.5, function()
+            if mine ~= closeToken or not Window.Hidden then return end
+            local tw = play(uiScale, 0.22, {Scale = activeScale * 0.4}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            after(tw, function()
+                if Window.Hidden and mine == closeToken then
+                    shell.Visible = false
+                    shell.Size = UDim2.fromOffset(w0, fullH)
+                    body.Visible = true
+                    controls.Position = UDim2.new(1, -8, 0.5, 0)
+                    titleLbl.TextTransparency = 0
+                    subLbl.TextTransparency = 0
+                    header.BackgroundTransparency = 1
+                    Window.Minimized = false
+                    play(minIco.Image, 0.01, {Rotation = 0})
+                    play(minIco.Glyph, 0.01, {Rotation = 0})
+                end
+            end)
+            local lp = Window._lastClosePos
+            if lp then
+                launcher.AnchorPoint = Vector2.new(0, 0)
+                local v = viewport()
+                local ls = launcher.AbsoluteSize
+                launcher.Position = UDim2.fromOffset(
+                    math.clamp(lp.X, 0, v.X - ls.X),
+                    math.clamp(lp.Y, 0, v.Y - ls.Y)
+                )
+            end
+            showLauncher(true)
+        end)
     end
 
     Window.Show, Window.Hide = show, hide
@@ -1988,7 +2144,7 @@ function Nihon:MakeWindow(cfg)
         hide(true)
         Nihon:MakeNotification({
             Name = "Menu hidden",
-            Content = mobile and "Tap the floating button to bring it back." or ("Press " .. toggleKey.Name .. " or tap the floating button."),
+            Content = mobile and "Tap the floating button to bring it back." or ("Press " .. Window.ToggleKey.Name .. " or tap the floating button."),
             Type = "Info", Time = 3,
         })
     end)
@@ -2000,7 +2156,6 @@ function Nihon:MakeWindow(cfg)
         end
     end))
 
-    local fullH = baseH
     local minTween
     function Window:SetMinimized(state)
         state = state and true or false
@@ -2009,9 +2164,15 @@ function Nihon:MakeWindow(cfg)
         Popup.close(true)
         if minTween then minTween:Cancel() end
         local lift = topH + 4
+        local targetW = shell.Size.X.Offset
         if state then
             fullH = shell.Size.Y.Offset
-            minTween = play(shell, 0.38, {Size = UDim2.fromOffset(shell.Size.X.Offset, lift)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+            if Nihon.MinimizeToCorner then
+                targetW = Nihon.MinimizedWidth
+                reanchor()
+                shell.Position = UDim2.fromOffset(10, 10)
+            end
+            minTween = play(shell, 0.38, {Size = UDim2.fromOffset(targetW, lift)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
             play(body, 0.22, {Position = UDim2.fromOffset(0, topH - 12)})
             play(minIco.Image, 0.3, {Rotation = 180})
             play(minIco.Glyph, 0.3, {Rotation = 180})
@@ -2022,7 +2183,11 @@ function Nihon:MakeWindow(cfg)
         else
             body.Visible = true
             body.Position = UDim2.fromOffset(0, topH - 12)
-            minTween = play(shell, 0.45, {Size = UDim2.fromOffset(shell.Size.X.Offset, fullH)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+            if Nihon.MinimizeToCorner then
+                targetW = baseW
+                centerTopLeft()
+            end
+            minTween = play(shell, 0.45, {Size = UDim2.fromOffset(targetW, fullH)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
             play(body, 0.4, {Position = UDim2.fromOffset(0, topH)})
             play(minIco.Image, 0.3, {Rotation = 0})
             play(minIco.Glyph, 0.3, {Rotation = 0})
@@ -2045,15 +2210,46 @@ function Nihon:MakeWindow(cfg)
         end
     end)
 
+    Window.RequestOpen = function()
+        if Window.Hidden then show() end
+    end
+
     Window._parts = {
         shell = shell, clip = clip, header = header, body = body, side = side, tabScroll = tabScroll, pill = pill,
-        content = content, footer = footer, searchBtn = searchBtn, uiScale = uiScale, applyScale = applyScale,
+        content = content, footer = footer, searchBtn = searchBtn, helpBtn = helpBtn, uiScale = uiScale, applyScale = applyScale,
         topH = topH, sideW = sideW, mobile = mobile, searchIndex = searchIndex,
         avatar = avatar, chipName = chipName, chipSub = chipSub, dot = dot, baseW = baseW, baseH = baseH,
         glow = glow, launcher = launcher, fullH = function() return fullH end,
         setFullH = function(h) fullH = h end,
+        closeBtn = closeBtn, minBtn = minBtn, sideBtn = sideBtn, sideIco = sideIco,
+        searchIco = searchIco, minIco = minIco, resizeGrip = resizeGrip, resizeGlyph = resizeGlyph,
+        setSidebarVisible = setSidebarVisible,
     }
 
+    if not Nihon.ShowLauncher then
+        launcher.Visible = false
+    end
+    if not Nihon.ShowResize then
+        resizeGrip.Visible = false
+    end
+    if not Nihon.ShowSearch then
+        searchBtn.Visible = false
+    end
+    if not Nihon.ShowHelp then
+        helpBtn.Visible = false
+    end
+    if not Nihon.ShowMinimize then
+        minBtn.Visible = false
+    end
+    if not Nihon.ShowClose then
+        closeBtn.Visible = false
+    end
+    if not Nihon.ShowSidebarToggle then
+        sideBtn.Visible = false
+    end
+    if not Nihon.SidebarVisible then
+        setSidebarVisible(false)
+    end
     Hooks.attach(Window)
     return Window
 end
@@ -3264,6 +3460,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
         P.searchIndex[#P.searchIndex + 1] = {
             owner = obj, name = tostring(opts.Name or kind), tab = Tab.Name, section = sectionName, kind = kind,
             go = function()
+                if Window.RequestOpen then Window.RequestOpen() end
                 Window:SelectTab(Tab)
                 task.delay(0.22, function()
                     if not c.Parent then return end
@@ -4109,6 +4306,36 @@ local function attachWindowMethods(Window)
     function Window:SetTabIcon(name, id)
         for _, t in ipairs(Window.Tabs) do
             if t.Name == name then t:SetIcon(id) end
+        end
+    end
+    function Window:SetSidebarVisible(on)
+        if Window._parts and Window._parts.setSidebarVisible then
+            Window._parts.setSidebarVisible(on)
+        end
+    end
+    function Window:SetLauncherVisible(on)
+        Nihon.ShowLauncher = on and true or false
+        if Window._parts and Window._parts.launcher then
+            Window._parts.launcher.Visible = Nihon.ShowLauncher and Window.Hidden
+        end
+    end
+    function Window:SetResizeVisible(on)
+        Nihon.ShowResize = on and true or false
+        if Window._parts and Window._parts.resizeGrip then
+            Window._parts.resizeGrip.Visible = Nihon.ShowResize
+        end
+    end
+    function Window:SetControlVisible(kind, on)
+        on = on and true or false
+        local P = Window._parts
+        if not P then return end
+        if kind == "search" and P.searchBtn then P.searchBtn.Visible = on
+        elseif kind == "help" and P.helpBtn then P.helpBtn.Visible = on
+        elseif kind == "minimize" and P.minBtn then P.minBtn.Visible = on
+        elseif kind == "close" and P.closeBtn then P.closeBtn.Visible = on
+        elseif kind == "sidebar" and P.sideBtn then P.sideBtn.Visible = on
+        elseif kind == "resize" and P.resizeGrip then P.resizeGrip.Visible = on
+        elseif kind == "launcher" then Window:SetLauncherVisible(on)
         end
     end
     attachSearch(Window)
