@@ -1570,7 +1570,7 @@ local function hudRestyle()
     hudUpdate()
 end
 
-local function Hud_set(on)
+function Hud.set(on)
     Hud.enabled = on and true or false
     hudFrame.Visible = Hud.enabled
     if Hud.enabled then hudBuild() end
@@ -3950,7 +3950,7 @@ local function attachSettings(Window)
         end})
 
         local hud = tab:AddSection({Name = "Overlay"})
-        hud:AddToggle({Name = "Show overlay", Default = false, Flag = "_hud", Save = true, Callback = function(v) Hud.set(v) end})
+        hud:AddToggle({Name = "Show overlay", Default = false, Flag = "_hud", Save = true, Callback = function(v) Hud_set(v) end})
         hud:AddDropdown({
             Name = "Overlay style", Options = HudStyleOrder, Default = Hud.style, Flag = "_hudStyle", Save = true,
             Callback = function(v)
