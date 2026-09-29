@@ -319,7 +319,7 @@ local function makeDraggable(handles, target, opts)
 end
 
 local function makeFirer(getValue, run)
-    local last={}, busy=false, api={}
+    local last, busy, api = {}, false, {}
     function api.Fire()
         if busy then return end
         busy = true
