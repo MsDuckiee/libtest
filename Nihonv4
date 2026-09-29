@@ -1,6 +1,8 @@
 --[[
-    Nihon Lib  |  v4.0 "Aurora"
+    Nihon Lib  |  v4.0 "Aurora" — MERGED
     Modern, glassy Roblox UI library — dashboard-grade.
+    Features: Glassmorphism, particle effects, staggered animations,
+    showcase panel, enhanced cards, smooth transitions.
     Fully backward compatible with v3 API.
 ]]
 
@@ -35,6 +37,7 @@ local Nihon = {
     ShowMinimize    = true,
     ShowClose       = true,
     SidebarVisible  = true,
+    ShowShowcase    = true,
 }
 env.NihonLibInstance = Nihon
 
@@ -42,50 +45,59 @@ local conns = {}
 local function keep(c) conns[#conns + 1] = c; return c end
 
 ------------------------------------------------------------------------
--- THEMES
+-- THEMES (with aurora glow colors)
 ------------------------------------------------------------------------
 local Themes = {
     Nihon = {
         Bg = Color3.fromRGB(11, 12, 17), Surface = Color3.fromRGB(20, 21, 28), Elevated = Color3.fromRGB(28, 30, 40),
         Card = Color3.fromRGB(24, 26, 34), Stroke = Color3.fromRGB(44, 47, 62), Text = Color3.fromRGB(240, 240, 248),
         Sub = Color3.fromRGB(150, 152, 172), Accent = Color3.fromRGB(140, 90, 255), Accent2 = Color3.fromRGB(90, 170, 255),
+        Glow = Color3.fromRGB(140, 90, 255), Glow2 = Color3.fromRGB(90, 170, 255),
     },
     Sakura = {
         Bg = Color3.fromRGB(22, 14, 20), Surface = Color3.fromRGB(34, 22, 30), Elevated = Color3.fromRGB(46, 30, 40),
         Card = Color3.fromRGB(40, 25, 35), Stroke = Color3.fromRGB(80, 52, 72), Text = Color3.fromRGB(253, 240, 246),
         Sub = Color3.fromRGB(180, 148, 170), Accent = Color3.fromRGB(255, 130, 175), Accent2 = Color3.fromRGB(255, 180, 205),
+        Glow = Color3.fromRGB(255, 130, 175), Glow2 = Color3.fromRGB(255, 180, 205),
     },
     Midnight = {
         Bg = Color3.fromRGB(8, 9, 16), Surface = Color3.fromRGB(16, 18, 28), Elevated = Color3.fromRGB(24, 27, 42),
         Card = Color3.fromRGB(20, 22, 34), Stroke = Color3.fromRGB(38, 42, 66), Text = Color3.fromRGB(230, 234, 248),
         Sub = Color3.fromRGB(128, 136, 168), Accent = Color3.fromRGB(105, 135, 255), Accent2 = Color3.fromRGB(170, 115, 255),
+        Glow = Color3.fromRGB(105, 135, 255), Glow2 = Color3.fromRGB(170, 115, 255),
     },
     Ocean = {
         Bg = Color3.fromRGB(8, 15, 27), Surface = Color3.fromRGB(16, 28, 45), Elevated = Color3.fromRGB(24, 40, 62),
         Card = Color3.fromRGB(20, 34, 52), Stroke = Color3.fromRGB(40, 66, 98), Text = Color3.fromRGB(226, 240, 250),
         Sub = Color3.fromRGB(130, 158, 186), Accent = Color3.fromRGB(54, 195, 230), Accent2 = Color3.fromRGB(70, 125, 250),
+        Glow = Color3.fromRGB(54, 195, 230), Glow2 = Color3.fromRGB(70, 125, 250),
     },
     Forest = {
         Bg = Color3.fromRGB(9, 17, 13), Surface = Color3.fromRGB(16, 30, 22), Elevated = Color3.fromRGB(24, 44, 32),
         Card = Color3.fromRGB(20, 36, 26), Stroke = Color3.fromRGB(40, 72, 54), Text = Color3.fromRGB(232, 245, 236),
         Sub = Color3.fromRGB(134, 162, 145), Accent = Color3.fromRGB(85, 215, 135), Accent2 = Color3.fromRGB(170, 225, 90),
+        Glow = Color3.fromRGB(85, 215, 135), Glow2 = Color3.fromRGB(170, 225, 90),
     },
     Sunset = {
         Bg = Color3.fromRGB(19, 12, 14), Surface = Color3.fromRGB(34, 20, 24), Elevated = Color3.fromRGB(48, 30, 34),
         Card = Color3.fromRGB(42, 24, 28), Stroke = Color3.fromRGB(78, 48, 52), Text = Color3.fromRGB(250, 240, 236),
         Sub = Color3.fromRGB(178, 148, 145), Accent = Color3.fromRGB(255, 125, 75), Accent2 = Color3.fromRGB(255, 200, 80),
+        Glow = Color3.fromRGB(255, 125, 75), Glow2 = Color3.fromRGB(255, 200, 80),
     },
     Amoled = {
         Bg = Color3.fromRGB(0, 0, 0), Surface = Color3.fromRGB(11, 11, 13), Elevated = Color3.fromRGB(20, 20, 24),
         Card = Color3.fromRGB(14, 14, 17), Stroke = Color3.fromRGB(36, 36, 44), Text = Color3.fromRGB(245, 245, 248),
         Sub = Color3.fromRGB(138, 138, 150), Accent = Color3.fromRGB(105, 195, 255), Accent2 = Color3.fromRGB(165, 135, 255),
+        Glow = Color3.fromRGB(105, 195, 255), Glow2 = Color3.fromRGB(165, 135, 255),
     },
     Light = {
         Bg = Color3.fromRGB(243, 244, 249), Surface = Color3.fromRGB(255, 255, 255), Elevated = Color3.fromRGB(235, 237, 245),
         Card = Color3.fromRGB(249, 250, 253), Stroke = Color3.fromRGB(203, 206, 222), Text = Color3.fromRGB(26, 28, 42),
         Sub = Color3.fromRGB(108, 112, 138), Accent = Color3.fromRGB(140, 90, 255), Accent2 = Color3.fromRGB(90, 170, 255),
+        Glow = Color3.fromRGB(140, 90, 255), Glow2 = Color3.fromRGB(90, 170, 255),
     },
 }
+
 local ThemeOrder = {"Nihon", "Sakura", "Midnight", "Ocean", "Forest", "Sunset", "Amoled", "Light"}
 local Pal = {}
 local themeName = "Nihon"
@@ -288,8 +300,7 @@ local function setFont(name)
     for obj, w in pairs(fontObjs) do obj.Font = Fonts[name][w] end
 end
 
--- NOTE: setTheme/setAccent MUST be defined here (before MakeWindow) so the
--- closure inside MakeWindow captures them as non-nil upvalues.
+-- setTheme / setAccent must be declared ABOVE MakeWindow so closures capture them.
 local function setTheme(name, animated)
     if not Themes[name] then return end
     themeName = name
@@ -459,6 +470,131 @@ do
             if okm and m then Metrics.mem = math.floor(m + 0.5) end
         end
     end))
+end
+
+------------------------------------------------------------------------
+-- ENHANCED SHOWCASE PANEL (from Aurora Edition)
+------------------------------------------------------------------------
+local function createShowcase(rootGui)
+    local features = {
+        {name="Dashboard UI", desc="Modern card-based interface", icon="zap", category="Core"},
+        {name="Tab System", desc="Smooth tab switching & animations", icon="layers", category="Navigation"},
+        {name="Search (Ctrl+K)", desc="Fast feature search & discovery", icon="search", category="Tools"},
+        {name="Config Management", desc="Save/load profiles effortlessly", icon="save", category="Data"},
+        {name="Theme Engine", desc="8 built-in themes + custom colors", icon="palette", category="Design"},
+        {name="Notifications", desc="Glassmorphic toast notifications", icon="bell", category="Feedback"},
+        {name="Keybind System", desc="Customizable keyboard shortcuts", icon="keyboard", category="Input"},
+        {name="HUD Overlay", desc="Real-time stats display widget", icon="activity", category="Debug"},
+    }
+
+    local layer = mk("Frame", {
+        Name="Showcase", Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(0,0,0),
+        BackgroundTransparency=1, ZIndex=300, Parent=rootGui,
+    })
+    local layerBg = mk("TextButton", {Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=0.4, BorderSizePixel=0, ZIndex=300, Parent=layer})
+    layerBg.Activated:Connect(function() play(layer, 0.3, {BackgroundTransparency=1}); task.delay(0.35, function() if layer.Parent then layer:Destroy() end end) end)
+
+    local w = math.clamp(viewport().X - 40, 320, 900)
+    local card = mk("CanvasGroup", {
+        AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), Size=UDim2.fromOffset(w, 0),
+        AutomaticSize=Enum.AutomaticSize.Y, GroupTransparency=1, ZIndex=301, Parent=layer,
+    })
+    bind(card, "BackgroundColor3", "Bg")
+    round(card, 20); outline(card, "Stroke", 1, 0.05)
+    
+    local glowBg = mk("Frame", {Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(1,1,1), BackgroundTransparency=0.95, ZIndex=299, Parent=card})
+    accentGradient(glowBg, 45)
+
+    inset(card, 24, 24, 24, 24)
+    local col = mk("Frame", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, Parent=card})
+    stack(col, 16)
+
+    local header = mk("Frame", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, LayoutOrder=0, Parent=col})
+    inset(header, 0, 0, 16, 0)
+    tx("TextLabel", {Text="✨ Nihon Lib — Aurora Edition", TextSize=24, Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, TextWrapped=true, Parent=header}, 3)
+    tx("TextLabel", {Text="Modern, glassy UI library with powerful features.", TextSize=13, Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, TextWrapped=true, Parent=header}, 1, "Sub")
+
+    local grid = mk("Frame", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, LayoutOrder=1, Parent=col})
+    mk("UIGridLayout", {
+        CellSize=UDim2.new(0, math.max(120, (w - 48 - 12) / 3), 0, 100),
+        HorizontalAlignment=Enum.HorizontalAlignment.Fill,
+        VerticalAlignment=Enum.VerticalAlignment.Top,
+        FillDirectionMaxCells=3,
+        Padding=UDim.new(0,12),
+        Parent=grid
+    })
+
+    for i, feat in ipairs(features) do
+        local featureCard = mk("TextButton", {
+            Name="Feature_"..feat.name, Size=UDim2.new(0,0,0,0), BackgroundTransparency=0.15,
+            BorderSizePixel=0, Parent=grid,
+        })
+        bind(featureCard, "BackgroundColor3", "Card")
+        round(featureCard, 14)
+        local st = outline(featureCard, "Stroke", 1, 0.4)
+
+        featureCard.MouseEnter:Connect(function()
+            play(featureCard, 0.2, {BackgroundTransparency=0})
+            play(st, 0.2, {Transparency=0.1})
+            play(featureCard, 0.3, {Size=UDim2.new(1.05,0,1.05,0)}, Enum.EasingStyle.Back)
+        end)
+        featureCard.MouseLeave:Connect(function()
+            play(featureCard, 0.25, {BackgroundTransparency=0.15})
+            play(st, 0.25, {Transparency=0.4})
+            play(featureCard, 0.3, {Size=UDim2.new(1,0,1,0)}, Enum.EasingStyle.Back)
+        end)
+
+        inset(featureCard, 12, 12, 12, 12)
+        local inner = mk("Frame", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, Parent=featureCard})
+        stack(inner, 8)
+
+        makeIcon(inner, feat.icon, 28, "Accent", {
+            LayoutOrder=0,
+            AnchorPoint=Vector2.new(0.5,0),
+            Position=UDim2.fromScale(0.5,0),
+            Size=UDim2.fromOffset(28,28)
+        })
+
+        local nameLabel = tx("TextLabel", {
+            Text=feat.name, TextSize=12, Size=UDim2.new(1,0,0,0),
+            AutomaticSize=Enum.AutomaticSize.Y, TextWrapped=true, LayoutOrder=1, Parent=inner,
+        }, 3)
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+        local catBadge = mk("Frame", {
+            Size=UDim2.new(1,0,0,18), BackgroundColor3=Pal.Accent, BackgroundTransparency=0.8,
+            LayoutOrder=2, Parent=inner,
+        })
+        round(catBadge, 8)
+        tx("TextLabel", {
+            Text=feat.category, TextSize=10, Size=UDim2.new(1,0,1,0),
+            TextXAlignment=Enum.TextXAlignment.Center, Parent=catBadge,
+        }, 3, "Accent")
+
+        featureCard.Size = UDim2.new(1,0,1,0)
+        local scale = mk("UIScale", {Scale=0.95, Parent=featureCard})
+        task.delay((i-1)*0.08, function()
+            play(scale, 0.6, {Scale=1}, Enum.EasingStyle.Back)
+            play(featureCard, 0.6, {BackgroundTransparency=0.15}, Enum.EasingStyle.Quint)
+        end)
+    end
+
+    local buttonRow = mk("Frame", {Size=UDim2.new(1,0,0,40), BackgroundTransparency=1, LayoutOrder=2, Parent=col})
+    mk("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, HorizontalAlignment=Enum.HorizontalAlignment.Right, VerticalAlignment=Enum.VerticalAlignment.Bottom, Padding=UDim.new(0,8), SortOrder=Enum.SortOrder.LayoutOrder, Parent=buttonRow})
+
+    local closeBtn = tx("TextButton", {Text="Close", TextSize=12, Size=UDim2.fromOffset(80,36), LayoutOrder=1, Parent=buttonRow}, 3)
+    bind(closeBtn, "BackgroundColor3", "Elevated")
+    round(closeBtn, 10)
+    closeBtn.Activated:Connect(function() layerBg:Fire() end)
+
+    play(layer, 0.3, {BackgroundTransparency=0})
+    play(card, 0.4, {GroupTransparency=0}, Enum.EasingStyle.Back)
+end
+
+local function showShowcase(rootGui)
+    if Nihon.ShowShowcase then
+        task.delay(0.5, function() createShowcase(rootGui) end)
+    end
 end
 
 ------------------------------------------------------------------------
@@ -1059,7 +1195,6 @@ function Nihon:MakeWindow(cfg)
     Nihon.SidebarVisible = cfg.SidebarVisible ~= false
     Hud.title = title
 
-    -- Safe: setTheme/setAccent/setFont are all defined ABOVE this function.
     if cfg.Theme and Themes[cfg.Theme] then setTheme(cfg.Theme, false) end
     if cfg.Font and Fonts[cfg.Font] then setFont(cfg.Font) end
     if cfg.Accent then setAccent(cfg.Accent, cfg.Accent2) end
@@ -1228,7 +1363,7 @@ function Nihon:MakeWindow(cfg)
     }, 1, "Sub")
     watermark.TextTransparency = 0.55
 
-    -- Resize grip (needs fullH, so declared after) ---------------
+    -- Resize grip -----------------------------------------------
     local resizeGrip = mk("TextButton", {
         Name="ResizeGrip", AnchorPoint=Vector2.new(1,1), Position=UDim2.new(1,-4,1,-4),
         Size=UDim2.fromOffset(mobile and 28 or 22, mobile and 28 or 22), BackgroundTransparency=1, ZIndex=30, Parent=clip,
@@ -2444,7 +2579,7 @@ local function attachSearch(Window)
 end
 
 ------------------------------------------------------------------------
--- PUBLIC HELPERS (methods that wrap the local functions above)
+-- PUBLIC HELPERS
 ------------------------------------------------------------------------
 function Nihon:SetTheme(name) setTheme(name, true) end
 function Nihon:SetAccent(c1, c2) setAccent(c1, c2) end
@@ -2487,15 +2622,18 @@ function Nihon:Init()
         for _, fn in ipairs(initFires) do task.spawn(pcall, fn) end
         table.clear(initFires)
         Nihon._ready = true
-        if window then window.Show() end
-
-        -- "This script uses NihonLib" callout
-        Nihon:MakeNotification({
-            Name = "This script uses NihonLib",
-            Content = "Modern, glassy interface. Check it out.",
-            Type = "Info",
-            Time = 6,
-        })
+        if window then 
+            window.Show()
+            task.delay(0.3, function()
+                Nihon:MakeNotification({
+                    Name = "✨ Nihon Lib Aurora",
+                    Content = "Modern, glassy UI with powerful features. Press Ctrl+K to search.",
+                    Type = "Info",
+                    Time = 6,
+                })
+            end)
+            task.delay(0.8, function() showShowcase(Root) end)
+        end
     end
     loadingScreen(cfg, window and window.Name or "Nihon Lib", finish)
 end
