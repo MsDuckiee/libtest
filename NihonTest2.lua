@@ -1794,7 +1794,7 @@ function Nihon:Init()
     local cfg = window and window.Cfg or {}
     local function finish()
         if Nihon.SaveConfig then
-            local auto = Nihon:GetAutoload and Nihon:GetAutoload() or nil
+            local auto = Nihon.GetAutoload and Nihon:GetAutoload() or nil
             if auto then Nihon:LoadProfile(auto) end
         end
         for _, fn in ipairs(initFires) do task.spawn(pcall, fn) end
