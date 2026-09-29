@@ -1,5 +1,5 @@
 --[[
-    Nihon Lib  |  v3.0 Redesigned
+    Nihon Lib  |  v3.1 Redesigned
     Mobile + PC interface library.
     Redesigned with modern dashboard aesthetics.
 ]]
