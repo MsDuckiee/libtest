@@ -4180,20 +4180,22 @@ local function attachStats(Window)
         end)
     end)
 
-    -- Footer chip was moved to header in v3.1; guard against it being nil.
-    if P.footer then
-        P.footer.Activated:Connect(function()
-            if open then Window:CloseStats() else Window:OpenStats() end
-        end)
-    elseif P.avatar and P.avatar.Parent then
-        -- Fallback: clicking the header user card opens stats
-        local userCard = P.avatar.Parent
-        userCard.InputBegan:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                if open then Window:CloseStats() else Window:OpenStats() end
+-- Header user card opens the stats panel.
+if P.avatar and P.avatar.Parent then
+    local userCard = P.avatar.Parent
+
+    userCard.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            if open then
+                Window:CloseStats()
+            else
+                Window:OpenStats()
             end
-        end)
-    end
+        end
+    end)
+end
 
     keep(RunService.Heartbeat:Connect(function()
         local hum = Stat.humanoid()
