@@ -71,9 +71,16 @@ local Themes = {
 }
 local ThemeOrder = {"Blueprint","Glass","Amoled"}
 local Pal, themeName = {}, "Blueprint"
+
+local Status = {
+    Info=Color3.fromRGB(96,156,255), Success=Color3.fromRGB(78,214,140),
+    Warning=Color3.fromRGB(255,192,72), Error=Color3.fromRGB(255,90,102),
+}
+
 local function loadPalette(name)
     local base = Themes.Glass; local src = Themes[name] or base
     for k,v in pairs(base) do Pal[k] = src[k] or v end
+    for k,v in pairs(Status) do Pal[k] = v end
 end
 loadPalette("Blueprint")
 
@@ -148,7 +155,9 @@ end
 local function bind(obj, prop, key, fn)
     local list = binds[obj]; if not list then list={}; binds[obj]=list end
     list[#list+1] = {prop=prop, key=key, fn=fn}
-    local v = Pal[key]; if fn then v = fn(v,Pal) end
+    local v = Pal[key]
+    if v == nil then v = Pal.Text end
+    if fn then v = fn(v,Pal) end
     obj[prop] = v; return obj
 end
 local function refreshTheme()
@@ -1378,55 +1387,6 @@ local function extendElements(E, ctx)
         return decorate(obj,c,o,"Textbox")
     end
 
-    function E:AddDropdown(o)
-        o = o or {}
-        local label = tostring(o.Name or "Dropdown")
-        local values = o.Values or o.Options or {}
-        local c = card(rowH,true)
-        nameLabel(c,label,UDim2.new(0.45,0,1,0))
-        local chip = mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-10,0.5,0),Size=UDim2.new(0.5,-4,0,28),BackgroundTransparency=0,ZIndex=16,Parent=c})
-        bind(chip,"BackgroundColor3","Elevated"); round(chip,7); outline(chip,"Stroke",1,0.5)
-        local current = o.Default
-        if current == nil and #values > 0 then current = values[1] end
-        local obj = {Value=current,Open=false}
-        local txt = tx("TextLabel",{Text=tostring(current or "Select..."),TextSize=12,Position=UDim2.fromOffset(9,0),Size=UDim2.new(1,-28,1,0),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=17,Parent=chip},2)
-        local ic = makeIcon(chip,"chevron-down",10,"Sub",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-7,0.5,0),ZIndex=17})
-        local wrap
-        local function close()
-            if wrap then wrap:Destroy(); wrap=nil end
-            obj.Open=false
-        end
-        local function set(v,silent)
-            obj.Value=v; txt.Text=tostring(v or "Select...")
-            if not silent and o.Callback then task.spawn(function() pcall(o.Callback,v) end) end
-            if not silent then queueSave() end
-        end
-        function obj:Set(v,silent) set(v,silent) end
-        function obj:Get() return obj.Value end
-        local function open()
-            close()
-            obj.Open=true
-            wrap=mk("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ZIndex=300,Parent=Root})
-            local catcher=mk("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ZIndex=299,Parent=wrap})
-            catcher.Activated:Connect(close)
-            local ap=chip.AbsolutePosition
-            local h=math.min(math.max(#values,1)*28+12,220)
-            local list=mk("ScrollingFrame",{Position=UDim2.fromOffset(ap.X,ap.Y+chip.AbsoluteSize.Y+4),Size=UDim2.fromOffset(chip.AbsoluteSize.X,h),CanvasSize=UDim2.new(0,0,0,math.max(#values,1)*28+12),ScrollBarThickness=4,BackgroundTransparency=0.05,ZIndex=301,Parent=wrap})
-            bind(list,"BackgroundColor3","Surface"); round(list,9); outline(list,"Stroke",1,0.4); inset(list,6,6,6,6); stack(list,2)
-            for i,v in ipairs(values) do
-                local row=mk("TextButton",{Size=UDim2.new(1,0,0,26),BackgroundTransparency=1,LayoutOrder=i,ZIndex=302,Parent=list})
-                round(row,6)
-                tx("TextLabel",{Text=tostring(v),TextSize=12,Size=UDim2.new(1,-12,1,0),Position=UDim2.fromOffset(6,0),TextXAlignment=Enum.TextXAlignment.Left,ZIndex=303,Parent=row},2,"Sub")
-                row.MouseEnter:Connect(function() play(row,0.12,{BackgroundTransparency=0.82}) end)
-                row.MouseLeave:Connect(function() play(row,0.15,{BackgroundTransparency=1}) end)
-                row.Activated:Connect(function() set(v); close() end)
-            end
-        end
-        chip.Activated:Connect(open)
-        register(o.Flag,obj,o,function() return obj.Value end,function(v) obj:Set(v,true) end)
-        return decorate(obj,c,o,"Dropdown")
-    end
-
     function E:AddSlider(o)
         o = o or {}
         local label = tostring(o.Name or "Slider")
@@ -1561,54 +1521,26 @@ function Nihon:SetFont(n) setFont(n) end
 function Nihon:SetSound(v) Nihon.SoundEnabled = v and true or false end
 function Nihon:GetThemes() local o={}; for _,n in ipairs(ThemeOrder) do o[#o+1]=n end; return o end
 
-local Hooks = {attach = attachWindowMethods}
-
-function attachWindowMethods(Window)
+local function attachWindowMethods(Window)
     function Window:MakeTab(cfg) return TabImpl.make(Window,cfg) end
     function Window:SelectTab(t,instant) TabImpl.select(Window,t,instant) end
     function Window:Notify(cfg) return Nihon:MakeNotification(cfg) end
     function Window:SetScale(s) Window.Scale = math.clamp(tonumber(s) or 1, 0.5, 1.4); Window._parts.applyScale(true) end
-    function Window:AddSettingsTab()
-        for _,t in ipairs(Window.Tabs) do
-            if t.Name == "Settings" then return t end
-        end
-        local tab = Window:MakeTab({Name="Settings",Icon="settings"})
-        local look = tab:AddSection({Name="Appearance"})
-        look:AddDropdown({Name="Theme",Values=ThemeOrder,Default=themeName,Flag="_theme",Save=true,Callback=function(v) if Themes[v] then setTheme(v) end end})
-        look:AddDropdown({Name="Font",Values=FontOrder,Default=currentFont,Flag="_font",Save=true,Callback=function(v) if Fonts[v] then setFont(v) end end})
-        look:AddSlider({Name="UI scale",Min=60,Max=130,Default=100,Increment=5,ValueName="%",Flag="_scale",Save=true,Callback=function(v) Window:SetScale(v/100) end})
-        look:AddSlider({Name="Sound volume",Min=0,Max=100,Default=40,Increment=10,ValueName="%",Flag="_vol",Save=true,Callback=function(v) Nihon.SoundVolume=v/100 end})
-        local cfgSec=tab:AddSection({Name="Config"})
-        cfgSec:AddButton({Name="Save profile",Icon="save",Callback=function() Nihon:SaveProfile(); Nihon:MakeNotification({Name="Saved",Type="Success"}) end})
-        cfgSec:AddButton({Name="Load profile",Icon="folder",Callback=function() Nihon:LoadProfile(); Nihon:MakeNotification({Name="Loaded",Type="Success"}) end})
-        Window:RebuildTabManager()
-        return tab
-    end
 end
+
+local Hooks = {attach = attachWindowMethods}
 
 function Nihon:Init()
     if Nihon._ready then return end
     local window = Nihon.Windows[1]
     if window then
+        buildDefaults(window)
         window.Show()
         Nihon._ready = true
+        task.delay(0.4, function()
+            Nihon:MakeNotification({Name="✨ Nihon Lib",Content="Horizontal tabs · right side controls",Type="Info",Time=6})
+        end)
     end
 end
 
 function Nihon:Destroy()
-    Nihon._ready = false
-    if noteLoop then noteLoop:Disconnect(); noteLoop = nil end
-    for _,c in ipairs(conns) do pcall(function() c:Disconnect() end) end
-    conns = {}
-    Nihon.Windows = {}
-    pcall(function() Root:Destroy() end)
-    if env.NihonLibInstance == Nihon then env.NihonLibInstance = nil end
-end
-
--- Helper to open Create Tab from page nav "+"
-function Nihon:OpenCreateTab()
-    local w = Nihon.Windows[1]
-    if w and w.OpenCreateTab then w:OpenCreateTab() end
-end
-
-return Nihon
