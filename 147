@@ -1,0 +1,1969 @@
+--[[
+    Nihon Lib  |  v3.2 (Modern Redesign)
+    Mobile + PC interface library.
+
+    Public API is unchanged from v3.1.
+    Layout / visuals now match the modern reference design:
+      - horizontal top tabs with icons
+      - two-column card grid
+      - quick action rows
+      - refreshed toggles, sliders, dropdowns
+]]
+
+local UserInputService   = game:GetService("UserInputService")
+local TweenService       = game:GetService("TweenService")
+local RunService         = game:GetService("RunService")
+local Players            = game:GetService("Players")
+local HttpService        = game:GetService("HttpService")
+local Stats              = game:GetService("Stats")
+local Lighting           = game:GetService("Lighting")
+local TeleportService    = game:GetService("TeleportService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local TextService        = game:GetService("TextService")
+
+local LocalPlayer = Players.LocalPlayer
+local env = (getgenv and getgenv()) or _G
+
+if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) == "function" then
+    pcall(env.NihonLibInstance.Destroy, env.NihonLibInstance)
+end
+
+local Nihon = {
+    Version = "3.2.0",
+    Flags = {},
+    Windows = {},
+    Folder = "NihonLib",
+    Profile = "default",
+    SaveConfig = false,
+    IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
+    MinimizeToCorner = false,
+    MinimizedWidth = 260,
+    RestoreToMaximized = false,
+    ShowMinimizeHint = true,
+    ShowSidebarToggle = true,
+    SidebarVisible = true,
+    ShowLauncher = true,
+    ShowResize = true,
+    ShowSearch = true,
+    ShowHelp = true,
+    ShowMinimize = true,
+    ShowClose = true,
+}
+env.NihonLibInstance = Nihon
+
+local conns = {}
+local function keep(c) conns[#conns + 1] = c return c end
+
+------------------------------------------------------------
+-- THEME
+------------------------------------------------------------
+local Themes = {
+    Nihon = {
+        Bg = Color3.fromRGB(15, 15, 20), Surface = Color3.fromRGB(22, 22, 30), Elevated = Color3.fromRGB(30, 30, 40),
+        Stroke = Color3.fromRGB(42, 42, 56), Text = Color3.fromRGB(244, 244, 250), Sub = Color3.fromRGB(150, 150, 170),
+        Accent = Color3.fromRGB(88, 130, 255), Accent2 = Color3.fromRGB(120, 90, 255),
+    },
+    Sakura = {
+        Bg = Color3.fromRGB(26, 16, 22), Surface = Color3.fromRGB(38, 24, 33), Elevated = Color3.fromRGB(52, 34, 46),
+        Stroke = Color3.fromRGB(80, 52, 72), Text = Color3.fromRGB(253, 241, 247), Sub = Color3.fromRGB(183, 150, 172),
+        Accent = Color3.fromRGB(255, 133, 178), Accent2 = Color3.fromRGB(255, 186, 206),
+    },
+    Midnight = {
+        Bg = Color3.fromRGB(10, 11, 20), Surface = Color3.fromRGB(18, 20, 32), Elevated = Color3.fromRGB(28, 31, 48),
+        Stroke = Color3.fromRGB(41, 46, 72), Text = Color3.fromRGB(232, 236, 250), Sub = Color3.fromRGB(132, 140, 170),
+        Accent = Color3.fromRGB(110, 140, 255), Accent2 = Color3.fromRGB(176, 120, 255),
+    },
+    Ocean = {
+        Bg = Color3.fromRGB(9, 17, 29), Surface = Color3.fromRGB(18, 32, 50), Elevated = Color3.fromRGB(28, 46, 70),
+        Stroke = Color3.fromRGB(43, 70, 103), Text = Color3.fromRGB(228, 241, 252), Sub = Color3.fromRGB(133, 161, 190),
+        Accent = Color3.fromRGB(56, 200, 232), Accent2 = Color3.fromRGB(72, 128, 255),
+    },
+    Forest = {
+        Bg = Color3.fromRGB(10, 19, 14), Surface = Color3.fromRGB(18, 34, 25), Elevated = Color3.fromRGB(28, 50, 38),
+        Stroke = Color3.fromRGB(45, 78, 58), Text = Color3.fromRGB(235, 247, 239), Sub = Color3.fromRGB(138, 167, 149),
+        Accent = Color3.fromRGB(88, 220, 140), Accent2 = Color3.fromRGB(176, 232, 92),
+    },
+    Sunset = {
+        Bg = Color3.fromRGB(21, 13, 15), Surface = Color3.fromRGB(38, 23, 26), Elevated = Color3.fromRGB(54, 33, 36),
+        Stroke = Color3.fromRGB(85, 53, 55), Text = Color3.fromRGB(252, 242, 238), Sub = Color3.fromRGB(180, 152, 148),
+        Accent = Color3.fromRGB(255, 128, 78), Accent2 = Color3.fromRGB(255, 202, 84),
+    },
+    Amoled = {
+        Bg = Color3.fromRGB(0, 0, 0), Surface = Color3.fromRGB(12, 12, 14), Elevated = Color3.fromRGB(22, 22, 26),
+        Stroke = Color3.fromRGB(38, 38, 46), Text = Color3.fromRGB(245, 245, 248), Sub = Color3.fromRGB(140, 140, 152),
+        Accent = Color3.fromRGB(110, 200, 255), Accent2 = Color3.fromRGB(170, 140, 255),
+    },
+    Light = {
+        Bg = Color3.fromRGB(243, 244, 249), Surface = Color3.fromRGB(255, 255, 255), Elevated = Color3.fromRGB(235, 237, 245),
+        Stroke = Color3.fromRGB(203, 206, 222), Text = Color3.fromRGB(26, 28, 42), Sub = Color3.fromRGB(108, 112, 138),
+        Accent = Color3.fromRGB(224, 52, 84), Accent2 = Color3.fromRGB(255, 120, 90),
+    },
+}
+local ThemeOrder = {"Nihon", "Sakura", "Midnight", "Ocean", "Forest", "Sunset", "Amoled", "Light"}
+local Pal, themeName = {}, "Nihon"
+
+local function loadPalette(name)
+    local base = Themes.Nihon
+    local src = Themes[name] or base
+    for k, v in pairs(base) do Pal[k] = src[k] or v end
+end
+loadPalette("Nihon")
+
+local Status = {
+    Info = Color3.fromRGB(96, 156, 255),
+    Success = Color3.fromRGB(78, 214, 140),
+    Warning = Color3.fromRGB(255, 192, 72),
+    Error = Color3.fromRGB(255, 90, 102),
+}
+local StatusIcons = {
+    Info = {"info"},
+    Success = {"check-circle", "check"},
+    Warning = {"alert-triangle", "alert-circle"},
+    Error = {"x-circle", "x"},
+}
+local Glyphs = {
+    ["info"] = "i", ["check-circle"] = "+", ["check"] = "+", ["alert-triangle"] = "!",
+    ["alert-circle"] = "!", ["x-circle"] = "x", ["x"] = "x", ["minus"] = "-",
+    ["chevron-down"] = "v", ["chevron-up"] = "^", ["chevron-right"] = ">",
+    ["search"] = "o", ["menu"] = "=", ["activity"] = "~", ["lock"] = "#",
+    ["home"] = "H", ["eye"] = "E", ["bell"] = "N", ["star"] = "*", ["settings"] = "S",
+    ["user"] = "U", ["sword"] = "/", ["target"] = "+", ["zap"] = "Z", ["globe"] = "G",
+    ["list"] = "L", ["palette"] = "P", ["layers"] = "Y", ["shield"] = "D", ["cpu"] = "C",
+    ["map"] = "M", ["wrench"] = "W", ["flag"] = "F", ["help-circle"] = "?",
+}
+
+local Fonts = {
+    Modern  = {Enum.Font.Gotham, Enum.Font.GothamMedium, Enum.Font.GothamBold},
+    Rounded = {Enum.Font.Nunito, Enum.Font.Nunito, Enum.Font.FredokaOne},
+    Mono    = {Enum.Font.RobotoMono, Enum.Font.RobotoMono, Enum.Font.RobotoMono},
+    Classic = {Enum.Font.SourceSans, Enum.Font.SourceSansSemibold, Enum.Font.SourceSansBold},
+    Clean   = {Enum.Font.Ubuntu, Enum.Font.Ubuntu, Enum.Font.Ubuntu},
+}
+local FontOrder = {"Modern", "Rounded", "Mono", "Classic", "Clean"}
+local currentFont = "Modern"
+local animSpeed = 1
+local currentScale = 1
+
+------------------------------------------------------------
+-- ROOT
+------------------------------------------------------------
+local Root = Instance.new("ScreenGui")
+Root.Name = "NihonLib"
+Root.ResetOnSpawn = false
+Root.IgnoreGuiInset = true
+Root.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Root.DisplayOrder = 9999
+do
+    local mounted = false
+    if syn and syn.protect_gui then pcall(syn.protect_gui, Root) end
+    if gethui then mounted = pcall(function() Root.Parent = gethui() end) and Root.Parent ~= nil end
+    if not mounted then mounted = pcall(function() Root.Parent = game:GetService("CoreGui") end) and Root.Parent ~= nil end
+    if not mounted then Root.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+end
+
+local function viewport()
+    local v = Root.AbsoluteSize
+    if v.X < 50 or v.Y < 50 then
+        local cam = workspace.CurrentCamera
+        if cam then return cam.ViewportSize end
+        return Vector2.new(1280, 720)
+    end
+    return v
+end
+
+------------------------------------------------------------
+-- UTIL
+------------------------------------------------------------
+local binds = setmetatable({}, {__mode = "k"})
+local fontObjs = setmetatable({}, {__mode = "k"})
+local themeHooks = {}
+local tweens = setmetatable({}, {__mode = "k"})
+
+local function play(obj, dur, props, style, dir)
+    local names = {}
+    for k in pairs(props) do names[#names + 1] = k end
+    table.sort(names)
+    local key = table.concat(names, ",")
+    local slot = tweens[obj] or {} tweens[obj] = slot
+    if slot[key] then slot[key]:Cancel() end
+    local info = TweenInfo.new(math.max(dur / animSpeed, 0.001), style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out)
+    local tw = TweenService:Create(obj, info, props)
+    slot[key] = tw
+    tw:Play()
+    return tw
+end
+
+local function after(tw, fn)
+    local c
+    c = tw.Completed:Connect(function(state)
+        c:Disconnect()
+        if state == Enum.PlaybackState.Completed then fn() end
+    end)
+end
+
+local function mk(class, props, kids)
+    local inst = Instance.new(class)
+    if inst:IsA("GuiObject") then inst.BorderSizePixel = 0 end
+    if class == "TextButton" then inst.Text = "" inst.AutoButtonColor = false
+    elseif class == "TextLabel" then inst.Text = "" end
+    local parent
+    if props then
+        for k, v in pairs(props) do
+            if k == "Parent" then parent = v else inst[k] = v end
+        end
+    end
+    if kids then for _, c in ipairs(kids) do c.Parent = inst end end
+    if parent then inst.Parent = parent end
+    return inst
+end
+
+local function bind(obj, prop, key, fn)
+    local list = binds[obj] or {} binds[obj] = list
+    list[#list + 1] = {prop = prop, key = key, fn = fn}
+    local v = Pal[key]
+    if fn then v = fn(v, Pal) end
+    obj[prop] = v
+    return obj
+end
+
+local function refreshTheme(animated, accentOnly)
+    for obj, list in pairs(binds) do
+        for _, rec in ipairs(list) do
+            if not accentOnly or rec.key == "Accent" or rec.key == "Accent2" then
+                local v = Pal[rec.key]
+                if rec.fn then v = rec.fn(v, Pal) end
+                if animated and typeof(v) == "Color3" and obj.Parent then
+                    play(obj, 0.35, {[rec.prop] = v})
+                else
+                    obj[rec.prop] = v
+                end
+            end
+        end
+    end
+    for _, hook in ipairs(themeHooks) do pcall(hook, animated) end
+end
+
+local function onTheme(fn) themeHooks[#themeHooks + 1] = fn end
+
+local function round(parent, r)
+    return mk("UICorner", {CornerRadius = UDim.new(0, r), Parent = parent})
+end
+
+local function outline(parent, key, thick, trans)
+    local s = mk("UIStroke", {
+        Thickness = thick or 1, Transparency = trans or 0,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = parent,
+    })
+    bind(s, "Color", key or "Stroke")
+    return s
+end
+
+local function inset(parent, t, r, b, l)
+    return mk("UIPadding", {
+        PaddingTop = UDim.new(0, t or 0), PaddingRight = UDim.new(0, r or 0),
+        PaddingBottom = UDim.new(0, b or 0), PaddingLeft = UDim.new(0, l or 0),
+        Parent = parent,
+    })
+end
+
+local function stack(parent, gap, dir)
+    return mk("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, gap or 0),
+        FillDirection = dir or Enum.FillDirection.Vertical, Parent = parent,
+    })
+end
+
+local function grid(parent, cellW, cellH, padX, padY)
+    return mk("UIGridLayout", {
+        CellSize = UDim2.fromOffset(cellW, cellH),
+        CellPadding = UDim2.fromOffset(padX or 8, padY or 8),
+        SortOrder = Enum.SortOrder.LayoutOrder, Parent = parent,
+    })
+end
+
+local function accentGradient(parent, rot)
+    local g = mk("UIGradient", {Rotation = rot or 0, Parent = parent})
+    bind(g, "Color", "Accent", function(_, p) return ColorSequence.new(p.Accent, p.Accent2) end)
+    return g
+end
+
+local function tx(class, props, weight, tone)
+    local o = Instance.new(class)
+    o.BackgroundTransparency = 1
+    o.BorderSizePixel = 0
+    o.Font = Fonts[currentFont][weight or 2]
+    o.TextSize = 13
+    o.TextXAlignment = Enum.TextXAlignment.Left
+    o.Text = ""
+    if class == "TextButton" then o.AutoButtonColor = false
+    elseif class == "TextBox" then o.ClearTextOnFocus = false bind(o, "PlaceholderColor3", "Sub") end
+    local parent
+    if props then
+        for k, v in pairs(props) do
+            if k == "Parent" then parent = v else o[k] = v end
+        end
+    end
+    bind(o, "TextColor3", tone or "Text")
+    fontObjs[o] = weight or 2
+    if parent then o.Parent = parent end
+    return o
+end
+
+local function setFont(name)
+    if not Fonts[name] then return end
+    currentFont = name
+    for obj, w in pairs(fontObjs) do obj.Font = Fonts[name][w] end
+end
+
+------------------------------------------------------------
+-- ICONS
+------------------------------------------------------------
+local IconMap = {}
+pcall(function()
+    local raw = game:HttpGet("https://raw.githubusercontent.com/evoincorp/lucideblox/master/src/modules/util/icons.json")
+    IconMap = HttpService:JSONDecode(raw).icons or {}
+end)
+
+local function resolveIcon(name)
+    if name == nil then return nil end
+    local s = tostring(name)
+    if s == "" then return nil end
+    if IconMap[s] then return IconMap[s] end
+    if s:find("^rbxassetid://") or s:find("^rbxasset://") or s:find("^rbxthumb://") then return s end
+    if tonumber(s) then return "rbxassetid://" .. s end
+    return nil
+end
+
+local function firstIcon(list)
+    for _, n in ipairs(list) do if IconMap[n] then return n end end
+    return list[1]
+end
+
+local function makeIcon(parent, name, size, tone, props)
+    local holder = mk("Frame", {BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size)})
+    if props then for k, v in pairs(props) do holder[k] = v end end
+    holder.Parent = parent
+    local img = mk("ImageLabel", {BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ScaleType = Enum.ScaleType.Fit, Parent = holder})
+    local glyph = tx("TextLabel", {
+        Size = UDim2.fromScale(1, 1), TextSize = math.floor(size * 0.9),
+        TextXAlignment = Enum.TextXAlignment.Center, Visible = false, Parent = holder,
+    }, 3, tone or "Text")
+    if tone ~= false then bind(img, "ImageColor3", tone or "Text") end
+    local api = {Holder = holder, Image = img, Glyph = glyph}
+    function api.Set(n)
+        local id = resolveIcon(n)
+        if id then
+            img.Image = id img.Visible = true glyph.Visible = false
+        else
+            img.Visible = false glyph.Visible = true
+            local key = tostring(n or "")
+            glyph.Text = Glyphs[key] or key:sub(1, 1):upper()
+        end
+    end
+    function api.Color(c, animated)
+        if animated then
+            play(img, 0.2, {ImageColor3 = c})
+            play(glyph, 0.2, {TextColor3 = c})
+        else
+            img.ImageColor3 = c glyph.TextColor3 = c
+        end
+    end
+    api.Set(name)
+    return api
+end
+
+------------------------------------------------------------
+-- POINTER / DRAG
+------------------------------------------------------------
+local function isPointer(i)
+    return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
+end
+
+local function samePointer(a, b)
+    if a.UserInputType == Enum.UserInputType.Touch then return a == b end
+    return b.UserInputType == a.UserInputType
+end
+
+local function v2(i) return Vector2.new(i.Position.X, i.Position.Y) end
+
+local function trackPointer(gui, onDown, onMove, onUp)
+    return gui.InputBegan:Connect(function(input)
+        if not isPointer(input) then return end
+        if onDown and onDown(input) == false then return end
+        local mover, ender
+        mover = UserInputService.InputChanged:Connect(function(moved)
+            local mm = input.UserInputType == Enum.UserInputType.MouseButton1 and moved.UserInputType == Enum.UserInputType.MouseMovement
+            if mm or moved == input then
+                if onMove then onMove(v2(moved), moved) end
+            end
+        end)
+        ender = UserInputService.InputEnded:Connect(function(done)
+            if isPointer(done) and samePointer(input, done) then
+                mover:Disconnect() ender:Disconnect()
+                if onUp then onUp(v2(done)) end
+            end
+        end)
+    end)
+end
+
+local function makeDraggable(handles, target, opts)
+    opts = opts or {}
+    local startInput, startPos, goal, current
+    local dragging, moved = false, false
+    local beat
+    local function apply() target.Position = UDim2.fromOffset(current.X, current.Y) end
+    local function step(dt)
+        local a = 1 - math.exp(-dt * (opts.speed or 26))
+        current = current:Lerp(goal, a) apply()
+        if not dragging and (goal - current).Magnitude < 0.35 then
+            current = goal apply()
+            beat:Disconnect() beat = nil
+        end
+    end
+    for _, h in ipairs(handles) do
+        trackPointer(h, function(input)
+            if opts.canDrag and not opts.canDrag() then return false end
+            startInput = v2(input) startPos = target.AbsolutePosition
+            goal = startPos current = startPos
+            dragging, moved = true, false
+            if opts.onBegin then opts.onBegin() end
+            if beat then beat:Disconnect() end
+            beat = RunService.RenderStepped:Connect(step)
+        end, function(pos)
+            local d = pos - startInput
+            if not moved and d.Magnitude < 4 then return end
+            moved = true
+            local want = startPos + d
+            goal = opts.clamp and opts.clamp(want) or want
+        end, function()
+            dragging = false
+            if not moved and opts.onClick then opts.onClick() end
+            if opts.onEnd then opts.onEnd(moved) end
+        end)
+    end
+end
+
+local function makeFirer(getValue, run)
+    local last = {}
+    local busy = false
+    local api = {}
+    function api.Fire()
+        if busy then return end
+        busy = true
+        task.spawn(function()
+            while true do
+                local v = getValue()
+                if v == last then break end
+                last = v
+                pcall(run, v)
+            end
+            busy = false
+        end)
+    end
+    function api.Sync(v) last = v end
+    return api
+end
+
+local function onAccent()
+    local c = Pal.Accent
+    if (c.R * 0.299 + c.G * 0.587 + c.B * 0.114) > 0.62 then return Color3.fromRGB(16, 16, 22) end
+    return Color3.new(1, 1, 1)
+end
+
+------------------------------------------------------------
+-- METRICS
+------------------------------------------------------------
+local Metrics = {fps = 60, ping = 0, mem = 0}
+do
+    local frames, clock, sample = 0, 0, 0
+    keep(RunService.RenderStepped:Connect(function(dt)
+        frames = frames + 1 clock = clock + dt sample = sample + dt
+        if clock >= 0.5 then
+            Metrics.fps = math.floor(frames / clock + 0.5)
+            frames, clock = 0, 0
+        end
+        if sample >= 1 then
+            sample = 0
+            local ok, v = pcall(function() return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
+            if ok and v then Metrics.ping = math.floor(v + 0.5) end
+            local okm, m = pcall(function() return Stats:GetTotalMemoryUsageMb() end)
+            if okm and m then Metrics.mem = math.floor(m + 0.5) end
+        end
+    end))
+end
+
+------------------------------------------------------------
+-- POPUP
+------------------------------------------------------------
+local Popup = {}
+local catcher = mk("TextButton", {
+    Name = "PopupCatcher", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+    Visible = false, ZIndex = 60, Parent = Root,
+})
+catcher.Activated:Connect(function() Popup.close() end)
+
+function Popup.close(instant)
+    local cur = Popup.current
+    if not cur then return end
+    Popup.current = nil
+    catcher.Visible = false
+    if cur.follow then cur.follow:Disconnect() end
+    if cur.onClose then task.spawn(cur.onClose) end
+    if instant then cur.frame:Destroy() return end
+    local tw = play(cur.frame, 0.16, {Size = UDim2.fromOffset(cur.w, 0)}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+    after(tw, function() cur.frame:Destroy() end)
+    task.delay(0.5, function() if cur.frame.Parent then cur.frame:Destroy() end end)
+end
+
+function Popup.open(anchor, o)
+    Popup.close(true)
+    local sc = currentScale
+    local w = o.width or math.max(140, anchor.AbsoluteSize.X / sc)
+    local view = viewport()
+    local a, s = anchor.AbsolutePosition, anchor.AbsoluteSize
+    local gap = 6
+    local below = view.Y - (a.Y + s.Y) - gap - 8
+    local above = a.Y - gap - 8
+    local h = o.height
+    local up = false
+    if h * sc > below then
+        if below >= 130 or below >= above then
+            h = math.max(70, below / sc)
+        else
+            up = true
+            h = math.min(h, math.max(70, above / sc))
+        end
+    end
+    local frame = mk("Frame", {
+        Name = "Popup", AnchorPoint = Vector2.new(0, up and 1 or 0),
+        Size = UDim2.fromOffset(w, 0), ClipsDescendants = true, ZIndex = 61, Parent = Root,
+    })
+    bind(frame, "BackgroundColor3", "Surface")
+    round(frame, 10)
+    outline(frame, "Stroke", 1, 0.1)
+    mk("UIScale", {Scale = sc, Parent = frame})
+    local function place()
+        local v = viewport()
+        local pa, ps = anchor.AbsolutePosition, anchor.AbsoluteSize
+        local x = pa.X
+        if o.align == "right" then x = pa.X + ps.X - w * sc end
+        x = math.clamp(x, 6, math.max(6, v.X - w * sc - 6))
+        local y = up and (pa.Y - gap) or (pa.Y + ps.Y + gap)
+        frame.Position = UDim2.fromOffset(x, y)
+    end
+    place()
+    o.build(frame, w, h)
+    catcher.Visible = true
+    local cur = {frame = frame, w = w, owner = o.owner, onClose = o.onClose}
+    cur.follow = RunService.RenderStepped:Connect(function()
+        if not anchor.Parent then Popup.close(true) return end
+        place()
+    end)
+    Popup.current = cur
+    play(frame, 0.26, {Size = UDim2.fromOffset(w, h)})
+    return frame
+end
+
+------------------------------------------------------------
+-- TOOLTIP
+------------------------------------------------------------
+local tipBox, tipToken = nil, 0
+local function hideTip()
+    tipToken = tipToken + 1
+    if tipBox then tipBox:Destroy() tipBox = nil end
+end
+
+local function showTip(text)
+    if tipBox then tipBox:Destroy() end
+    local size = TextService:GetTextSize(text, 12, Fonts[currentFont][2], Vector2.new(230, 1000))
+    local box = mk("Frame", {Size = UDim2.fromOffset(size.X + 18, size.Y + 14), ZIndex = 300, Parent = Root})
+    bind(box, "BackgroundColor3", "Elevated")
+    round(box, 8)
+    outline(box, "Stroke", 1, 0.2)
+    tx("TextLabel", {
+        Size = UDim2.fromScale(1, 1), Text = text, TextSize = 12, TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 301, Parent = box,
+    }, 2)
+    local m = UserInputService:GetMouseLocation()
+    local v = viewport()
+    local x = math.clamp(m.X + 14, 6, v.X - size.X - 24)
+    local y = math.clamp(m.Y + 18, 6, v.Y - size.Y - 24)
+    box.Position = UDim2.fromOffset(x, y)
+    tipBox = box
+end
+
+local function attachTip(gui, getText)
+    if Nihon.IsMobile then return end
+    gui.MouseEnter:Connect(function()
+        tipToken = tipToken + 1
+        local mine = tipToken
+        task.delay(0.5, function()
+            if mine ~= tipToken then return end
+            local t = type(getText) == "function" and getText() or getText
+            if t and t ~= "" then showTip(tostring(t)) end
+        end)
+    end)
+    gui.MouseLeave:Connect(hideTip)
+    gui.InputBegan:Connect(function(i) if isPointer(i) then hideTip() end end)
+end
+
+------------------------------------------------------------
+-- THEME API
+------------------------------------------------------------
+local themeListeners = {}
+local customAccent
+local rainbowConn
+
+local function setTheme(name, animated)
+    if not Themes[name] then return end
+    themeName = name
+    customAccent = nil
+    loadPalette(name)
+    refreshTheme(animated)
+    for _, fn in ipairs(themeListeners) do pcall(fn, name) end
+end
+
+local function setAccent(c1, c2)
+    customAccent = {c1, c2 or c1:Lerp(Color3.new(1, 1, 1), 0.25)}
+    Pal.Accent, Pal.Accent2 = customAccent[1], customAccent[2]
+    refreshTheme(true, true)
+end
+
+local function setRainbow(on)
+    if on and not rainbowConn then
+        local acc = 0
+        rainbowConn = RunService.Heartbeat:Connect(function(dt)
+            acc = acc + dt
+            if acc < 0.066 then return end
+            acc = 0
+            local h = (os.clock() * 0.12) % 1
+            Pal.Accent = Color3.fromHSV(h, 0.62, 1)
+            Pal.Accent2 = Color3.fromHSV((h + 0.1) % 1, 0.55, 1)
+            refreshTheme(false, true)
+        end)
+    elseif not on and rainbowConn then
+        rainbowConn:Disconnect() rainbowConn = nil
+        loadPalette(themeName)
+        if customAccent then Pal.Accent, Pal.Accent2 = customAccent[1], customAccent[2] end
+        refreshTheme(true)
+    end
+end
+
+function Nihon:SetTheme(n) setTheme(n, true) end
+function Nihon:SetAccent(c1, c2) setAccent(c1, c2) end
+function Nihon:SetRainbow(on) setRainbow(on and true or false) end
+function Nihon:SetFont(n) setFont(n) end
+function Nihon:GetThemes()
+    local out = {}
+    for _, n in ipairs(ThemeOrder) do out[#out + 1] = n end
+    return out
+end
+function Nihon:AddTheme(name, data)
+    if not Themes[name] then ThemeOrder[#ThemeOrder + 1] = name end
+    Themes[name] = data
+end
+function Nihon:SetAnimationSpeed(s) animSpeed = math.clamp(tonumber(s) or 1, 0.1, 60) end
+
+------------------------------------------------------------
+-- NOTIFICATIONS
+------------------------------------------------------------
+local Notes = {active = {}, queue = {}, byKey = {}, queuedKey = {}, max = 5, duration = 4, position = "TopRight"}
+local noteLayer = mk("Frame", {Name = "Notifications", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 100, Parent = Root})
+local corners = {
+    TopRight = {ax = 1, ay = 0}, TopLeft = {ax = 0, ay = 0}, TopCenter = {ax = 0.5, ay = 0},
+    BottomRight = {ax = 1, ay = 1}, BottomLeft = {ax = 0, ay = 1}, BottomCenter = {ax = 0.5, ay = 1},
+}
+local noteLoop
+local spawnNote
+
+local function noteWidth() return math.clamp(math.floor(viewport().X - 28), 210, 320) end
+local function notePos(slot, dx)
+    local c = corners[Notes.position] or corners.TopRight
+    local mx = c.ax == 0.5 and 0 or (c.ax == 1 and -14 or 14)
+    local my = c.ay == 0 and (14 + slot) or -(14 + slot)
+    return UDim2.new(c.ax, mx + (dx or 0), c.ay, my)
+end
+
+local function relayout()
+    local c = corners[Notes.position] or corners.TopRight
+    local cum = 0
+    for _, n in ipairs(Notes.active) do
+        n.slot = cum
+        n.frame.AnchorPoint = Vector2.new(c.ax, c.ay)
+        if not n.dragging then play(n.frame, 0.5, {Position = notePos(cum, 0)}) end
+        cum = cum + n.height + 8
+    end
+end
+
+local function promoteQueue()
+    while #Notes.active < Notes.max and #Notes.queue > 0 do
+        local entry = table.remove(Notes.queue, 1)
+        Notes.queuedKey[entry.key] = nil
+        spawnNote(entry)
+    end
+end
+
+local function dismissNote(n)
+    if n.dying then return end
+    n.dying = true
+    for i, x in ipairs(Notes.active) do
+        if x == n then table.remove(Notes.active, i) break end
+    end
+    if Notes.byKey[n.key] == n then Notes.byKey[n.key] = nil end
+    local c = corners[Notes.position] or corners.TopRight
+    local out = c.ax == 1 and (noteWidth() + 40) or (c.ax == 0 and -(noteWidth() + 40) or 0)
+    play(n.frame, 0.35, {GroupTransparency = 1})
+    if out ~= 0 then play(n.frame, 0.4, {Position = notePos(n.slot, out)}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+    else play(n.frame, 0.35, {Position = notePos(n.slot - 40)}) end
+    task.delay(0.5, function() if n.frame then n.frame:Destroy() end end)
+    relayout() promoteQueue()
+end
+
+local function bumpNote(n, extra)
+    n.count = n.count + 1
+    n.badge.Text = n.count .. "x"
+    n.badge.Visible = true
+    n.expires = os.clock() + (extra or n.time)
+    n.pop.Scale = 1.45
+    play(n.pop, 0.45, {Scale = 1}, Enum.EasingStyle.Back)
+    if not n.dragging then
+        n.frame.Position = notePos(n.slot, 12)
+        play(n.frame, 0.5, {Position = notePos(n.slot, 0)}, Enum.EasingStyle.Back)
+    end
+end
+
+local function ensureNoteLoop()
+    if noteLoop then return end
+    noteLoop = RunService.Heartbeat:Connect(function(dt)
+        local now = os.clock()
+        for i = #Notes.active, 1, -1 do
+            local n = Notes.active[i]
+            if n and not n.dying and not n.sticky then
+                if n.hover or n.dragging then n.expires = n.expires + dt end
+                local left = n.expires - now
+                if not n.custom then n.bar.Size = UDim2.new(math.clamp(left / n.time, 0, 1), 0, 0, 2) end
+                if left <= 0 then dismissNote(n) end
+            end
+        end
+        if #Notes.active == 0 and noteLoop then noteLoop:Disconnect() noteLoop = nil end
+    end)
+end
+
+function spawnNote(entry)
+    local cfg, handle = entry.cfg, entry.handle
+    local color = Status[entry.kind]
+    local w = noteWidth()
+    local n = {
+        key = entry.key, count = entry.count, handle = handle, height = 64, slot = 0,
+        time = math.max(1, tonumber(cfg.Time) or Notes.duration), sticky = cfg.Sticky == true,
+    }
+    n.expires = os.clock() + n.time
+    local content = tostring(cfg.Content or "")
+
+    local frame = mk("CanvasGroup", {
+        Name = "Note", Size = UDim2.fromOffset(w, 0), AutomaticSize = Enum.AutomaticSize.Y,
+        GroupTransparency = 1, Parent = noteLayer,
+    })
+    bind(frame, "BackgroundColor3", "Surface")
+    round(frame, 12)
+    outline(frame, "Stroke", 1, 0.2)
+    mk("UISizeConstraint", {MinSize = Vector2.new(0, 60), Parent = frame})
+
+    local accentStrip = mk("Frame", {
+        Size = UDim2.new(0, 3, 1, 0), BackgroundColor3 = color, BackgroundTransparency = 0.1, ZIndex = 3, Parent = frame,
+    })
+    local disc = mk("Frame", {
+        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(34, 34),
+        BackgroundColor3 = color, BackgroundTransparency = 0.82, ZIndex = 3, Parent = frame,
+    })
+    round(disc, 17)
+    outline(disc, "Text", 1, 0.9)
+    local ico = makeIcon(disc, cfg.Icon or firstIcon(StatusIcons[entry.kind]), 17, false, {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 4,
+    })
+    ico.Color(color)
+    n.disc = disc
+
+    local col = mk("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, ZIndex = 2, Parent = frame})
+    inset(col, 12, 62, 14, 16)
+    stack(col, 3)
+    n.title = tx("TextLabel", {
+        Text = tostring(cfg.Name or cfg.Title or "Notification"), Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, LayoutOrder = 1, ZIndex = 3, Parent = col,
+    }, 3)
+    n.body = tx("TextLabel", {
+        Text = content, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+        TextWrapped = true, TextSize = 12, LayoutOrder = 2, Visible = content ~= "", ZIndex = 3, Parent = col,
+    }, 1, "Sub")
+
+    local est = TextService:GetTextSize(content, 12, Fonts[currentFont][1], Vector2.new(w - 76, 1000))
+    n.height = math.max(60, 40 + est.Y + 14)
+
+    if type(cfg.Actions) == "table" and #cfg.Actions > 0 then
+        local row = mk("Frame", {Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, LayoutOrder = 3, Parent = col})
+        mk("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6),
+            VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder, Parent = row,
+        })
+        n.height = n.height + 36
+        for i, act in ipairs(cfg.Actions) do
+            local label = tostring(act.Name or "OK")
+            local size = TextService:GetTextSize(label, 12, Fonts[currentFont][3], Vector2.new(400, 30))
+            local b = tx("TextButton", {
+                Text = label, TextSize = 12, Size = UDim2.fromOffset(size.X + 26, 26), LayoutOrder = i,
+                TextXAlignment = Enum.TextXAlignment.Center, BackgroundTransparency = 0, Parent = row,
+            }, 3)
+            round(b, 7)
+            if i == 1 then b.BackgroundColor3 = color b.TextColor3 = Color3.fromRGB(14, 14, 20)
+            else bind(b, "BackgroundColor3", "Elevated") end
+            b.Activated:Connect(function()
+                if act.Callback then
+                    local ok, err = pcall(act.Callback)
+                    if not ok then Nihon:MakeNotification({Name = "Action failed", Content = tostring(err), Type = "Error"}) end
+                end
+                dismissNote(n)
+            end)
+        end
+    end
+
+    n.badge = tx("TextLabel", {
+        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, -2), Size = UDim2.fromOffset(0, 18), ZIndex = 6,
+        AutomaticSize = Enum.AutomaticSize.X, Text = n.count .. "x", TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Center, BackgroundTransparency = 0.78, BackgroundColor3 = color,
+        TextColor3 = color, Visible = n.count > 1, Parent = frame,
+    }, 3)
+    round(n.badge, 10)
+    inset(n.badge, 0, 8, 0, 8)
+    n.pop = mk("UIScale", {Parent = n.badge})
+
+    n.bar = mk("Frame", {
+        AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2),
+        BackgroundColor3 = color, BackgroundTransparency = 0.25, Visible = not n.sticky, ZIndex = 5, Parent = frame,
+    })
+
+    n.frame = frame
+    frame.MouseEnter:Connect(function() n.hover = true end)
+    frame.MouseLeave:Connect(function() n.hover = false end)
+    frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        local h = frame.AbsoluteSize.Y
+        if h > 4 and math.abs(h - n.height) > 0.5 then
+            n.height = h
+            if not n.dying then task.defer(relayout) end
+        end
+    end)
+
+    local startX, swiped = 0, false
+    trackPointer(frame, function(input)
+        startX = input.Position.X swiped = false n.dragging = true
+    end, function(pos)
+        local dx = pos.X - startX
+        if math.abs(dx) > 6 then swiped = true end
+        if swiped then n.frame.Position = notePos(n.slot, dx) end
+    end, function(pos)
+        n.dragging = false
+        local dx = pos.X - startX
+        if math.abs(dx) > 70 or (not swiped and cfg.ClickDismiss ~= false) then
+            dismissNote(n)
+        else relayout() end
+    end)
+
+    local c = corners[Notes.position] or corners.TopRight
+    local out = c.ax == 1 and (w + 40) or (c.ax == 0 and -(w + 40) or 0)
+    frame.AnchorPoint = Vector2.new(c.ax, c.ay)
+    frame.Position = out ~= 0 and notePos(0, out) or notePos(-50, 0)
+
+    table.insert(Notes.active, 1, n)
+    if entry.dedupe then Notes.byKey[n.key] = n end
+    handle.n = n
+    relayout()
+    play(frame, 0.4, {GroupTransparency = 0})
+    task.defer(function()
+        if not n.dying and frame.Parent then
+            frame.GroupTransparency = 0 relayout()
+        end
+    end)
+    ensureNoteLoop()
+    return n
+end
+
+function Nihon:MakeNotification(cfg)
+    if type(cfg) ~= "table" then cfg = {Content = tostring(cfg)} end
+    local kind = Status[cfg.Type] and cfg.Type or "Info"
+    local name = tostring(cfg.Name or cfg.Title or "Notification")
+    local content = tostring(cfg.Content or "")
+    local key = kind .. "|" .. name .. "|" .. content
+    local dedupe = not cfg.Sticky and not (type(cfg.Actions) == "table" and #cfg.Actions > 0)
+    if dedupe then
+        local live = Notes.byKey[key]
+        if live and not live.dying then bumpNote(live, tonumber(cfg.Time)) return live.handle end
+        local waiting = Notes.queuedKey[key]
+        if waiting then waiting.count = waiting.count + 1 return waiting.handle end
+    end
+    local handle = {}
+    function handle:Dismiss() if handle.n then dismissNote(handle.n) end end
+    function handle:SetTitle(t) if handle.n then handle.n.title.Text = tostring(t) end end
+    function handle:SetContent(t)
+        if handle.n then
+            handle.n.body.Text = tostring(t)
+            handle.n.body.Visible = tostring(t) ~= ""
+        end
+    end
+    function handle:SetProgress(p)
+        local n = handle.n
+        if not n then return end
+        n.custom = true n.bar.Visible = true
+        play(n.bar, 0.18, {Size = UDim2.new(math.clamp(p, 0, 1), 0, 0, 2)})
+    end
+    local entry = {cfg = cfg, kind = kind, key = key, count = 1, handle = handle, dedupe = dedupe}
+    if #Notes.active >= Notes.max then
+        Notes.queue[#Notes.queue + 1] = entry
+        if dedupe then Notes.queuedKey[key] = entry end
+    else spawnNote(entry) end
+    return handle
+end
+
+function Nihon:Notify(cfg) return Nihon:MakeNotification(cfg) end
+function Nihon:SetNotificationLimit(n) Notes.max = math.clamp(math.floor(tonumber(n) or 5), 1, 10) end
+function Nihon:SetNotificationTime(s) Notes.duration = math.clamp(tonumber(s) or 4, 1, 30) end
+function Nihon:SetNotificationPosition(name)
+    if not corners[name] then return end
+    Notes.position = name
+    for _, n in ipairs(Notes.active) do
+        n.frame.AnchorPoint = Vector2.new(corners[name].ax, corners[name].ay)
+    end
+    relayout()
+end
+function Nihon:ClearNotifications()
+    Notes.queue = {} Notes.queuedKey = {}
+    for i = #Notes.active, 1, -1 do dismissNote(Notes.active[i]) end
+end
+
+------------------------------------------------------------
+-- DIALOG
+------------------------------------------------------------
+function Nihon:Dialog(cfg)
+    cfg = cfg or {}
+    local layer = mk("TextButton", {
+        Name = "Dialog", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
+        BackgroundTransparency = 1, ZIndex = 200, Parent = Root,
+    })
+    local w = math.clamp(viewport().X - 32, 240, 350)
+    local box = mk("CanvasGroup", {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(w, 0),
+        AutomaticSize = Enum.AutomaticSize.Y, GroupTransparency = 1, ZIndex = 201, Parent = layer,
+    })
+    bind(box, "BackgroundColor3", "Surface")
+    round(box, 16)
+    outline(box, "Stroke", 1, 0.1)
+    local sc = mk("UIScale", {Scale = 0.9, Parent = box})
+    local col = mk("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = box})
+    inset(col, 18, 18, 16, 18)
+    stack(col, 8)
+    tx("TextLabel", {
+        Text = tostring(cfg.Title or "Confirm"), TextSize = 16, Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, LayoutOrder = 1, Parent = col,
+    }, 3)
+    if cfg.Content and cfg.Content ~= "" then
+        tx("TextLabel", {
+            Text = tostring(cfg.Content), TextSize = 13, Size = UDim2.new(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, LayoutOrder = 2, Parent = col,
+        }, 1, "Sub")
+    end
+    local row = mk("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, LayoutOrder = 3, Parent = col})
+    mk("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right,
+        VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder, Parent = row,
+    })
+    local dialog = {}
+    local closed = false
+    function dialog:Close()
+        if closed then return end
+        closed = true
+        play(layer, 0.2, {BackgroundTransparency = 1})
+        play(box, 0.2, {GroupTransparency = 1})
+        play(sc, 0.2, {Scale = 0.94})
+        task.delay(0.3, function() layer:Destroy() end)
+    end
+    local buttons = cfg.Buttons or {{Name = "OK", Primary = true}}
+    for i, b in ipairs(buttons) do
+        local label = tostring(b.Name or "OK")
+        local size = TextService:GetTextSize(label, 13, Fonts[currentFont][3], Vector2.new(400, 34))
+        local btn = tx("TextButton", {
+            Text = label, Size = UDim2.fromOffset(math.max(80, size.X + 30), 36), LayoutOrder = i,
+            TextXAlignment = Enum.TextXAlignment.Center, BackgroundTransparency = 0, ZIndex = 202, Parent = row,
+        }, 3)
+        round(btn, 9)
+        if b.Primary then
+            if b.Danger then btn.BackgroundColor3 = Status.Error btn.TextColor3 = Color3.new(1, 1, 1)
+            else bind(btn, "BackgroundColor3", "Accent") btn.TextColor3 = onAccent() end
+        else bind(btn, "BackgroundColor3", "Elevated") end
+        btn.Activated:Connect(function()
+            dialog:Close()
+            if b.Callback then
+                task.spawn(function()
+                    local ok, err = pcall(b.Callback)
+                    if not ok then Nihon:MakeNotification({Name = "Action failed", Content = tostring(err), Type = "Error"}) end
+                end)
+            end
+        end)
+    end
+    layer.Activated:Connect(function() if cfg.Dismissable ~= false then dialog:Close() end end)
+    play(layer, 0.25, {BackgroundTransparency = 0.55})
+    play(box, 0.25, {GroupTransparency = 0})
+    play(sc, 0.4, {Scale = 1}, Enum.EasingStyle.Back)
+    return dialog
+end
+
+------------------------------------------------------------
+-- PROFILES
+------------------------------------------------------------
+local flagRefs = {}
+local flagOrder = {}
+local initFires = {}
+local saveToken = 0
+
+local function encode(v)
+    local t = typeof(v)
+    if t == "Color3" then return {t = "c", r = v.R, g = v.G, b = v.B}
+    elseif t == "EnumItem" then return {t = "k", n = v.Name}
+    elseif t == "table" then
+        local list = {}
+        for i, x in ipairs(v) do list[i] = x end
+        return {t = "l", v = list}
+    elseif v == nil then return {t = "k"} end
+    return v
+end
+
+local function decode(v)
+    if type(v) ~= "table" then return v end
+    if v.t == "c" then return Color3.new(v.r, v.g, v.b)
+    elseif v.t == "k" then return v.n and Enum.KeyCode[v.n] or nil
+    elseif v.t == "l" then return v.v end
+    return v
+end
+
+local function fsReady()
+    return type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"
+        and type(makefolder) == "function" and type(isfolder) == "function"
+end
+
+local function cfgPath(name) return Nihon.Folder .. "/" .. name .. ".json" end
+local function ensureFolder() if not isfolder(Nihon.Folder) then makefolder(Nihon.Folder) end end
+
+local function snapshot()
+    local data = {}
+    for _, flag in ipairs(flagOrder) do
+        local ref = flagRefs[flag]
+        if ref.save then data[flag] = encode(ref.get()) end
+    end
+    return data
+end
+
+function Nihon:SaveProfile(name)
+    name = name or Nihon.Profile
+    if not fsReady() then return false end
+    return pcall(function()
+        ensureFolder()
+        writefile(cfgPath(name), HttpService:JSONEncode(snapshot()))
+    end)
+end
+
+function Nihon:LoadProfile(name)
+    name = name or Nihon.Profile
+    if not fsReady() then return false end
+    local ok, data = pcall(function()
+        if not isfile(cfgPath(name)) then return nil end
+        return HttpService:JSONDecode(readfile(cfgPath(name)))
+    end)
+    if not ok or type(data) ~= "table" then return false end
+    Nihon.Profile = name
+    for _, flag in ipairs(flagOrder) do
+        local ref = flagRefs[flag]
+        if ref.save and data[flag] ~= nil then pcall(ref.set, decode(data[flag])) end
+    end
+    return true
+end
+
+function Nihon:DeleteProfile(name)
+    if not fsReady() or not delfile then return false end
+    return pcall(function() if isfile(cfgPath(name)) then delfile(cfgPath(name)) end end)
+end
+
+function Nihon:ListProfiles()
+    local out = {}
+    if not fsReady() or not listfiles then return out end
+    pcall(function()
+        ensureFolder()
+        for _, p in ipairs(listfiles(Nihon.Folder)) do
+            local n = p:match("([^/\\]+)%.json$")
+            if n and n:sub(1, 1) ~= "_" then out[#out + 1] = n end
+        end
+    end)
+    table.sort(out)
+    return out
+end
+
+function Nihon:SetAutoload(name)
+    if not fsReady() then return end
+    pcall(function()
+        ensureFolder()
+        writefile(Nihon.Folder .. "/_meta.json", HttpService:JSONEncode({autoload = name}))
+    end)
+end
+
+function Nihon:GetAutoload()
+    if not fsReady() then return nil end
+    local ok, data = pcall(function()
+        local p = Nihon.Folder .. "/_meta.json"
+        if not isfile(p) then return nil end
+        return HttpService:JSONDecode(readfile(p))
+    end)
+    return ok and data and data.autoload or nil
+end
+
+function Nihon:ExportConfig() return HttpService:JSONEncode(snapshot()) end
+function Nihon:ImportConfig(str)
+    local ok, data = pcall(function() return HttpService:JSONDecode(str) end)
+    if not ok or type(data) ~= "table" then return false end
+    for _, flag in ipairs(flagOrder) do
+        local ref = flagRefs[flag]
+        if ref.save and data[flag] ~= nil then pcall(ref.set, decode(data[flag])) end
+    end
+    return true
+end
+
+local function queueSave()
+    if not Nihon.SaveConfig or not Nihon._ready then return end
+    saveToken = saveToken + 1
+    local mine = saveToken
+    task.delay(0.8, function() if mine == saveToken then Nihon:SaveProfile() end end)
+end
+
+------------------------------------------------------------
+-- HUD
+------------------------------------------------------------
+local Hud = {
+    enabled = false, style = "Modern", scale = 1, clock24 = true, seconds = true,
+    items = {FPS = true, Ping = true, Clock = true, Memory = false, Name = false},
+    title = "Nihon Lib", chips = {}, elapsed = 0,
+}
+local hudOrder = {"Name", "FPS", "Ping", "Memory", "Clock"}
+local hudFrame = mk("Frame", {
+    Name = "HUD", BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.XY, Size = UDim2.new(),
+    Position = UDim2.fromOffset(120, 10), Visible = false, ZIndex = 90, Parent = Root,
+})
+stack(hudFrame, 6, Enum.FillDirection.Horizontal)
+local hudScale = mk("UIScale", {Parent = hudFrame})
+
+local HudStyles = {
+    Modern = {
+        bg = function() return Pal.Bg end, bgT = 0.12, radius = 10, stroke = function() return Pal.Stroke end,
+        strokeW = 1, text = function() return Pal.Text end, font = Enum.Font.GothamBold, size = 12, dot = true, padX = 10, padY = 6,
+    },
+    Cartoon = {
+        bg = function(item) return ({FPS = Color3.fromRGB(96, 214, 120), Ping = Color3.fromRGB(255, 168, 64), Clock = Color3.fromRGB(94, 170, 255), Memory = Color3.fromRGB(255, 122, 170), Name = Color3.fromRGB(172, 124, 255)})[item] end,
+        bgT = 0, radius = 16, stroke = function() return Color3.fromRGB(28, 18, 40) end, strokeW = 3,
+        text = function() return Color3.new(1, 1, 1) end, font = Enum.Font.FredokaOne, size = 15, dot = false, padX = 13, padY = 6, textStroke = true,
+    },
+    Minimal = {
+        bgT = 1, radius = 0, strokeW = 0, text = function() return Color3.new(1, 1, 1) end,
+        font = Enum.Font.GothamMedium, size = 13, dot = true, padX = 4, padY = 2, textStroke = true,
+    },
+    Retro = {
+        bg = function() return Color3.fromRGB(4, 10, 6) end, bgT = 0.1, radius = 3,
+        stroke = function() return Color3.fromRGB(70, 255, 120) end, strokeW = 1,
+        text = function() return Color3.fromRGB(90, 255, 130) end, font = Enum.Font.Code, size = 13, dot = false, padX = 9, padY = 5, prefix = "> ",
+    },
+    Neon = {
+        bg = function() return Color3.fromRGB(8, 8, 14) end, bgT = 0.1, radius = 8,
+        stroke = function() return Pal.Accent end, strokeW = 1.5, text = function() return Pal.Accent end,
+        font = Enum.Font.GothamBold, size = 12, dot = false, padX = 10, padY = 6,
+    },
+    Glass = {
+        bg = function() return Color3.new(1, 1, 1) end, bgT = 0.84, radius = 14,
+        stroke = function() return Color3.new(1, 1, 1) end, strokeT = 0.6, strokeW = 1,
+        text = function() return Color3.new(1, 1, 1) end, font = Enum.Font.GothamMedium, size = 13, dot = true, padX = 12, padY = 6, textStroke = true,
+    },
+}
+local HudStyleOrder = {"Modern", "Cartoon", "Minimal", "Retro", "Neon", "Glass"}
+
+local function hudStyleChip(item, c)
+    local st = HudStyles[Hud.style] or HudStyles.Modern
+    c.frame.BackgroundColor3 = st.bg and st.bg(item) or Color3.new(0, 0, 0)
+    c.frame.BackgroundTransparency = st.bgT
+    c.corner.CornerRadius = UDim.new(0, st.radius)
+    c.stroke.Enabled = st.strokeW > 0
+    c.stroke.Thickness = st.strokeW
+    c.stroke.Transparency = st.strokeT or 0.15
+    if st.stroke then c.stroke.Color = st.stroke(item) end
+    c.pad.PaddingLeft = UDim.new(0, st.padX)
+    c.pad.PaddingRight = UDim.new(0, st.padX)
+    c.pad.PaddingTop = UDim.new(0, st.padY)
+    c.pad.PaddingBottom = UDim.new(0, st.padY)
+    c.label.Font = st.font
+    c.label.TextSize = st.size
+    c.label.TextColor3 = st.text(item)
+    c.label.TextStrokeTransparency = st.textStroke and 0.35 or 1
+    c.label.TextStrokeColor3 = Color3.new(0, 0, 0)
+    c.dot.Visible = st.dot
+end
+
+local function hudText(item)
+    local st = HudStyles[Hud.style] or HudStyles.Modern
+    local pre = st.prefix or ""
+    if item == "FPS" then return pre .. Metrics.fps .. " FPS"
+    elseif item == "Ping" then return pre .. Metrics.ping .. " ms"
+    elseif item == "Memory" then return pre .. Metrics.mem .. " MB"
+    elseif item == "Name" then return pre .. Hud.title end
+    local fmt
+    if Hud.clock24 then fmt = Hud.seconds and "%H:%M:%S" or "%H:%M"
+    else fmt = Hud.seconds and "%I:%M:%S %p" or "%I:%M %p" end
+    return pre .. os.date(fmt)
+end
+
+local function hudDotColor(item)
+    if item == "FPS" then return Metrics.fps >= 50 and Status.Success or (Metrics.fps >= 30 and Status.Warning or Status.Error)
+    elseif item == "Ping" then return Metrics.ping <= 90 and Status.Success or (Metrics.ping <= 170 and Status.Warning or Status.Error)
+    elseif item == "Memory" then return Pal.Accent2 end
+    return Pal.Accent
+end
+
+local function hudUpdate()
+    for item, c in pairs(Hud.chips) do
+        c.label.Text = hudText(item)
+        if c.dot.Visible then c.dot.BackgroundColor3 = hudDotColor(item) end
+    end
+end
+
+local function hudBuild()
+    for _, c in pairs(Hud.chips) do c.frame:Destroy() end
+    Hud.chips = {}
+    for i, item in ipairs(hudOrder) do
+        if Hud.items[item] then
+            local frame = mk("Frame", {AutomaticSize = Enum.AutomaticSize.XY, Size = UDim2.new(), LayoutOrder = i, Parent = hudFrame})
+            local c = {frame = frame}
+            c.corner = mk("UICorner", {Parent = frame})
+            c.stroke = mk("UIStroke", {ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = frame})
+            c.pad = mk("UIPadding", {Parent = frame})
+            mk("UIListLayout", {
+                FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center,
+                Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = frame,
+            })
+            c.dot = mk("Frame", {Size = UDim2.fromOffset(8, 8), LayoutOrder = 1, Parent = frame})
+            round(c.dot, 4)
+            c.label = mk("TextLabel", {
+                BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.XY, Size = UDim2.new(),
+                LayoutOrder = 2, Text = "", Parent = frame,
+            })
+            Hud.chips[item] = c
+            hudStyleChip(item, c)
+        end
+    end
+    hudUpdate()
+end
+
+local function hudRestyle()
+    for item, c in pairs(Hud.chips) do hudStyleChip(item, c) end
+    hudUpdate()
+end
+
+function Hud.set(on)
+    Hud.enabled = on and true or false
+    hudFrame.Visible = Hud.enabled
+    if Hud.enabled then hudBuild() end
+end
+
+keep(RunService.Heartbeat:Connect(function(dt)
+    if not Hud.enabled then return end
+    Hud.elapsed = Hud.elapsed + dt
+    if Hud.elapsed >= 0.25 then Hud.elapsed = 0 hudUpdate() end
+end))
+
+makeDraggable({hudFrame}, hudFrame, {
+    clamp = function(p)
+        local v, s = viewport(), hudFrame.AbsoluteSize
+        return Vector2.new(math.clamp(p.X, 0, math.max(0, v.X - s.X)), math.clamp(p.Y, 0, math.max(0, v.Y - s.Y)))
+    end,
+})
+onTheme(function() if Hud.enabled then hudRestyle() end end)
+
+------------------------------------------------------------
+-- KEYBINDS OVERLAY
+------------------------------------------------------------
+local kbEntries = {}
+local kbFrame = mk("Frame", {
+    Name = "Keybinds", Size = UDim2.fromOffset(190, 0), AutomaticSize = Enum.AutomaticSize.Y,
+    Position = UDim2.fromOffset(16, 150), Visible = false, ZIndex = 90, Parent = Root,
+})
+bind(kbFrame, "BackgroundColor3", "Surface")
+round(kbFrame, 12)
+outline(kbFrame, "Stroke", 1, 0.15)
+inset(kbFrame, 10, 12, 12, 12)
+stack(kbFrame, 5)
+mk("UIScale", {Scale = 1, Parent = kbFrame})
+local kbVisible = false
+
+local function keyText(k)
+    if not k then return "None" end
+    local map = {LeftShift = "LShift", RightShift = "RShift", LeftControl = "LCtrl", RightControl = "RCtrl", LeftAlt = "LAlt", RightAlt = "RAlt", Backquote = "`", Return = "Enter"}
+    return map[k.Name] or k.Name
+end
+
+local function kbRebuild()
+    for _, c in ipairs(kbFrame:GetChildren()) do
+        if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end
+    end
+    tx("TextLabel", {Text = "KEYBINDS", TextSize = 11, Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 0, Parent = kbFrame}, 3, "Accent")
+    local shown = 0
+    for i, e in ipairs(kbEntries) do
+        local key = e.get()
+        if key then
+            shown = shown + 1
+            local row = mk("Frame", {Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, LayoutOrder = i, Parent = kbFrame})
+            tx("TextLabel", {Text = e.name, Size = UDim2.new(1, -60, 1, 0), TextTruncate = Enum.TextTruncate.AtEnd, TextSize = 12, Parent = row}, 2)
+            tx("TextLabel", {Text = keyText(key), AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0, 56, 1, 0), TextXAlignment = Enum.TextXAlignment.Right, TextSize = 12, Parent = row}, 3, "Sub")
+        end
+    end
+    if shown == 0 then
+        tx("TextLabel", {Text = "Nothing bound yet", TextSize = 12, Size = UDim2.new(1, 0, 0, 18), LayoutOrder = 1, Parent = kbFrame}, 1, "Sub")
+    end
+end
+
+local function kbSet(on)
+    kbVisible = on and true or false
+    kbFrame.Visible = kbVisible
+    if kbVisible then kbRebuild() end
+end
+
+makeDraggable({kbFrame}, kbFrame, {
+    clamp = function(p)
+        local v, s = viewport(), kbFrame.AbsoluteSize
+        return Vector2.new(math.clamp(p.X, 0, math.max(0, v.X - s.X)), math.clamp(p.Y, 0, math.max(0, v.Y - s.Y)))
+    end,
+})
+
+------------------------------------------------------------
+-- STATS
+------------------------------------------------------------
+local function userInfoText(n) if n == nil then return "-" end return tostring(n) end
+local Stat = {}
+
+function Stat.avatar(callback)
+    task.spawn(function()
+        local ok, img = pcall(function()
+            return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+        end)
+        if ok and img then callback(img) end
+    end)
+end
+
+function Stat.gameName(callback)
+    task.spawn(function()
+        local ok, info = pcall(function() return MarketplaceService:GetProductInfo(game.PlaceId) end)
+        if ok and info and info.Name then callback(info.Name) end
+    end)
+end
+
+function Stat.humanoid()
+    local ch = LocalPlayer.Character
+    return ch and ch:FindFirstChildOfClass("Humanoid")
+end
+
+function Stat.age()
+    local d = LocalPlayer.AccountAge or 0
+    if d >= 365 then return string.format("%.1f yrs", d / 365) end
+    return d .. " days"
+end
+
+function Stat.session()
+    local s = math.floor(os.clock() - (Nihon.Started or os.clock()))
+    return string.format("%02d:%02d:%02d", math.floor(s / 3600), math.floor(s / 60) % 60, s % 60)
+end
+
+function Stat.rows()
+    local hum = Stat.humanoid()
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local pos = root and root.Position
+    local rows = {
+        {"Display name", LocalPlayer.DisplayName},
+        {"Username", "@" .. LocalPlayer.Name},
+        {"User ID", userInfoText(LocalPlayer.UserId)},
+        {"Account age", Stat.age()},
+        {"Membership", (tostring(LocalPlayer.MembershipType):gsub("Enum.MembershipType.", ""))},
+        {"Team", LocalPlayer.Team and LocalPlayer.Team.Name or "None"},
+        {"Health", hum and (math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth)) or "-"},
+        {"WalkSpeed", hum and string.format("%.0f", hum.WalkSpeed) or "-"},
+        {"JumpPower", hum and string.format("%.0f", hum.UseJumpPower and hum.JumpPower or hum.JumpHeight) or "-"},
+        {"Position", pos and string.format("%d, %d, %d", pos.X, pos.Y, pos.Z) or "-"},
+        {"FPS", Metrics.fps .. ""},
+        {"Ping", Metrics.ping .. " ms"},
+        {"Memory", Metrics.mem .. " MB"},
+        {"Players", #Players:GetPlayers() .. " / " .. Players.MaxPlayers},
+        {"Place ID", userInfoText(game.PlaceId)},
+        {"Server", game.JobId ~= "" and game.JobId:sub(1, 8) or "Studio"},
+        {"Session", Stat.session()},
+    }
+    for _, r in ipairs(rows) do r[2] = tostring(r[2]) end
+    return rows
+end
+
+Nihon.Started = os.clock()
+
+------------------------------------------------------------
+-- WINDOW SIZE PRESETS (Modern redesign)
+------------------------------------------------------------
+local Sizes = {
+    desktop = {w = 760, h = 520, top = 56, tab = 44, pad = 12},
+    mobile  = {w = 480, h = 380, top = 50, tab = 40, pad = 10},
+}
+
+------------------------------------------------------------
+-- WINDOW
+------------------------------------------------------------
+local Hooks = {}
+local ElementFactory
+local TabImpl = {}
+
+function Nihon:MakeWindow(cfg)
+    cfg = cfg or {}
+    local title = tostring(cfg.Name or "UI Library")
+    local subtitle = cfg.Subtitle ~= nil and tostring(cfg.Subtitle) or "Modern interface"
+    local mobile = Nihon.IsMobile
+    local sz = mobile and Sizes.mobile or Sizes.desktop
+    local baseW = tonumber(cfg.Width) or sz.w
+    local baseH = tonumber(cfg.Height) or sz.h
+    local topH = sz.top
+    local tabH = sz.tab
+
+    Nihon.Folder = tostring(cfg.ConfigFolder or Nihon.Folder)
+    Nihon.SaveConfig = cfg.SaveConfig == true
+    Nihon.MinimizeToCorner = cfg.MinimizeToCorner == true
+    Nihon.MinimizedWidth = tonumber(cfg.MinimizedWidth) or Nihon.MinimizedWidth
+    Nihon.RestoreToMaximized = cfg.RestoreToMaximized == true
+    Nihon.ShowMinimizeHint = cfg.ShowMinimizeHint ~= false
+    Nihon.ShowSidebarToggle = cfg.ShowSidebarToggle ~= false
+    Nihon.SidebarVisible = cfg.SidebarVisible ~= false
+    Nihon.ShowLauncher = cfg.ShowLauncher ~= false
+    Nihon.ShowResize = cfg.ShowResize ~= false
+    Nihon.ShowSearch = cfg.ShowSearch ~= false
+    Nihon.ShowHelp = cfg.ShowHelp ~= false
+    Nihon.ShowMinimize = cfg.ShowMinimize ~= false
+    Nihon.ShowClose = cfg.ShowClose ~= false
+    Hud.title = title
+
+    if cfg.Theme and Themes[cfg.Theme] then setTheme(cfg.Theme, false) end
+    if cfg.Font and Fonts[cfg.Font] then setFont(cfg.Font) end
+    if cfg.Accent then setAccent(cfg.Accent, cfg.Accent2) end
+
+    local toggleKey = cfg.ToggleKey or Enum.KeyCode.RightShift
+    local Window = {
+        Tabs = {}, Name = title, Hidden = false, Minimized = false, Selected = nil,
+        Scale = 1, ToggleKey = toggleKey, Cfg = cfg, SearchIndex = {},
+    }
+    Nihon.Windows[#Nihon.Windows + 1] = Window
+
+    ----------------------------------------------------------
+    -- SHELL
+    ----------------------------------------------------------
+    local shell = mk("Frame", {
+        Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(baseW, baseH), ClipsDescendants = false, Visible = false, ZIndex = 10, Parent = Root,
+    })
+    bind(shell, "BackgroundColor3", "Bg")
+    round(shell, 14)
+    outline(shell, "Stroke", 1, 0.05)
+    local uiScale = mk("UIScale", {Scale = 0.9, Parent = shell})
+    Window.Shell = shell
+
+    local clip = mk("Frame", {
+        Name = "Clip", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+        ClipsDescendants = true, ZIndex = 10, Parent = shell,
+    })
+    round(clip, 14)
+
+    ----------------------------------------------------------
+    -- HEADER (title + subtitle + controls)
+    ----------------------------------------------------------
+    local header = mk("Frame", {
+        Name = "Header", Size = UDim2.new(1, 0, 0, topH), BackgroundTransparency = 1, ZIndex = 12, Parent = clip,
+    })
+
+    local logo = mk("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 16, 0.5, 0), Size = UDim2.fromOffset(32, 32),
+        BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 13, Parent = header,
+    })
+    round(logo, 9)
+    accentGradient(logo, 45)
+    local logoIcon = makeIcon(logo, cfg.Icon or "zap", 17, false, {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 14,
+    })
+    logoIcon.Color(Color3.new(1, 1, 1))
+    logoIcon.Image.ZIndex = 14
+    logoIcon.Glyph.ZIndex = 14
+    Window.LogoIcon = logoIcon
+
+    -- Vertical divider after logo
+    local div1 = mk("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 60, 0.5, 0), Size = UDim2.fromOffset(1, 22),
+        ZIndex = 13, Parent = header,
+    })
+    bind(div1, "BackgroundColor3", "Stroke")
+    div1.BackgroundTransparency = 0.4
+
+    local titleLbl = tx("TextLabel", {
+        Text = title, TextSize = 15,
+        Position = UDim2.new(0, 74, 0.5, -9), Size = UDim2.new(1, -300, 0, 18),
+        TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 13, Parent = header,
+    }, 3)
+    local subLbl = tx("TextLabel", {
+        Text = subtitle, TextSize = 11,
+        Position = UDim2.new(0, 74, 0.5, 7), Size = UDim2.new(1, -300, 0, 14),
+        TextTruncate = Enum.TextTruncate.AtEnd, Visible = subtitle ~= "", ZIndex = 13, Parent = header,
+    }, 1, "Sub")
+    Window.TitleLabel, Window.SubtitleLabel = titleLbl, subLbl
+
+    -- Right side: user chip + controls
+    local rightGroup = mk("Frame", {
+        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0),
+        Size = UDim2.fromOffset(0, 32), AutomaticSize = Enum.AutomaticSize.X,
+        BackgroundTransparency = 1, ZIndex = 14, Parent = header,
+    })
+    mk("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Right,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = rightGroup,
+    })
+
+    -- User chip
+    local userChip = mk("TextButton", {
+        Size = UDim2.fromOffset(150, 30), BackgroundColor3 = Color3.new(1, 1, 1),
+        BackgroundTransparency = 0.94, LayoutOrder = 1, ZIndex = 14, Parent = rightGroup,
+    })
+    bind(userChip, "BackgroundColor3", "Surface")
+    round(userChip, 15)
+    outline(userChip, "Stroke", 1, 0.6)
+
+    local avatar = mk("ImageLabel", {
+        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 4, 0.5, 0), Size = UDim2.fromOffset(22, 22),
+        ZIndex = 15, Parent = userChip,
+    })
+    bind(avatar, "BackgroundColor3", "Elevated")
+    round(avatar, 11)
+    Stat.avatar(function(img) if avatar.Parent then avatar.Image = img end end)
+    local dot = mk("Frame", {
+        AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 1, 1, 1), Size = UDim2.fromOffset(7, 7),
+        BackgroundColor3 = Status.Success, ZIndex = 16, Parent = avatar,
+    })
+    round(dot, 4)
+    outline(dot, "Bg", 2, 0)
+    local chipName = tx("TextLabel", {
+        Text = LocalPlayer.DisplayName, TextSize = 11,
+        Position = UDim2.new(0, 30, 0.5, -8), Size = UDim2.new(1, -36, 0, 14),
+        TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 15, Parent = userChip,
+    }, 3)
+    local chipSub = tx("TextLabel", {
+        Text = "@" .. LocalPlayer.Name, TextSize = 9,
+        Position = UDim2.new(0, 30, 0.5, 5), Size = UDim2.new(1, -36, 0, 12),
+        TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 15, Parent = userChip,
+    }, 1, "Sub")
+
+    -- Control buttons
+    local function ctrlButton(order, icon, danger)
+        local btn = mk("TextButton", {
+            Size = UDim2.fromOffset(28, 28), BackgroundColor3 = Color3.new(1, 1, 1),
+            BackgroundTransparency = 1, LayoutOrder = order, ZIndex = 15, Parent = rightGroup,
+        })
+        round(btn, 7)
+        local ico = makeIcon(btn, icon, 15, "Sub", {
+            AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 16,
+        })
+        ico.Image.ZIndex = 16
+        ico.Glyph.ZIndex = 16
+        btn.MouseEnter:Connect(function()
+            play(btn, 0.15, {BackgroundTransparency = 0.85, BackgroundColor3 = danger or Pal.Elevated})
+            if danger then ico.Color(danger, true) end
+        end)
+        btn.MouseLeave:Connect(function()
+            play(btn, 0.2, {BackgroundTransparency = 1})
+            if danger then ico.Color(Pal.Sub, true) end
+        end)
+        return btn, ico
+    end
+
+    local helpBtn  = ctrlButton(2, "help-circle")
+    local searchBtn, searchIco = ctrlButton(3, "search")
+    local minBtn, minIco = ctrlButton(4, "minus")
+    local closeBtn = ctrlButton(5, "x", Status.Error)
+
+    -- Header bottom divider
+    local headerDiv = mk("Frame", {
+        Position = UDim2.new(0, 0, 1, -1), Size = UDim2.new(1, 0, 0, 1), ZIndex = 13, Parent = header,
+    })
+    bind(headerDiv, "BackgroundColor3", "Stroke")
+    headerDiv.BackgroundTransparency = 0.5
+
+    ----------------------------------------------------------
+    -- TABS BAR (horizontal)
+    ----------------------------------------------------------
+    local tabBarWrap = mk("Frame", {
+        Name = "TabBar", Position = UDim2.fromOffset(0, topH), Size = UDim2.new(1, 0, 0, tabH),
+        BackgroundTransparency = 1, ZIndex = 12, Parent = clip,
+    })
+
+    local tabScroll = mk("ScrollingFrame", {
+        Name = "Tabs", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ScrollBarThickness = 0,
+        CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X,
+        ScrollingDirection = Enum.ScrollingDirection.X, ZIndex = 13, Parent = tabBarWrap,
+    })
+    inset(tabScroll, 0, 10, 0, 10)
+    mk("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4),
+        FillDirection = Enum.FillDirection.Horizontal,
+        VerticalAlignment = Enum.VerticalAlignment.Center, Parent = tabScroll,
+    })
+
+    -- Active tab underline indicator
+    local indicator = mk("Frame", {
+        Name = "Indicator", Size = UDim2.new(0, 0, 0, 2), Position = UDim2.new(0, 0, 1, -2),
+        BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 15, Parent = tabScroll,
+    })
+    round(indicator, 1)
+    accentGradient(indicator, 0)
+
+    -- Tab bar bottom divider
+    local tabDiv = mk("Frame", {
+        Position = UDim2.new(0, 0, 1, -1), Size = UDim2.new(1, 0, 0, 1), ZIndex = 12, Parent = tabBarWrap,
+    })
+    bind(tabDiv, "BackgroundColor3", "Stroke")
+    tabDiv.BackgroundTransparency = 0.5
+
+    ----------------------------------------------------------
+    -- CONTENT
+    ----------------------------------------------------------
+    local content = mk("Frame", {
+        Name = "Content", Position = UDim2.fromOffset(0, topH + tabH),
+        Size = UDim2.new(1, 0, 1, -(topH + tabH)),
+        BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 11, Parent = clip,
+    })
+    Window.Content = content
+
+    ----------------------------------------------------------
+    -- RESIZE GRIP
+    ----------------------------------------------------------
+    local resizeGrip = mk("TextButton", {
+        Name = "ResizeGrip", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -4, 1, -4),
+        Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, ZIndex = 30, Parent = clip,
+    })
+    local resizeGlyph = makeIcon(resizeGrip, "chevron-right", 13, "Sub", {
+        AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -2, 1, -2), ZIndex = 31,
+    })
+    resizeGlyph.Image.ZIndex = 31
+    resizeGlyph.Glyph.ZIndex = 31
+    resizeGlyph.Image.Rotation = 45
+    resizeGlyph.Glyph.Rotation = 45
+
+    local resizing = false
+    local resizeStart, resizeShellPos, resizeShellSize
+    trackPointer(resizeGrip, function(input)
+        if Window.Hidden or Window.Minimized then return false end
+        resizing = true
+        resizeStart = v2(input)
+        resizeShellPos = shell.AbsolutePosition
+        resizeShellSize = shell.AbsoluteSize
+        play(resizeGlyph.Image, 0.12, {ImageColor3 = Pal.Accent})
+        play(resizeGlyph.Glyph, 0.12, {TextColor3 = Pal.Accent})
+    end, function(pos)
+        if not resizing then return end
+        local d = pos - resizeStart
+        local sc = math.max(uiScale.Scale, 0.01)
+        local newW = math.max(math.floor((baseW * sc) + d.X), math.floor(baseW * 0.55 * sc))
+        local newH = math.max(math.floor((baseH * sc) + d.Y), math.floor((topH + tabH + 120) * sc))
+        shell.Size = UDim2.fromOffset(math.floor(newW / sc), math.floor(newH / sc))
+    end, function()
+        resizing = false
+        play(resizeGlyph.Image, 0.2, {ImageColor3 = Pal.Sub})
+        play(resizeGlyph.Glyph, 0.2, {TextColor3 = Pal.Sub})
+    end)
+
+    ----------------------------------------------------------
+    -- DRAG + SCALE
+    ----------------------------------------------------------
+    local function dragClamp(topLeft)
+        local v = viewport()
+        local s = shell.AbsoluteSize
+        local hh = topH * uiScale.Scale
+        return Vector2.new(
+            math.clamp(topLeft.X, -s.X + 90, v.X - 90),
+            math.clamp(topLeft.Y, 0, v.Y - math.min(hh, s.Y) - 4)
+        )
+    end
+
+    local function reanchor()
+        if shell.AnchorPoint == Vector2.new(0, 0) then return end
+        local p = shell.AbsolutePosition
+        shell.AnchorPoint = Vector2.new(0, 0)
+        shell.Position = UDim2.fromOffset(p.X, p.Y)
+    end
+
+    local function centerTopLeft()
+        local v = viewport()
+        local s = Vector2.new(baseW, shell.Size.Y.Offset) * uiScale.Scale
+        shell.AnchorPoint = Vector2.new(0, 0)
+        shell.Position = UDim2.fromOffset(math.floor((v.X - s.X) / 2), math.floor((v.Y - s.Y) / 2))
+    end
+
+    makeDraggable({header}, shell, {
+        speed = 30, clamp = dragClamp,
+        onBegin = function() reanchor() end,
+        canDrag = function() return not Window.Hidden end,
+    })
+
+    local function fitScale()
+        local v = viewport()
+        local fit = math.min((v.X - 20) / baseW, (v.Y - 20) / baseH, 1)
+        return math.max(fit, 0.5) * Window.Scale
+    end
+
+    local activeScale = 1
+    local function applyScale(animated)
+        activeScale = fitScale()
+        currentScale = activeScale
+        if animated then play(uiScale, 0.3, {Scale = activeScale})
+        else uiScale.Scale = activeScale end
+    end
+
+    local cam = workspace.CurrentCamera
+    if cam then
+        keep(cam:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            if not Window.Hidden then applyScale(true) end
+        end))
+    end
+
+    ----------------------------------------------------------
+    -- LAUNCHER
+    ----------------------------------------------------------
+    local launcher = mk("TextButton", {
+        Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 34, 0.5, 0),
+        Size = UDim2.fromOffset(mobile and 50 or 44, mobile and 50 or 44),
+        BackgroundColor3 = Color3.new(1, 1, 1), Visible = false, ZIndex = 250, Parent = Root,
+    })
+    round(launcher, 25)
+    accentGradient(launcher, 45)
+    outline(launcher, "Text", 1.5, 0.75)
+    local launcherIcon = makeIcon(launcher, cfg.Icon or "zap", 22, false, {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 251,
+    })
+    launcherIcon.Color(Color3.new(1, 1, 1))
+    launcherIcon.Image.ZIndex = 251
+    launcherIcon.Glyph.ZIndex = 251
+    local launcherScale = mk("UIScale", {Scale = 0, Parent = launcher})
+    Window.LauncherIcon = launcherIcon
+
+    local launcherMoved = false
+    makeDraggable({launcher}, launcher, {
+        speed = 32,
+        clamp = function(p)
+            local v = viewport()
+            local s = launcher.AbsoluteSize
+            return Vector2.new(math.clamp(p.X, 0, v.X - s.X), math.clamp(p.Y, 0, v.Y - s.Y))
+        end,
+        onBegin = function()
+            launcher.AnchorPoint = Vector2.new(0, 0)
+            play(launcherScale, 0.12, {Scale = 0.92})
+        end,
+        onEnd = function(moved)
+            launcherMoved = moved
+            play(launcherScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back)
+        end,
+    })
+
+    local function showLauncher(on)
+        if on then
+            launcher.Visible = true
+            play(launcherScale, 0.45, {Scale = 1}, Enum.EasingStyle.Back)
+        else
+            local tw = play(launcherScale, 0.2, {Scale = 0}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            after(tw, function() launcher.Visible = false end)
+        end
+    end
+
+    ----------------------------------------------------------
+    -- SHOW / HIDE
+    ----------------------------------------------------------
+    local fullH = baseH
+    local closeToken = 0
+    local placed = false
+
+    local function show()
+        Window.Hidden = false
+        applyScale(false)
+        if not placed then
+            placed = true
+            uiScale.Scale = activeScale
+            centerTopLeft()
+        end
+        closeToken = closeToken + 1
+        body_or_nil:set()
+    end
+    -- placeholder; real show/hide below
+
+    local function realShow()
+        Window.Hidden = false
+        applyScale(false)
+        if not placed then
+            placed = true
+            uiScale.Scale = activeScale
+            centerTopLeft()
+        end
+        closeToken = closeToken + 1
+        titleLbl.TextTransparency = 0
+        subLbl.TextTransparency = 0
+        local targetW = shell.Size.X.Offset > topH + 10 and shell.Size.X.Offset or baseW
+        if Window.Minimized and Nihon.MinimizeToCorner then targetW = Nihon.MinimizedWidth end
+        shell.Size = UDim2.fromOffset(targetW, Window.Minimized and (topH + 4) or fullH)
+        shell.Visible = true
+        uiScale.Scale = activeScale * 0.9
+        play(uiScale, 0.5, {Scale = activeScale}, Enum.EasingStyle.Back)
+        if Nihon.ShowLauncher then showLauncher(false) end
+    end
+
+    local function hide(toLauncher)
+        Window.Hidden = true
+        Popup.close(true)
+        hideTip()
+        closeToken = closeToken + 1
+        local mine = closeToken
+        if not toLauncher then
+            local tw = play(uiScale, 0.22, {Scale = activeScale * 0.9}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            after(tw, function()
+                if Window.Hidden and mine == closeToken then shell.Visible = false end
+            end)
+            if Nihon.ShowLauncher and Nihon.MinimizeToCorner then
+                task.delay(0.18, function()
+                    if mine ~= closeToken or not Window.Hidden then return end
+                    showLauncher(true)
+                end)
+            end
+            return
+        end
+        local w0 = shell.Size.X.Offset
+        local lift = topH + 4
+        if not Window.Minimized then
+            play(shell, 0.28, {Size = UDim2.fromOffset(w0, lift)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+        end
+        task.delay(0.22, function()
+            if mine ~= closeToken or not Window.Hidden then return end
+            local sp = shell.AbsolutePosition
+            local sc = math.max(uiScale.Scale, 0.01)
+            play(shell, 0.3, {Size = UDim2.fromOffset(lift, lift)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+            play(controls, 0.12, {Position = UDim2.new(1, 30, 0.5, 0)})
+            play(titleLbl, 0.12, {TextTransparency = 1})
+            play(subLbl, 0.12, {TextTransparency = 1})
+            Window._lastClosePos = Vector2.new(sp.X, sp.Y)
+        end)
+        task.delay(0.5, function()
+            if mine ~= closeToken or not Window.Hidden then return end
+            local tw = play(uiScale, 0.22, {Scale = activeScale * 0.4}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            after(tw, function()
+                if Window.Hidden and mine == closeToken then
+                    shell.Visible = false
+                    shell.Size = UDim2.fromOffset(w0, fullH)
+                    controls.Position = UDim2.new(1, -14, 0.5, 0)
+                    titleLbl.TextTransparency = 0
+                    subLbl.TextTransparency = 0
+                    Window.Minimized = false
+                    play(minIco.Image, 0.01, {Rotation = 0})
+                    play(minIco.Glyph, 0.01, {Rotation = 0})
+                end
+            end)
+            local lp = Window._lastClosePos
+            if lp then
+                launcher.AnchorPoint = Vector2.new(0, 0)
+                local v = viewport()
+                local ls = launcher.AbsoluteSize
+                launcher.Position = UDim2.fromOffset(
+                    math.clamp(lp.X, 0, v.X - ls.X),
+                    math.clamp(lp.Y, 0, v.Y - ls.Y)
+                )
+            end
+            showLauncher(true)
+        end)
+    end
+
+    Window.Show, Window.Hide = realShow, hide
+    function Window:Toggle()
+        if Window.Hidden then realShow() else hide(mobile) end
+    end
+
+    launcher.Activated:Connect(function()
+        if launcherMoved then launcherMoved = false return end
+        realShow()
+    end)
+
+    closeBtn.Activated:Connect(function()
+        hide(true)
+        Nihon:MakeNotification({
+            Name = "Menu hidden",
+            Content = mobile and "Tap the floating button to bring it back."
+                or ("Press " .. Window.ToggleKey.Name .. " or tap the floating button."),
+            Type = "Info", Time = 3,
+        })
+    end)
+
+    keep(UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == Window.ToggleKey then Window:Toggle() end
+    end))
+
+    local minTween
+    function Window:SetMinimized(state)
+        state = state and true or false
+        if Window.Minimized == state then return end
+        Window.Minimized = state
+        Popup.close(true)
+        if minTween then minTween:Cancel() end
+        local lift = topH + 4
+        local targetW = shell.Size.X.Offset
+        if state then
+            fullH = shell.Size.Y.Offset
+            if Nihon.MinimizeToCorner then
+                targetW = Nihon.MinimizedWidth
+                reanchor()
+                shell.Position = UDim2.fromOffset(10, 10)
+            end
+            minTween = play(shell, 0.38, {Size = UDim2.fromOffset(targetW, lift)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+            play(minIco.Image, 0.3, {Rotation = 180})
+            play(minIco.Glyph, 0.3, {Rotation = 180})
+        else
+            if Nihon.MinimizeToCorner then targetW = baseW centerTopLeft() end
+            minTween = play(shell, 0.45, {Size = UDim2.fromOffset(targetW, fullH)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+            play(minIco.Image, 0.3, {Rotation = 0})
+            play(minIco.Glyph, 0.3, {Rotation = 0})
+        end
+    end
+
+    minBtn.Activated:Connect(function() Window:SetMinimized(not Window.Minimized) end)
+
+    Window._parts = {
+        shell = shell, clip = clip, header = header, tabBar = tabScroll, indicator = indicator,
+        content = content, uiScale = uiScale, applyScale = applyScale, topH = topH, tabH = tabH,
+        mobile = mobile, searchIndex = Window.SearchIndex,
+        avatar = avatar, chipName = chipName, chipSub = chipSub, dot = dot, userChip = userChip,
+        baseW = baseW, baseH = baseH, launcher = launcher,
+        setFullH = function(h) fullH = h end, fullH = function() return fullH end,
+        closeBtn = closeBtn, minBtn = minBtn, searchBtn = searchBtn, helpBtn = helpBtn,
+        searchIco = searchIco, minIco = minIco, resizeGrip = resizeGrip, resizeGlyph = resizeGlyph,
+    }
+
+    if not Nihon.ShowLauncher then launcher.Visible = false end
+    if not Nihon.ShowResize then resizeGrip.Visible = false end
+    if not Nihon.ShowSearch then searchBtn.Visible = false end
+    if not Nihon.ShowHelp then helpBtn.Visible = false end
+    if not Nihon.ShowMinimize then minBtn.Visible = false end
+    if not Nihon.ShowClose then closeBtn.Visible = false end
+
+    Hooks.attach(Window)
+    return Window
+end
