@@ -12,7 +12,7 @@ local Players          = game:GetService("Players")
 local HttpService      = game:GetService("HttpService")
 local TextService      = game:GetService("TextService")
 local SoundService     = game:GetService("SoundService")
-local Stats            = game:GetService("Stats")
+local Stats            = nil
 
 local LocalPlayer = Players.LocalPlayer
 local env = (getgenv and getgenv()) or _G
