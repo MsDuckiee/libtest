@@ -756,7 +756,6 @@ function Nihon:MakeWindow(cfg)
         play(sFill,0.2,{BackgroundTransparency = soundOn and 0 or 1})
         play(sKnob,0.2,{Position = UDim2.new(0, soundOn and 20 or 2, 0.5, 0)},Enum.EasingStyle.Back)
     end
-    soundRow.InputBegan = nil
     local soundBtnOverlay = mk("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ZIndex=17,Parent=sTrack})
     soundBtnOverlay.Activated:Connect(function()
         soundOn = not soundOn
@@ -1536,19 +1535,3 @@ function Nihon:Init()
 end
 
 function Nihon:Destroy()
-    Nihon._ready = false
-    if noteLoop then noteLoop:Disconnect(); noteLoop = nil end
-    for _,c in ipairs(conns) do pcall(function() c:Disconnect() end) end
-    conns = {}
-    Nihon.Windows = {}
-    pcall(function() Root:Destroy() end)
-    if env.NihonLibInstance == Nihon then env.NihonLibInstance = nil end
-end
-
--- Helper to open Create Tab from page nav "+"
-function Nihon:OpenCreateTab()
-    local w = Nihon.Windows[1]
-    if w and w.OpenCreateTab then w:OpenCreateTab() end
-end
-
-return Nihon
