@@ -2273,7 +2273,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
         return decorate(obj, c, o, "Paragraph")
     end
 
-    function E:AddButton(o)
+        function E:AddButton(o)
         o = o or {}
         local label = tostring(o.Name or "Button")
         local cooldown = tonumber(o.Cooldown) or 0.35
@@ -2287,6 +2287,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
         local ready = true
         local running = false
         function obj:Fire(...)
+            local args = table.pack(...)
             if obj:IsLocked() or not ready or running then
                 if not ready then shake(c) end
                 return false
@@ -2300,7 +2301,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
                     fail(c, label, "no callback attached")
                     return
                 end
-                local ok, err = pcall(cb, ...)
+                local ok, err = pcall(cb, table.unpack(args, 1, args.n))
                 running = false
                 if not ok then
                     if type(o.OnError) == "function" then pcall(o.OnError, err) end
