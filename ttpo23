@@ -1,7 +1,7 @@
 --[[
-    Nihon Lib | v4.0 "Spec"
-    Pixel-faithful recreation of the Roblox UI Library spec sheet.
-    Window: 520x380  ·  Sidebar: 140px  ·  Theme: blue #3882F6
+    Nihon Lib | v4.1 "Spec + Compat"
+    Pixel-faithful to the spec sheet, PLUS every alias the
+    FORTLINE loader (and similar scripts) expects.
 ]]
 
 local UserInputService   = game:GetService("UserInputService")
@@ -21,7 +21,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "4.0.0",
+    Version = "4.1.0",
     Flags = {},
     Windows = {},
     Folder = "NihonLib",
@@ -40,16 +40,18 @@ local function keep(c) conns[#conns + 1] = c return c end
 ------------------------------------------------------------
 local Themes = {
     Nihon = {
-        Bg = Color3.fromRGB(15, 17, 21),
-        Surface = Color3.fromRGB(22, 24, 29),
-        Elevated = Color3.fromRGB(30, 33, 40),
-        Stroke = Color3.fromRGB(42, 46, 54),
-        Text = Color3.fromRGB(255, 255, 255),
-        Sub = Color3.fromRGB(160, 168, 183),
-        Accent = Color3.fromRGB(56, 130, 246),
-        Accent2 = Color3.fromRGB(99, 155, 255),
-        Success = Color3.fromRGB(34, 197, 94),
-        Error = Color3.fromRGB(239, 68, 68),
+        Bg = Color3.fromRGB(15, 17, 21), Surface = Color3.fromRGB(22, 24, 29),
+        Elevated = Color3.fromRGB(30, 33, 40), Stroke = Color3.fromRGB(42, 46, 54),
+        Text = Color3.fromRGB(255, 255, 255), Sub = Color3.fromRGB(160, 168, 183),
+        Accent = Color3.fromRGB(56, 130, 246), Accent2 = Color3.fromRGB(99, 155, 255),
+        Success = Color3.fromRGB(34, 197, 94), Error = Color3.fromRGB(239, 68, 68),
+    },
+    Glass = {
+        Bg = Color3.fromRGB(18, 20, 26), Surface = Color3.fromRGB(28, 31, 40),
+        Elevated = Color3.fromRGB(38, 42, 52), Stroke = Color3.fromRGB(70, 76, 90),
+        Text = Color3.fromRGB(245, 248, 255), Sub = Color3.fromRGB(170, 180, 200),
+        Accent = Color3.fromRGB(120, 180, 255), Accent2 = Color3.fromRGB(180, 140, 255),
+        Success = Color3.fromRGB(34, 197, 94), Error = Color3.fromRGB(239, 68, 68),
     },
     Sakura = {
         Bg = Color3.fromRGB(20, 14, 20), Surface = Color3.fromRGB(30, 22, 30),
@@ -73,7 +75,7 @@ local Themes = {
         Success = Color3.fromRGB(34, 197, 94), Error = Color3.fromRGB(239, 68, 68),
     },
 }
-local ThemeOrder = {"Nihon", "Sakura", "Midnight", "Light"}
+local ThemeOrder = {"Nihon", "Glass", "Sakura", "Midnight", "Light"}
 local Pal, themeName = {}, "Nihon"
 
 local function loadPalette(name)
@@ -90,6 +92,13 @@ local function statusColor(kind)
     return Pal.Accent
 end
 
+-- Icon map: supports lucide-style names used in your loader + rbxassetid
+local IconHttp = {}
+pcall(function()
+    local raw = game:HttpGet("https://raw.githubusercontent.com/evoincorp/lucideblox/master/src/modules/util/icons.json")
+    IconHttp = HttpService:JSONDecode(raw).icons or {}
+end)
+
 local Glyphs = {
     ["info"]="i", ["check"]="✓", ["x"]="✕", ["minus"]="−",
     ["chevron-down"]="⌄", ["chevron-up"]="⌃", ["chevron-right"]="›",
@@ -98,8 +107,10 @@ local Glyphs = {
     ["list"]="☰", ["palette"]="🎨", ["globe"]="🌐", ["shield"]="🛡",
     ["cpu"]="▣", ["wrench"]="🔧", ["flag"]="⚑", ["help-circle"]="?",
     ["bell"]="🔔", ["layers"]="▤", ["map"]="📍", ["target"]="◎",
-    ["lock"]="#", ["trash"]="🗑", ["save"]="💾", ["download"]="⬇",
-    ["upload"]="⬆", ["copy"]="📋", ["refresh"]="⟳",
+    ["crosshair"]="✛", ["skull"]="☠", ["maximize"]="⛶",
+    ["rotate-ccw"]="↺", ["rotate-cw"]="↻", ["lock"]="#", ["trash"]="🗑",
+    ["save"]="💾", ["download"]="⬇", ["upload"]="⬆", ["copy"]="📋",
+    ["refresh"]="⟳", ["sliders"]="⚟", ["activity"]="~", ["bell-ring"]="🔔",
 }
 
 local Fonts = {
@@ -259,20 +270,39 @@ local function setFont(name)
     for obj, w in pairs(fontObjs) do obj.Font = Fonts[name][w] end
 end
 
+-- Icon resolver: handles lucide names, rbxassetid://123, raw numbers
 local function makeIcon(parent, name, size, tone, props)
     local holder = mk("Frame", {BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size)})
     if props then for k, v in pairs(props) do holder[k] = v end end
     holder.Parent = parent
+    local img = mk("ImageLabel", {BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1),
+        ScaleType = Enum.ScaleType.Fit, Visible = false, Parent = holder})
     local glyph = tx("TextLabel", {Size = UDim2.fromScale(1, 1), TextSize = math.floor(size * 0.95),
         TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center,
         Parent = holder}, 3, tone or "Text")
-    local api = {Holder = holder, Glyph = glyph, Image = glyph}
+    if tone ~= false then bind(img, "ImageColor3", tone or "Text") end
+    local api = {Holder = holder, Image = img, Glyph = glyph}
     function api.Set(n)
-        local key = tostring(n or "")
-        glyph.Text = Glyphs[key] or key:sub(1, 1):upper()
+        local s = tostring(n or "")
+        local id
+        if IconHttp[s] then id = IconHttp[s]
+        elseif tonumber(s) then id = "rbxassetid://" .. s
+        elseif s:match("^rbxassetid://") or s:match("^rbxasset://") or s:match("^rbxthumb://") then id = s
+        end
+        if id then
+            img.Image = id img.Visible = true glyph.Visible = false
+        else
+            img.Visible = false glyph.Visible = true
+            glyph.Text = Glyphs[s] or s:sub(1, 1):upper()
+        end
     end
     function api.Color(c, animated)
-        if animated then play(glyph, 0.2, {TextColor3 = c}) else glyph.TextColor3 = c end
+        if animated then
+            play(img, 0.2, {ImageColor3 = c})
+            play(glyph, 0.2, {TextColor3 = c})
+        else
+            img.ImageColor3 = c glyph.TextColor3 = c
+        end
     end
     api.Set(name)
     return api
@@ -821,9 +851,9 @@ local function queueSave()
 end
 
 ------------------------------------------------------------
--- DIMENSIONS (spec-exact)
+-- DIMENSIONS
 ------------------------------------------------------------
-local WIN_W, WIN_H = 520, 380
+local DEFAULT_W, DEFAULT_H = 520, 380
 local SIDEBAR_W = 140
 local HEADER_H = 44
 local PADDING = 12
@@ -833,7 +863,7 @@ local TAB_H = 32
 local SECTION_H = 22
 
 ------------------------------------------------------------
--- HOOKS (forward decl)
+-- HOOKS
 ------------------------------------------------------------
 local Hooks = {}
 local ElementFactory
@@ -845,14 +875,24 @@ local TabImpl = {}
 function Nihon:MakeWindow(cfg)
     cfg = cfg or {}
     local title = tostring(cfg.Name or "UI Library")
+    local subtitle = cfg.Subtitle ~= nil and tostring(cfg.Subtitle) or ""
 
     if cfg.Theme and Themes[cfg.Theme] then setTheme(cfg.Theme, false) end
     if cfg.Font and Fonts[cfg.Font] then setFont(cfg.Font) end
     if cfg.Accent then setAccent(cfg.Accent, cfg.Accent2) end
 
+    Nihon.Folder = tostring(cfg.ConfigFolder or Nihon.Folder)
+    Nihon.SaveConfig = cfg.SaveConfig == true
+    Nihon.ShowLauncher = cfg.ShowLauncher ~= false
+
+    -- Dimensions: spec default, but honor Width/Height overrides
+    local WIN_W = tonumber(cfg.Width) or DEFAULT_W
+    local WIN_H = tonumber(cfg.Height) or DEFAULT_H
+
     local Window = {
         Tabs = {}, Name = title, Hidden = false, Minimized = false,
         Selected = nil, Scale = 1, Cfg = cfg, SearchIndex = {},
+        WIN_W = WIN_W, WIN_H = WIN_H,
     }
     Nihon.Windows[#Nihon.Windows + 1] = Window
 
@@ -883,9 +923,14 @@ function Nihon:MakeWindow(cfg)
     Window.LogoIcon = logoIcon
 
     local titleLbl = tx("TextLabel", {Text = title, TextSize = 13,
-        Position = UDim2.new(0, 40, 0, 0), Size = UDim2.new(0, 200, 1, 0),
+        Position = UDim2.new(0, 40, 0.5, -8), Size = UDim2.new(0, 200, 0, 14),
         TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 13, Parent = header}, 3)
+    local subLbl = tx("TextLabel", {Text = subtitle, TextSize = 10,
+        Position = UDim2.new(0, 40, 0.5, 5), Size = UDim2.new(0, 200, 0, 12),
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        Visible = subtitle ~= "", ZIndex = 13, Parent = header}, 1, "Sub")
     Window.TitleLabel = titleLbl
+    Window.SubtitleLabel = subLbl
 
     local controls = mk("Frame", {AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(0, 26),
@@ -1127,6 +1172,9 @@ function Nihon:MakeWindow(cfg)
     function Window:Toggle()
         if Window.Hidden then show() else hide(true) end
     end
+    function Window:RequestOpen()
+        if Window.Hidden then show() end
+    end
 
     launcher.Activated:Connect(function()
         if launcherMoved then launcherMoved = false return end
@@ -1138,6 +1186,13 @@ function Nihon:MakeWindow(cfg)
         Nihon:MakeNotification({Name = "Menu hidden",
             Content = "Tap the floating button to bring it back.", Type = "Info"})
     end)
+
+    local toggleKey = cfg.ToggleKey or Enum.KeyCode.RightShift
+    Window.ToggleKey = toggleKey
+    keep(UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == toggleKey then Window:Toggle() end
+    end))
 
     header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1171,6 +1226,12 @@ function Nihon:MakeWindow(cfg)
         end))
     end
 
+    if cfg.ShowSearch == false then searchBtnVisible = false end
+    if cfg.ShowHelp == false then helpBtn.Visible = false end
+    if cfg.ShowMinimize == false then minBtn.Visible = false end
+    if cfg.ShowClose == false then closeBtn.Visible = false end
+    if cfg.ShowLauncher == false then launcher.Visible = false end
+
     Window._parts = {
         shell = shell, clip = clip, header = header, sidebar = sidebar,
         tabScroll = tabScroll, content = content, uiScale = uiScale,
@@ -1178,9 +1239,7 @@ function Nihon:MakeWindow(cfg)
         searchIndex = Window.SearchIndex, avatar = avatar, dot = dot,
         launcher = launcher, closeBtn = closeBtn, minBtn = minBtn,
         helpBtn = helpBtn, minIco = minIco,
-        WIN_W = WIN_W, WIN_H = WIN_H, SIDEBAR_W = SIDEBAR_W,
-        HEADER_H = HEADER_H, PADDING = PADDING, CARD_H = CARD_H,
-        CARD_GAP = CARD_GAP, SECTION_H = SECTION_H,
+        WIN_W = WIN_W, WIN_H = WIN_H,
     }
 
     Hooks.attach(Window)
@@ -1920,19 +1979,9 @@ local function extendElements(E, ctx)
                 if ui.hex and not ui.hex:IsFocused() then
                     ui.hex.Text = "#" .. col:ToHex():upper()
                 end
-                if ui.rBox and not ui.rBox:IsFocused() then
-                    ui.rBox.Text = tostring(math.floor(col.R * 255 + 0.5))
-                end
-                if ui.gBox and not ui.gBox:IsFocused() then
-                    ui.gBox.Text = tostring(math.floor(col.G * 255 + 0.5))
-                end
-                if ui.bBox and not ui.bBox:IsFocused() then
-                    ui.bBox.Text = tostring(math.floor(col.B * 255 + 0.5))
-                end
             end
             if silent then firer.Sync(col) else firer.Fire() queueSave() end
         end
-
         local popupFrame
         function obj:Close()
             if popupFrame then
@@ -1943,7 +1992,7 @@ local function extendElements(E, ctx)
         function obj:Open()
             if obj.IsOpen or obj:IsLocked() then return end
             obj.IsOpen = true
-            local w, hgt = 220, 220
+            local w, hgt = 180, 180
             popupFrame = mk("Frame", {Size = UDim2.fromOffset(w, hgt),
                 BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 62, Parent = Root})
             bind(popupFrame, "BackgroundColor3", "Surface")
@@ -1952,7 +2001,7 @@ local function extendElements(E, ctx)
             mk("UIScale", {Scale = currentScale, Parent = popupFrame})
             inset(popupFrame, 8, 8, 8, 8)
 
-            local sv = mk("TextButton", {Size = UDim2.fromOffset(120, 110),
+            local sv = mk("TextButton", {Size = UDim2.fromOffset(110, 100),
                 BackgroundColor3 = Color3.fromHSV(h, 1, 1), ZIndex = 63, Parent = popupFrame})
             round(sv, 4)
             local white = mk("Frame", {Size = UDim2.fromScale(1, 1),
@@ -1971,7 +2020,7 @@ local function extendElements(E, ctx)
 
             local hue = mk("TextButton", {AnchorPoint = Vector2.new(1, 0),
                 Position = UDim2.new(1, 0, 0, 0),
-                Size = UDim2.fromOffset(14, 110),
+                Size = UDim2.fromOffset(14, 100),
                 BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 63, Parent = popupFrame})
             round(hue, 4)
             local hKeys = {}
@@ -1986,71 +2035,17 @@ local function extendElements(E, ctx)
             round(hueKnob, 2)
             mk("UIStroke", {Color = Color3.new(0, 0, 0), Transparency = 0.5, Parent = hueKnob})
 
-            local hex = tx("TextBox", {Position = UDim2.fromOffset(0, 118),
-                Size = UDim2.new(1, -54, 0, 22),
+            local hex = tx("TextBox", {Position = UDim2.fromOffset(0, 110),
+                Size = UDim2.new(1, 0, 0, 22),
                 PlaceholderText = "#RRGGBB", TextSize = 11,
                 Text = "#" .. obj.Value:ToHex():upper(),
+                TextXAlignment = Enum.TextXAlignment.Center,
                 ZIndex = 64, Parent = popupFrame}, 2)
             bind(hex, "BackgroundColor3", "Elevated")
             hex.BackgroundTransparency = 0
             round(hex, 4)
-            inset(hex, 0, 6, 0, 6)
 
-            local rb = tx("TextButton", {AnchorPoint = Vector2.new(1, 0),
-                Position = UDim2.new(1, 0, 0, 118), Size = UDim2.fromOffset(48, 22),
-                Text = "🌈", TextSize = 12,
-                TextXAlignment = Enum.TextXAlignment.Center,
-                ZIndex = 64, Parent = popupFrame}, 2)
-            bind(rb, "BackgroundColor3", "Elevated")
-            rb.BackgroundTransparency = 0
-            round(rb, 4)
-
-            local rgbRow = mk("Frame", {Position = UDim2.fromOffset(0, 146),
-                Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1,
-                ZIndex = 64, Parent = popupFrame})
-            mk("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal,
-                Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = rgbRow})
-            local function rgbBox(idx, val, order)
-                tx("TextLabel", {Text = idx, TextSize = 10,
-                    Size = UDim2.fromOffset(10, 22), LayoutOrder = order,
-                    TextXAlignment = Enum.TextXAlignment.Center,
-                    ZIndex = 65, Parent = rgbRow}, 2, "Sub")
-                local box = tx("TextBox", {Text = tostring(val), TextSize = 10,
-                    Size = UDim2.fromOffset(50, 22), LayoutOrder = order + 1,
-                    TextXAlignment = Enum.TextXAlignment.Center,
-                    ZIndex = 65, Parent = rgbRow}, 2)
-                bind(box, "BackgroundColor3", "Elevated")
-                box.BackgroundTransparency = 0
-                round(box, 4)
-                return box
-            end
-            local rBox = rgbBox("R", math.floor(obj.Value.R * 255 + 0.5), 1)
-            local gBox = rgbBox("G", math.floor(obj.Value.G * 255 + 0.5), 3)
-            local bBox = rgbBox("B", math.floor(obj.Value.B * 255 + 0.5), 5)
-
-            local presets = mk("Frame", {Position = UDim2.fromOffset(0, 174),
-                Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1,
-                ZIndex = 64, Parent = popupFrame})
-            mk("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal,
-                Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = presets})
-            local presetColors = {
-                Color3.fromRGB(239, 68, 68), Color3.fromRGB(245, 158, 11),
-                Color3.fromRGB(234, 179, 8), Color3.fromRGB(34, 197, 94),
-                Color3.fromRGB(56, 130, 246), Color3.fromRGB(139, 92, 246),
-                Color3.fromRGB(236, 72, 153), Color3.fromRGB(255, 255, 255),
-            }
-            for i, pc in ipairs(presetColors) do
-                local p = mk("TextButton", {Size = UDim2.fromOffset(20, 20),
-                    BackgroundColor3 = pc, LayoutOrder = i, ZIndex = 65, Parent = presets})
-                round(p, 4)
-                p.Activated:Connect(function()
-                    h, s, v = pc:ToHSV() obj.Rainbow = false apply()
-                end)
-            end
-
-            ui = {sv = sv, svKnob = svKnob, hueKnob = hueKnob, hex = hex,
-                rBox = rBox, gBox = gBox, bBox = bBox}
-
+            ui = {sv = sv, svKnob = svKnob, hueKnob = hueKnob, hex = hex}
             local mode
             local function fromPos(pos)
                 if mode == "sv" then
@@ -2059,14 +2054,12 @@ local function extendElements(E, ctx)
                 elseif mode == "hue" then
                     h = math.clamp((pos.Y - hue.AbsolutePosition.Y) / hue.AbsoluteSize.Y, 0, 0.999)
                 end
-                obj.Rainbow = false
                 apply()
             end
             trackPointer(sv, function(input) mode = "sv" fromPos(input.Position) end,
                 function(p) fromPos(p) end, function() mode = nil end)
             trackPointer(hue, function(input) mode = "hue" fromPos(input.Position) end,
                 function(p) fromPos(p) end, function() mode = nil end)
-
             hex.FocusLost:Connect(function()
                 local txt = hex.Text:gsub("#", "")
                 if #txt == 6 then
@@ -2075,31 +2068,6 @@ local function extendElements(E, ctx)
                 end
                 hex.Text = "#" .. obj.Value:ToHex():upper()
             end)
-            rBox.FocusLost:Connect(function()
-                local n = tonumber(rBox.Text)
-                if n then
-                    local col = Color3.fromRGB(math.clamp(n, 0, 255),
-                        math.floor(obj.Value.G * 255), math.floor(obj.Value.B * 255))
-                    h, s, v = col:ToHSV() apply()
-                end
-            end)
-            gBox.FocusLost:Connect(function()
-                local n = tonumber(gBox.Text)
-                if n then
-                    local col = Color3.fromRGB(math.floor(obj.Value.R * 255),
-                        math.clamp(n, 0, 255), math.floor(obj.Value.B * 255))
-                    h, s, v = col:ToHSV() apply()
-                end
-            end)
-            bBox.FocusLost:Connect(function()
-                local n = tonumber(bBox.Text)
-                if n then
-                    local col = Color3.fromRGB(math.floor(obj.Value.R * 255),
-                        math.floor(obj.Value.G * 255), math.clamp(n, 0, 255))
-                    h, s, v = col:ToHSV() apply()
-                end
-            end)
-            rb.Activated:Connect(function() obj.Rainbow = not obj.Rainbow end)
 
             local cPos = c.AbsolutePosition
             local cSize = c.AbsoluteSize
@@ -2129,13 +2097,6 @@ local function extendElements(E, ctx)
                 end)
             end)
         end
-
-        keep(RunService.Heartbeat:Connect(function()
-            if obj.Rainbow then
-                h = (os.clock() * 0.2) % 1
-                apply()
-            end
-        end))
         function obj:Set(col, silent)
             if typeof(col) ~= "Color3" then return end
             h, s, v = col:ToHSV() apply(silent)
@@ -2439,6 +2400,10 @@ local function attachWindowMethods(Window)
         Window.TitleLabel.Text = tostring(t)
         Window.Name = tostring(t)
     end
+    function Window:SetSubtitle(t)
+        Window.SubtitleLabel.Text = tostring(t)
+        Window.SubtitleLabel.Visible = tostring(t) ~= ""
+    end
     function Window:SetIcon(id)
         Window.LogoIcon.Set(id)
         Window.LauncherIcon.Set(id)
@@ -2448,8 +2413,90 @@ local function attachWindowMethods(Window)
             if t.Name == name then t.IconObj.Set(id) end
         end
     end
-    function Window:RequestOpen()
-        if Window.Hidden then Window.Show() end
+    function Window:SetLauncherVisible(on)
+        Nihon.ShowLauncher = on and true or false
+        if Window._parts.launcher then
+            Window._parts.launcher.Visible = Nihon.ShowLauncher and Window.Hidden
+        end
+    end
+    function Window:SetResizeVisible(on)
+        -- resize grip not implemented in spec layout; safe no-op
+    end
+    function Window:SetControlVisible(kind, on)
+        on = on and true or false
+        local P = Window._parts
+        if kind == "search" and P.searchBtn then P.searchBtn.Visible = on
+        elseif kind == "help" and P.helpBtn then P.helpBtn.Visible = on
+        elseif kind == "minimize" and P.minBtn then P.minBtn.Visible = on
+        elseif kind == "close" and P.closeBtn then P.closeBtn.Visible = on
+        elseif kind == "launcher" then Window:SetLauncherVisible(on) end
+    end
+
+    -- Settings tab (aliases for your loader's Window:AddSettingsTab())
+    function Window:AddSettingsTab(opts)
+        opts = opts or {}
+        local tab = Window:MakeTab({Name = opts.Name or "Settings", Icon = opts.Icon or "settings"})
+        local look = tab:AddSection({Name = "Appearance"})
+        look:AddDropdown({Name = "Theme", Options = ThemeOrder, Default = themeName,
+            Flag = "_theme", Save = true, Callback = function(v) setTheme(v, true) end})
+        look:AddDropdown({Name = "Font", Options = FontOrder, Default = currentFont,
+            Flag = "_font", Save = true, Callback = function(v) setFont(v) end})
+        look:AddColorpicker({Name = "Accent color", Default = Pal.Accent,
+            Flag = "_accent", Save = true, Callback = function(col)
+                if col == Pal.Accent then return end
+                setAccent(col)
+            end})
+        look:AddSlider({Name = "Animation speed", Min = 50, Max = 200, Default = 100,
+            Increment = 10, ValueName = "%", Flag = "_anim", Save = true,
+            Callback = function(v) animSpeed = v / 100 end})
+        local alerts = tab:AddSection({Name = "Notifications"})
+        alerts:AddSlider({Name = "Duration", Min = 1, Max = 12, Default = Notes.duration,
+            ValueName = "s", Flag = "_noteTime", Save = true,
+            Callback = function(v) Notes.duration = math.clamp(tonumber(v) or 4, 1, 30) end})
+        alerts:AddButton({Name = "Send test", Icon = "bell", Callback = function()
+            Nihon:MakeNotification({Name = "Test",
+                Content = "This is what alerts look like.", Type = "Info"})
+        end})
+        alerts:AddButton({Name = "Clear all", Icon = "trash", Callback = function()
+            for i = #Notes.active, 1, -1 do dismissNote(Notes.active[i]) end
+        end})
+        local cfg = tab:AddSection({Name = "Config"})
+        local nameBox = cfg:AddTextbox({Name = "Profile name", Placeholder = "my-config"})
+        local profiles = cfg:AddDropdown({Name = "Profiles",
+            Options = Nihon:ListProfiles(), AllowNone = true})
+        cfg:AddButton({Name = "Save profile", Icon = "save", Callback = function()
+            local n = nameBox:Get()
+            if n == "" then n = profiles:Get() or "" end
+            if n == "" then error("type a profile name first") end
+            if not Nihon:SaveProfile(n) then error("could not write file") end
+            profiles:Refresh(Nihon:ListProfiles())
+            Nihon:MakeNotification({Name = "Saved", Content = n, Type = "Success"})
+        end})
+        cfg:AddButton({Name = "Load profile", Icon = "download", Callback = function()
+            local n = profiles:Get()
+            if not n then error("choose a profile first") end
+            if not Nihon:LoadProfile(n) then error("could not read profile") end
+            Nihon:MakeNotification({Name = "Loaded", Content = n, Type = "Success"})
+        end})
+        cfg:AddButton({Name = "Delete profile", Icon = "trash", Callback = function()
+            local n = profiles:Get()
+            if not n then error("choose a profile first") end
+            Nihon:Dialog({Title = "Delete profile",
+                Content = "Permanently remove " .. n .. "?",
+                Buttons = {{Name = "Cancel"}, {Name = "Delete", Primary = true, Danger = true,
+                    Callback = function() Nihon:DeleteProfile(n) profiles:Refresh(Nihon:ListProfiles()) end}}})
+        end})
+        local ui = tab:AddSection({Name = "Interface"})
+        ui:AddButton({Name = "Destroy menu", Icon = "trash", Callback = function()
+            Nihon:Dialog({Title = "Destroy menu",
+                Content = "This removes everything and stops all connections.",
+                Buttons = {{Name = "Cancel"}, {Name = "Destroy", Primary = true, Danger = true,
+                    Callback = function() Nihon:Destroy() end}}})
+        end})
+        local about = tab:AddSection({Name = "About"})
+        about:AddParagraph({Title = "Nihon Lib " .. Nihon.Version,
+            Content = "Press Ctrl+K to search. Drag the header to move."})
+        return tab
     end
 end
 
