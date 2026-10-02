@@ -2022,7 +2022,13 @@ function Nihon:MakeWindow(cfg)
     local placed = false
 
     local function show(fromMorph)
-        if Window.Morphing then return end
+        Window.Morphing = false
+        -- cancel any in-flight shell tween from a previous hide
+        if tweens[shell] then
+            for _, tw in pairs(tweens[shell]) do
+                pcall(function() tw:Cancel() end)
+            end
+        end
         Window.Hidden = false
         applyScale(false)
         if not placed then
@@ -2096,7 +2102,7 @@ function Nihon:MakeWindow(cfg)
     end
 
     local function hide(toMorph)
-        if Window.Morphing then return end
+        Window.Morphing = false
         Window.Hidden = true
         Popup.close(true)
         hideTip()
@@ -2118,13 +2124,14 @@ function Nihon:MakeWindow(cfg)
             }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
             fadeGroup(shell, 0.36, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
 
-            task.delay(0.4, function()
+                        task.delay(0.4, function()
                 if mine ~= closeToken then return end
                 shell.Visible = false
                 shell.Size = UDim2.fromOffset(startW, fullH)
                 restoreGroup(shell)
                 body.Visible = true
                 Window.Minimized = false
+                Window.Morphing = false   -- unlock immediately so next toggle is instant
                 -- Launcher grows from center
                 launcher.BackgroundTransparency = 1
                 launcherStroke.Transparency = 1
@@ -2134,7 +2141,6 @@ function Nihon:MakeWindow(cfg)
                 launcherIcon.Glyph.TextTransparency = 1
                 iconBox.BackgroundTransparency = 1
                 showLauncher(true, sp)
-                -- fade in launcher contents
                 play(launcher, 0.4, {BackgroundTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                 play(launcherStroke, 0.4, {Transparency = 0.55}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                 play(launcherTitle, 0.35, {TextTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -2142,9 +2148,6 @@ function Nihon:MakeWindow(cfg)
                 play(iconBox, 0.35, {BackgroundTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                 play(launcherIcon.Image, 0.35, {ImageTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                 play(launcherIcon.Glyph, 0.35, {TextTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                task.delay(0.5, function()
-                    if mine == closeToken then Window.Morphing = false end
-                end)
             end)
         else
             local tw = play(uiScale, 0.22, {Scale = activeScale * 0.9}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
@@ -2166,14 +2169,13 @@ function Nihon:MakeWindow(cfg)
     Window.Show = function() show(false) end
     Window.Hide = function() hide(true) end
 
-    function Window:Toggle()
-        if Window.Morphing then return end
-        if Window.Hidden then
-            show(true)
-        else
-            hide(true)
-        end
+function Window:Toggle()
+    if Window.Hidden then
+        show(true)
+    else
+        hide(true)
     end
+end
 
     launcher.Activated:Connect(function()
         if launcherMoved then
