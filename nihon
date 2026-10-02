@@ -551,7 +551,7 @@ keep(RunService.RenderStepped:Connect(function()
 end))
 
 -- ============================================
--- POPUP
+-- POPUP (still used by nothing since picker is inline, kept for API)
 -- ============================================
 local Popup = {}
 local catcher = mk("TextButton", {
@@ -681,7 +681,7 @@ end
 function Nihon:SetAnimationSpeed(s) animSpeed = math.clamp(tonumber(s) or 1, 0.1, 60) end
 
 -- ============================================
--- NOTIFICATIONS
+-- NOTIFICATIONS (with pop fix)
 -- ============================================
 local Notes = {active = {}, queue = {}, byKey = {}, queuedKey = {}, max = 5, duration = 4, position = "TopRight"}
 local noteLayer = mk("Frame", {Name = "Notifications", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 100, Parent = Root})
@@ -794,14 +794,16 @@ spawnNote = function(entry)
 
     local frame = mk("CanvasGroup", {
         Name = "Note", Size = UDim2.fromOffset(w, 0), AutomaticSize = Enum.AutomaticSize.Y,
-        GroupTransparency = 1, BackgroundColor3 = Pal.Surface, Parent = noteLayer,
+        GroupTransparency = 1, BackgroundColor3 = Pal.Surface, BackgroundTransparency = 0.02, Parent = noteLayer,
     })
     round(frame, 12)
-    mk("UIStroke", {Color = Pal.Stroke, Thickness = 1, Transparency = 0.35, Parent = frame})
+    mk("UIStroke", {Color = color, Thickness = 1, Transparency = 0.18, Parent = frame})
+    local accentRail = mk("Frame", {Size = UDim2.new(0, 3, 1, -20), Position = UDim2.fromOffset(0, 10), BackgroundColor3 = color, ZIndex = 2, Parent = frame})
+    round(accentRail, 2)
     mk("UISizeConstraint", {MinSize = Vector2.new(0, 56), Parent = frame})
 
     local frameScale = mk("UIScale", {Scale = 0.92, Parent = frame})
-    n.pop = frameScale
+    n.pop = frameScale  -- FIXED: store for bumpNote
 
     local topRow = mk("Frame", {Size = UDim2.new(1, 0, 0, 24), BackgroundTransparency = 1, Parent = frame})
     inset(topRow, 12, 12, 0, 12)
@@ -908,6 +910,9 @@ spawnNote = function(entry)
         frame.Size = UDim2.fromOffset(w, n.height)
         if not n.dying then relayout() end
     end)
+
+    n.title = title
+    n.body = body
 
     n.bar = mk("Frame", {
         AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1),
@@ -1501,7 +1506,7 @@ local Sizes = {
     mobile = {w = 560, h = 380, side = 82, top = 58},
 }
 
-local ALWAYS_ICON = "11454816998"
+local ALWAYS_ICON = "star"
 local ALWAYS_NAME = "Always"
 local SEARCH_ICON = "2804603877"
 
@@ -1541,11 +1546,14 @@ function Nihon:MakeWindow(cfg)
 
     local searchIndex = {}
 
+    -- Window shell: opaque themed surface for readable controls
     local shell = mk("Frame", {
         Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
         Size = UDim2.fromOffset(baseW, baseH), ClipsDescendants = false, Visible = false, ZIndex = 10, Parent = Root,
     })
-    shell.BackgroundTransparency = 1
+    bind(shell, "BackgroundColor3", "Bg")
+    shell.BackgroundTransparency = 0.04
+    outline(shell, "Stroke", 1, 0.12)
     round(shell, 16)
     local uiScale = mk("UIScale", {Scale = 0.9, Parent = shell})
     Window.Shell = shell
@@ -1649,6 +1657,7 @@ function Nihon:MakeWindow(cfg)
         return btn, ico
     end
 
+    -- H button REMOVED. Search uses the new icon id.
     local searchBtn, searchIco = ctrlButton(1, SEARCH_ICON)
     local minBtn, minIco = ctrlButton(2, "minus")
     local closeBtn = ctrlButton(3, "x", Status.Error)
@@ -1661,7 +1670,7 @@ function Nihon:MakeWindow(cfg)
         Name = "Sidebar", AnchorPoint = Vector2.new(0, 0), Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(0, sideW, 1, 0), ZIndex = 22, Parent = body,
     })
     bind(side, "BackgroundColor3", "Surface")
-    side.BackgroundTransparency = 0.55
+    side.BackgroundTransparency = 0.08
     outline(side, "Stroke", 1, 0.75)
 
     local tabScroll = mk("ScrollingFrame", {
@@ -1686,6 +1695,7 @@ function Nihon:MakeWindow(cfg)
     round(pillBar, 2)
     accentGradient(pillBar, 90)
 
+    -- Real-time pill tracking - this fixes the scroll bug
     keep(RunService.Heartbeat:Connect(function()
         if not Window.Selected or not Window.Selected.Button or not Window.Selected.Button.Parent then
             pill.Visible = false
@@ -1698,6 +1708,7 @@ function Nihon:MakeWindow(cfg)
         local bTop = b.AbsolutePosition.Y
         local bBottom = bTop + b.AbsoluteSize.Y
         if bBottom < scTop + 2 or bTop > scBottom - 2 then
+            -- scrolled out of view
             pill.Visible = false
             pillBar.Visible = false
         else
@@ -1885,6 +1896,7 @@ function Nihon:MakeWindow(cfg)
         shell.Visible = true
         uiScale.Scale = activeScale * 0.85
         play(uiScale, 0.55, {Scale = activeScale}, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+        -- Hide launcher when window is shown
         if Nihon.ShowLauncher then showLauncher(false) end
     end
 
@@ -1895,6 +1907,7 @@ function Nihon:MakeWindow(cfg)
         closeToken = closeToken + 1
         local mine = closeToken
         if toLauncher then
+            -- collapse to launcher
             local w0 = shell.Size.X.Offset
             local lift = topH + 12
             if not Window.Minimized then
@@ -1937,6 +1950,7 @@ function Nihon:MakeWindow(cfg)
                 showLauncher(true)
             end)
         else
+            -- just fade
             local tw = play(uiScale, 0.22, {Scale = activeScale * 0.9}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
             after(tw, function()
                 if Window.Hidden and mine == closeToken then shell.Visible = false end
@@ -1953,8 +1967,13 @@ function Nihon:MakeWindow(cfg)
 
     Window.Show, Window.Hide = show, hide
 
+    -- Toggle: actually toggles
     function Window:Toggle()
-        if Window.Hidden then show() else hide(true) end
+        if Window.Hidden then
+            show()
+        else
+            hide(mobile and true or true)  -- collapse to launcher either way so it truly closes
+        end
     end
 
     launcher.Activated:Connect(function()
@@ -1974,10 +1993,15 @@ function Nihon:MakeWindow(cfg)
         })
     end)
 
+    -- FIXED toggle listener - actually toggles
     keep(UserInputService.InputBegan:Connect(function(input, gpe)
         if gpe then return end
         if input.KeyCode == Window.ToggleKey then
-            if Window.Hidden then show() else hide(true) end
+            if Window.Hidden then
+                show()
+            else
+                hide(true)
+            end
         end
     end))
 
@@ -2126,6 +2150,7 @@ function TabImpl.make(Window, tcfg)
         Visible = false, ZIndex = 23, Parent = P.content,
     })
 
+    -- Subtab bar (hidden until subtabs are added)
     local subBar = mk("Frame", {
         Name = "SubBar", Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1,
         Visible = false, ZIndex = 24, Parent = page,
@@ -2133,6 +2158,7 @@ function TabImpl.make(Window, tcfg)
     inset(subBar, 0, 0, 8, 0)
     stack(subBar, 6, Enum.FillDirection.Horizontal)
 
+    -- Main content scroll (used when no subtabs)
     local scroll = mk("ScrollingFrame", {
         Name = "Scroll", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ScrollBarThickness = mobile and 3 or 4,
         ScrollBarImageTransparency = 0.35, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -2142,6 +2168,7 @@ function TabImpl.make(Window, tcfg)
     inset(scroll, 2, 8, 12, 2)
     stack(scroll, 8)
 
+    -- Sub content container (used when subtabs exist)
     local subContent = mk("Frame", {
         Name = "SubContent", Position = UDim2.fromOffset(0, 40), Size = UDim2.new(1, 0, 1, -40),
         BackgroundTransparency = 1, Visible = false, ZIndex = 23, Parent = page,
@@ -2189,12 +2216,18 @@ function TabImpl.make(Window, tcfg)
     end
 
     local tabApi = ElementFactory(Window, Tab, scroll, nil)
+    -- Expose subtab creation on the public tab API returned by MakeTab.
+    function tabApi:AddSubTab(subName)
+        return Tab:AddSubTab(subName)
+    end
 
+    -- SubTab API
     local subtabs = {}
     local selectedSub
 
     function Tab:AddSubTab(subName)
         if not selectedSub then
+            -- first subtab: hide main scroll, show sub bar + content
             scroll.Visible = false
             subBar.Visible = true
             subContent.Visible = true
@@ -2211,7 +2244,7 @@ function TabImpl.make(Window, tcfg)
         })
         sIco.Image.ZIndex = 26
         sIco.Glyph.ZIndex = 26
-        tx("TextLabel", {
+        local sLbl = tx("TextLabel", {
             Text = sname, TextSize = 12, Position = UDim2.fromOffset(30, 0), Size = UDim2.new(0, 0, 1, 0),
             AutomaticSize = Enum.AutomaticSize.X, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 26, Parent = sBtn,
         }, 2)
@@ -2256,15 +2289,23 @@ function TabImpl.make(Window, tcfg)
         end)
 
         subtabs[#subtabs + 1] = subApi
+        -- Auto-select first subtab
         if #subtabs == 1 then
+            -- TextButton has no Activate() method; select the first subtab directly.
             task.defer(function()
-                sBtn:Activate()
+                if not sBtn.Parent then return end
+                selectedSub = subApi
+                for _, sub in ipairs(subtabs) do
+                    sub.Scroll.Visible = (sub == subApi)
+                end
+                refreshSubHighlight()
             end)
         end
 
         return subApi
     end
 
+    -- Legacy: still allow AddSection on the top-level tab (routes to scroll)
     function tabApi:AddSection(sc)
         sc = type(sc) == "table" and sc or {Name = sc}
         local secName = tostring(sc.Name or "Section")
@@ -2354,9 +2395,6 @@ function TabImpl.make(Window, tcfg)
         function section:Collapse(state) setCollapsed(state ~= false) end
         return section
     end
-
-    tabApi.SetIcon = Tab.SetIcon
-    tabApi.AddSubTab = Tab.AddSubTab
 
     return tabApi
 end
@@ -2639,6 +2677,9 @@ local function extendElements(E, ctx)
 
     E.AddKeybind = E.AddBind
 
+    -- ============================================
+    -- DROPDOWN (inline)
+    -- ============================================
     local function buildDropdown(o, multi)
         o = o or {}
         local label = tostring(o.Name or (multi and "Multi Select" or "Dropdown"))
@@ -2866,6 +2907,9 @@ local function extendElements(E, ctx)
     function E:AddDropdown(o) return buildDropdown(o, false) end
     function E:AddMultiDropdown(o) return buildDropdown(o, true) end
 
+    -- ============================================
+    -- COLORPICKER (inline like dropdown)
+    -- ============================================
     function E:AddColorpicker(o)
         o = o or {}
         local label = tostring(o.Name or "Color")
@@ -2922,6 +2966,8 @@ local function extendElements(E, ctx)
         local function buildPanel()
             if built then return end
             built = true
+            local pw = panel.AbsoluteSize.X
+            local ph = 240
             inset(panel, 8, 8, 8, 8)
             local holder = mk("Frame", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Parent = panel})
 
@@ -3411,9 +3457,14 @@ local function defaultIconChoices()
     return {"home", "eye", "zap", "star", "shield", "sword", "globe", "cpu", "layers", "flag", "map", "wrench"}
 end
 
+-- ============================================
+-- ALWAYS TAB CONTENT (image 3)
+-- ============================================
 local function populateAlwaysTab(tab)
+    -- Greeting hero
     local hero = tab:AddSection({Name = "Hello"})
 
+    -- User card (manually build)
     local wrap = mk("Frame", {Size = UDim2.new(1, 0, 0, 80), BackgroundTransparency = 1, Parent = hero.Holder})
     local card = mk("Frame", {
         Size = UDim2.new(1, 0, 0, 72), BackgroundColor3 = Pal.Surface, BackgroundTransparency = 0.15,
@@ -3440,12 +3491,13 @@ local function populateAlwaysTab(tab)
         TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 25, Parent = card,
     }, 1, "Sub")
 
+    -- System info grid
     local sys = tab:AddSection({Name = "System Info"})
     local grid = mk("Frame", {
         Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1,
         Parent = sys.Holder, LayoutOrder = 1,
     })
-    mk("UIGridLayout", {
+    local gridLayout = mk("UIGridLayout", {
         CellSize = UDim2.new(0.5, -4, 0, 72),
         CellPadding = UDim2.new(0, 8, 0, 8),
         SortOrder = Enum.SortOrder.LayoutOrder,
@@ -3454,11 +3506,14 @@ local function populateAlwaysTab(tab)
 
     local function infoCard(icon, label, valueFn)
         local cell = mk("Frame", {
-            BackgroundColor3 = Pal.Surface, BackgroundTransparency = 0.15, ZIndex = 24, Parent = grid,
+            BackgroundColor3 = Pal.Surface, BackgroundTransparency = 0.15, ZIndex = 24,
         })
         round(cell, 10)
         outline(cell, "Stroke", 1, 0.5)
-        makeIcon(cell, icon, 14, "Sub", {Position = UDim2.fromOffset(12, 12), ZIndex = 25})
+        cell.Parent = grid
+        makeIcon(cell, icon, 14, "Sub", {
+            Position = UDim2.fromOffset(12, 12), ZIndex = 25,
+        })
         tx("TextLabel", {
             Text = label, TextSize = 11, Position = UDim2.fromOffset(34, 12), Size = UDim2.new(1, -40, 0, 14),
             ZIndex = 25, Parent = cell,
@@ -3498,7 +3553,6 @@ local function attachSettings(Window)
         opts = opts or {}
         local tab = Window:MakeTab({Name = opts.Name or "Settings", Icon = opts.Icon or "settings"})
         local P = Window._parts
-
         local look = tab:AddSection({Name = "Appearance"})
         look:AddDropdown({
             Name = "Theme", Options = ThemeOrder, Default = themeName, Flag = "_theme", Save = true,
@@ -3525,6 +3579,22 @@ local function attachSettings(Window)
             Name = "Animation speed", Min = 50, Max = 200, Default = 100, Increment = 10, ValueName = "%", Flag = "_anim", Save = true,
             Callback = function(v) animSpeed = v / 100 end,
         })
+
+        local tabs = tab:AddSection({Name = "Tab icons"})
+        local names = {}
+        for _, t in ipairs(Window.Tabs) do names[#names + 1] = t.Name end
+        local pickTab = tabs:AddDropdown({Name = "Tab", Options = names, AllowNone = false})
+        local iconBox = tabs:AddTextbox({Name = "Icon", Placeholder = "rbxassetid://123 or name"})
+        tabs:AddButton({Name = "Apply icon", Icon = "check", Callback = function()
+            local target = pickTab:Get()
+            local id = iconBox:Get()
+            if not target then error("pick a tab first") end
+            if id == "" then error("type an icon first") end
+            if not resolveIcon(id) then error("that icon could not be resolved") end
+            if target == ALWAYS_NAME then error("the Always tab is locked") end
+            Window:SetTabIcon(target, id)
+            Nihon:MakeNotification({Name = "Icon changed", Content = target .. " now uses " .. id, Type = "Success"})
+        end})
 
         local hud = tab:AddSection({Name = "Overlay"})
         hud:AddToggle({Name = "Show overlay", Default = false, Flag = "_hud", Save = true, Callback = function(v) Hud.set(v) end})
@@ -3569,8 +3639,10 @@ local function attachSettings(Window)
             Nihon:MakeNotification({Name = "Loaded", Content = n, Type = "Success"})
         end})
 
+        local toggleSection = tab:AddSection({Name = "Toggle key"})
+        toggleSection:AddBind({Name = "Menu visibility", Default = Window.ToggleKey, Flag = "_toggleKey", Save = true, Callback = function() end})
+
         local ui = tab:AddSection({Name = "Interface"})
-        ui:AddBind({Name = "Toggle menu", Default = Window.ToggleKey, Flag = "_toggleKey", Save = true, Callback = function() end})
         ui:AddButton({Name = "Player stats", Icon = "user", Callback = function() Window:OpenStats() end})
         ui:AddButton({Name = "Reset position", Icon = "refresh-cw", Callback = function()
             local shell = P.shell
@@ -3917,6 +3989,7 @@ function Nihon:Init()
             end
             if not has then
                 local always = window:MakeTab({Name = ALWAYS_NAME, Icon = ALWAYS_ICON})
+                -- populate always tab
                 populateAlwaysTab(always)
                 for i, t in ipairs(window.Tabs) do
                     if t == always then t.Button.LayoutOrder = -1 end
