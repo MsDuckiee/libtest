@@ -5112,7 +5112,12 @@ local function populateAlwaysTab(tab)
         return r
     end
 
-    local holder = tab.Scroll
+    local holder = tab.Scroll or tab.Holder
+    if not holder and tab.AddSection then
+        local root = tab:AddSection({Name = ""})
+        holder = root.Holder
+    end
+    if not holder then return end
     holder.ZIndex = 24
 
     local hero = panel(holder, mobile and 92 or 86, 1)
