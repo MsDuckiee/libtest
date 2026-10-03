@@ -5092,10 +5092,271 @@ function ElementFactory(Window, Tab, parent, sectionName)
         return E:AddToggleList(o)
     end
 
+    function E:AddInlineTabs(o)
+        o = type(o) == "table" and o or {Options = o}
+        local label = tostring(o.Name or o.Title or "Tabs")
+        local raw = o.Options or o.Tabs or o.Items or {}
+        local tabs = {}
+        local buttons = {}
+        local pages = {}
+        local selected = nil
+        local obj = {}
+
+        local c = card(o.Height or (mobile and 96 or 88), true)
+        nameLabel(c, label, UDim2.new(1, -20, 0, 22))
+
+        local bar = mk("ScrollingFrame", {
+            Position = UDim2.fromOffset(10, 28),
+            Size = UDim2.new(1, -20, 0, mobile and 32 or 30),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ScrollBarThickness = 0,
+            ScrollingDirection = Enum.ScrollingDirection.X,
+            AutomaticCanvasSize = Enum.AutomaticSize.X,
+            CanvasSize = UDim2.fromOffset(0, 0),
+            ZIndex = 26,
+            Parent = c,
+        })
+
+        local row = mk("Frame", {
+            Size = UDim2.fromScale(1, 1),
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundTransparency = 1,
+            ZIndex = 26,
+            Parent = bar,
+        })
+
+        mk("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal,
+            Padding = UDim.new(0, 5),
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Parent = row,
+        })
+
+        local body = mk("Frame", {
+            Position = UDim2.fromOffset(10, mobile and 64 or 60),
+            Size = UDim2.new(1, -20, 0, o.ContentHeight or (mobile and 28 or 24)),
+            BackgroundTransparency = 1,
+            ZIndex = 25,
+            Parent = c,
+        })
+
+        local function normalize(v)
+            local out = {}
+            if type(v) ~= "table" then return out end
+            for i, x in ipairs(v) do
+                if type(x) == "table" then
+                    out[#out + 1] = {
+                        Name = tostring(x.Name or x.Title or x.Text or x.Label or i),
+                        Value = x.Value ~= nil and x.Value or (x.Name or x.Title or x.Text or x.Label or i),
+                        Callback = x.Callback or x.OnSelect,
+                        Build = x.Build or x.Builder or x.Content,
+                        Disabled = x.Disabled == true,
+                    }
+                else
+                    out[#out + 1] = {
+                        Name = tostring(x),
+                        Value = x,
+                    }
+                end
+            end
+            return out
+        end
+
+        tabs = normalize(raw)
+
+        local function restyle()
+            for i, b in ipairs(buttons) do
+                local on = tabs[i] and tabs[i].Value == selected
+                local bg = on and Pal.Accent or Pal.Elevated
+                local fg = on and onAccent() or Pal.Text
+                play(b, 0.16, {BackgroundColor3 = bg, TextColor3 = fg})
+            end
+        end
+
+        local function selectTab(v, silent)
+            local index
+            for i, t in ipairs(tabs) do
+                if t.Value == v or tostring(t.Value) == tostring(v) or t.Name == tostring(v) then
+                    index = i
+                    break
+                end
+            end
+            if not index or tabs[index].Disabled then return false end
+
+            selected = tabs[index].Value
+
+            for _, page in ipairs(pages) do
+                page.Visible = false
+            end
+
+            local page = pages[index]
+            if not page then
+                page = mk("Frame", {
+                    Size = UDim2.fromScale(1, 1),
+                    BackgroundTransparency = 1,
+                    Visible = false,
+                    ZIndex = 26,
+                    Parent = body,
+                })
+                pages[index] = page
+
+                local build = tabs[index].Build
+                if type(build) == "function" then
+                    pcall(build, page, obj)
+                elseif type(build) == "Instance" then
+                    build.Parent = page
+                elseif type(build) == "string" then
+                    tx("TextLabel", {
+                        Size = UDim2.fromScale(1, 1),
+                        Text = build,
+                        TextWrapped = true,
+                        TextSize = 12,
+                        Parent = page,
+                    }, 2, "Sub")
+                end
+            end
+
+            page.Visible = true
+            restyle()
+
+            if not silent and type(tabs[index].Callback) == "function" then
+                local ok, err = pcall(tabs[index].Callback, tabs[index].Value, tabs[index], obj)
+                if not ok then fail(c, label, err) end
+            end
+
+            if not silent and type(o.Callback) == "function" then
+                local ok, err = pcall(o.Callback, tabs[index].Value, tabs[index], obj)
+                if not ok then fail(c, label, err) end
+            end
+
+            obj.Value = tabs[index].Value
+            obj.Index = index
+            return true
+        end
+
+        local function rebuild()
+            for _, b in ipairs(buttons) do b:Destroy() end
+            for _, page in ipairs(pages) do page:Destroy() end
+            buttons = {}
+            pages = {}
+
+            for i, t in ipairs(tabs) do
+                local w = TextService:GetTextSize(t.Name, mobile and 11 or 12, Fonts[currentFont][3], Vector2.new(1000, 28))
+                local b = tx("TextButton", {
+                    Text = t.Name,
+                    TextSize = mobile and 11 or 12,
+                    Size = UDim2.fromOffset(math.max(58, w.X + 24), mobile and 28 or 26),
+                    LayoutOrder = i,
+                    TextXAlignment = Enum.TextXAlignment.Center,
+                    BackgroundTransparency = 0,
+                    ZIndex = 27,
+                    Parent = row,
+                }, 3)
+                round(b, 7)
+                outline(b, "Stroke", 1, 0.45)
+                b.Activated:Connect(function()
+                    selectTab(t.Value, false)
+                end)
+                if t.Disabled then
+                    b.Active = false
+                    b.TextTransparency = 0.5
+                end
+                buttons[i] = b
+            end
+
+            if selected ~= nil then
+                selectTab(selected, true)
+            elseif tabs[1] then
+                selectTab(tabs[1].Value, true)
+            end
+        end
+
+        function obj:Set(v, silent)
+            return selectTab(v, silent)
+        end
+
+        function obj:Get()
+            return selected
+        end
+
+        function obj:GetIndex()
+            return obj.Index
+        end
+
+        function obj:Refresh(v, keep)
+            local old = selected
+            tabs = normalize(v)
+            selected = nil
+            obj.Value = nil
+            obj.Index = nil
+            rebuild()
+            if keep and old ~= nil then
+                selectTab(old, true)
+            end
+            return obj
+        end
+
+        function obj:Add(v)
+            local n = normalize({v})[1]
+            if not n then return obj end
+            tabs[#tabs + 1] = n
+            rebuild()
+            return obj
+        end
+
+        function obj:Clear()
+            tabs = {}
+            selected = nil
+            obj.Value = nil
+            obj.Index = nil
+            rebuild()
+            return obj
+        end
+
+        function obj:SetCallback(fn)
+            o.Callback = fn
+            return obj
+        end
+
+        function obj:GetOptions()
+            local out = {}
+            for i, t in ipairs(tabs) do
+                out[i] = t.Value
+            end
+            return out
+        end
+
+        rebuild()
+
+        register(o.Flag, obj, o, function()
+            return selected
+        end, function(v)
+            selectTab(v, true)
+        end)
+
+        decorate(obj, c, o, "InlineTabs")
+
+        return obj
+    end
+
     extendElements(E, {
         Window = Window, Tab = Tab, P = P, card = card, nameLabel = nameLabel, decorate = decorate,
         register = register, fail = fail, mobile = mobile, rowH = rowH,
     })
+
+    function E:AddInlineTab(o)
+        return E:AddInlineTabs(o)
+    end
+
+    function E:AddTabs(o)
+        return E:AddInlineTabs(o)
+    end
+
+    function E:AddTabList(o)
+        return E:AddInlineTabs(o)
+    end
 
     return E
 end
