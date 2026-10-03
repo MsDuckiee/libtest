@@ -5439,6 +5439,8 @@ local function populateAlwaysTab(tab)
         Nihon:MakeNotification({Name = "Discord", Content = "Invite copied to clipboard.", Type = "Info", Time = 3})
     end)
 end
+
+local function attachSettings(Window)
     function Window:AddSettingsTab(opts)
         opts = opts or {}
         local tab = Window:MakeTab({Name = opts.Name or "Settings", Icon = opts.Icon or "settings"})
