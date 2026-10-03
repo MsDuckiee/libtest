@@ -5148,7 +5148,7 @@ local function populateAlwaysTab(tab)
     local cta = tab:AddSection({Name = "", Collapsible = false})
     cta:AddLinkButton({
         Name = "Join our Discord",
-        URL = "https://discord.gg/yourinvite",
+        URL = "https://discord.gg/ZnXzy8nZG",
         Icon = "discord",
     })
 end
