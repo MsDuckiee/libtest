@@ -2704,7 +2704,7 @@ function TabImpl.make(Window, tcfg)
         tabBuilt = true
         if pendingBuilder then
             local ok, err = pcall(pendingBuilder, tabApi)
-            if not ok then warn("[Nihon] tab builder failed: " .. tostring(err)) end
+            if not ok then end
         end
     end
 
@@ -5049,212 +5049,365 @@ end
 
 local function populateAlwaysTab(tab)
     local Window = tab.Window or Nihon.Windows[1]
+    local P = Window._parts
+    local mobile = P.mobile
 
-    -- ── Layout constants pulled straight from the mock ──
-    local PANEL_BG     = Color3.fromRGB(28, 28, 32)
-    local PANEL_BG2    = Color3.fromRGB(24, 24, 28)
-    local CARD_BG      = Color3.fromRGB(38, 38, 44)
-    local CARD_BG2     = Color3.fromRGB(34, 34, 40)
-    local BORDER       = Color3.fromRGB(58, 58, 66)
-    local TEXT         = Color3.fromRGB(235, 235, 240)
-    local SUB          = Color3.fromRGB(150, 150, 160)
-    local GREEN        = Color3.fromRGB(80, 200, 120)
-    local AMBER        = Color3.fromRGB(240, 180, 70)
-    local RED          = Color3.fromRGB(235, 90, 90)
-    local BLUE         = Color3.fromRGB(88, 101, 242)
-
-    local function flatPanel(parent, order, height)
+    local function panel(parent, h, order)
         local f = mk("Frame", {
-            Size = UDim2.new(1, 0, 0, height or 0),
-            AutomaticSize = height and Enum.AutomaticSize.None or Enum.AutomaticSize.Y,
-            BackgroundColor3 = PANEL_BG, BackgroundTransparency = 0,
-            LayoutOrder = order or 1, ZIndex = 24, Parent = parent,
+            Size = UDim2.new(1, 0, 0, h or 0),
+            AutomaticSize = h and Enum.AutomaticSize.None or Enum.AutomaticSize.Y,
+            BackgroundTransparency = 0.04,
+            LayoutOrder = order or 1,
+            ZIndex = 24,
+            Parent = parent,
         })
+        bind(f, "BackgroundColor3", "Surface")
         round(f, 12)
-        local st = mk("UIStroke", {
-            Thickness = 1, Color = BORDER, Transparency = 0.4,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = f,
-        })
-        return f, st
+        outline(f, "Stroke", 1, 0.35)
+        return f
     end
 
-    local function panelHeader(parent, title, subtitle, order)
+    local function title(parent, text, sub, order)
         local h = mk("Frame", {
-            Size = UDim2.new(1, 0, 0, subtitle and 40 or 26),
-            BackgroundTransparency = 1, LayoutOrder = order or 1, ZIndex = 25, Parent = parent,
+            Size = UDim2.new(1, 0, 0, sub and 42 or 30),
+            BackgroundTransparency = 1,
+            LayoutOrder = order or 1,
+            ZIndex = 25,
+            Parent = parent,
         })
         tx("TextLabel", {
-            Text = title, TextSize = 13, Position = UDim2.fromOffset(14, 8),
-            Size = UDim2.new(1, -28, 0, 16), TextXAlignment = Enum.TextXAlignment.Left,
-            TextColor3 = TEXT, ZIndex = 26, Parent = h,
+            Text = text,
+            TextSize = 13,
+            Position = UDim2.fromOffset(14, 7),
+            Size = UDim2.new(1, -28, 0, 17),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 26,
+            Parent = h,
         }, 3)
-        if subtitle then
+        if sub then
             tx("TextLabel", {
-                Text = subtitle, TextSize = 10, Position = UDim2.fromOffset(14, 24),
-                Size = UDim2.new(1, -28, 0, 13), TextXAlignment = Enum.TextXAlignment.Left,
-                TextColor3 = SUB, ZIndex = 26, Parent = h,
-            }, 1)
+                Text = sub,
+                TextSize = 10,
+                Position = UDim2.fromOffset(14, 24),
+                Size = UDim2.new(1, -28, 0, 13),
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = 26,
+                Parent = h,
+            }, 1, "Sub")
         end
         return h
     end
 
-    local function innerList(parent)
-        local f = mk("Frame", {
-            Size = UDim2.new(1, -20, 0, 0), Position = UDim2.fromOffset(10, 0),
-            AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1,
-            ZIndex = 25, Parent = parent,
+    local function row(parent, h, order)
+        local r = mk("Frame", {
+            Size = UDim2.new(1, 0, 0, h or 34),
+            BackgroundTransparency = 0.08,
+            LayoutOrder = order or 1,
+            ZIndex = 26,
+            Parent = parent,
         })
-        stack(f, 6)
-        return f
+        bind(r, "BackgroundColor3", "Elevated")
+        round(r, 9)
+        outline(r, "Stroke", 1, 0.58)
+        return r
     end
 
-    local function statRow(parent, order, label, valueFn, toneFn)
-        local row = mk("Frame", {
-            Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = CARD_BG,
-            BackgroundTransparency = 0, LayoutOrder = order, ZIndex = 26, Parent = parent,
-        })
-        round(row, 8)
-        local lab = tx("TextLabel", {
-            Text = label, TextSize = 11, Position = UDim2.fromOffset(10, 0),
-            Size = UDim2.new(0.55, -12, 1, 0), TextXAlignment = Enum.TextXAlignment.Left,
-            TextColor3 = SUB, ZIndex = 27, Parent = row,
-        }, 1)
-        local val = tx("TextLabel", {
-            Text = "-", TextSize = 12, AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.new(0.45, -12, 1, 0),
-            TextXAlignment = Enum.TextXAlignment.Right, TextTruncate = Enum.TextTruncate.AtEnd,
-            TextColor3 = TEXT, ZIndex = 27, Parent = row,
-        }, 3)
-        task.spawn(function()
-            while row.Parent do
-                val.Text = tostring(valueFn())
-                if toneFn then val.TextColor3 = toneFn() end
-                task.wait(0.4)
-            end
-        end)
-        return row
-    end
+    local holder = tab.Scroll
+    holder.ZIndex = 24
 
-    -- ═══════════════════════════════════════════
-    -- ROOT: two columns
-    -- ═══════════════════════════════════════════
-    local root = tab:AddSection({Name = ""})
-    local rootHolder = root.Holder
+    local hero = panel(holder, mobile and 92 or 86, 1)
 
-    -- HERO CARD (spans full width)
-    local hero = mk("Frame", {
-        Size = UDim2.new(1, 0, 0, 78), BackgroundColor3 = PANEL_BG,
-        BackgroundTransparency = 0, LayoutOrder = 1, ZIndex = 24, Parent = rootHolder,
+    local avatar = mk("ImageLabel", {
+        Position = UDim2.fromOffset(14, 14),
+        Size = UDim2.fromOffset(58, 58),
+        BackgroundTransparency = 0,
+        ZIndex = 26,
+        Parent = hero,
     })
-    round(hero, 12)
-    mk("UIStroke", {Thickness = 1, Color = BORDER, Transparency = 0.4, Parent = hero})
-
-    local av = mk("ImageLabel", {
-        Position = UDim2.fromOffset(14, 14), Size = UDim2.fromOffset(50, 50),
-        BackgroundColor3 = CARD_BG, ZIndex = 25, Parent = hero,
-    })
-    round(av, 25)
-    mk("UIStroke", {Thickness = 1, Color = BORDER, Transparency = 0.2, Parent = av})
-    Stat.avatar(function(img) if av.Parent then av.Image = img end end)
+    bind(avatar, "BackgroundColor3", "Elevated")
+    round(avatar, 29)
+    outline(avatar, "Stroke", 1, 0.2)
+    Stat.avatar(function(img)
+        if avatar.Parent then avatar.Image = img end
+    end)
 
     local online = mk("Frame", {
-        AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -2, 1, -2),
-        Size = UDim2.fromOffset(11, 11), BackgroundColor3 = GREEN, ZIndex = 26, Parent = av,
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.fromOffset(13, 13),
+        BackgroundColor3 = Status.Success,
+        ZIndex = 27,
+        Parent = avatar,
     })
-    round(online, 6)
-    mk("UIStroke", {Thickness = 2, Color = PANEL_BG, Transparency = 0, Parent = online})
+    round(online, 7)
+    mk("UIStroke", {
+        Thickness = 2,
+        Color = Pal.Surface,
+        Parent = online,
+    })
 
     tx("TextLabel", {
-        Text = LocalPlayer.DisplayName, TextSize = 17, Position = UDim2.fromOffset(76, 14),
-        Size = UDim2.new(1, -96, 0, 20), TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd, TextColor3 = TEXT, ZIndex = 25, Parent = hero,
+        Text = LocalPlayer.DisplayName,
+        TextSize = 17,
+        Position = UDim2.fromOffset(84, 13),
+        Size = UDim2.new(1, -190, 0, 21),
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 26,
+        Parent = hero,
     }, 3)
-    tx("TextLabel", {
-        Text = "@" .. LocalPlayer.Name, TextSize = 11, Position = UDim2.fromOffset(76, 35),
-        Size = UDim2.new(1, -96, 0, 16), TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd, TextColor3 = SUB, ZIndex = 25, Parent = hero,
-    }, 1)
 
-    local pillRow = mk("Frame", {
-        Position = UDim2.fromOffset(76, 53), Size = UDim2.new(1, -96, 0, 16),
-        BackgroundTransparency = 1, ZIndex = 25, Parent = hero,
+    tx("TextLabel", {
+        Text = "@" .. LocalPlayer.Name,
+        TextSize = 11,
+        Position = UDim2.fromOffset(84, 35),
+        Size = UDim2.new(1, -190, 0, 15),
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 26,
+        Parent = hero,
+    }, 1, "Sub")
+
+    local session = mk("Frame", {
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -12, 0, 14),
+        Size = UDim2.fromOffset(94, 24),
+        BackgroundTransparency = 0.72,
+        ZIndex = 26,
+        Parent = hero,
     })
-    mk("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6),
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        SortOrder = Enum.SortOrder.LayoutOrder, Parent = pillRow,
-    })
-    local function tag(text, color)
-        local t = tx("TextLabel", {
-            Text = text, TextSize = 10, Size = UDim2.fromOffset(0, 16),
-            AutomaticSize = Enum.AutomaticSize.X, TextXAlignment = Enum.TextXAlignment.Center,
-            BackgroundColor3 = color, BackgroundTransparency = 0.82,
-            TextColor3 = color, ZIndex = 26, Parent = pillRow,
-        }, 3)
-        inset(t, 0, 8, 0, 8)
-        round(t, 8)
-        return t
-    end
-    local sessLbl = tag("Session: " .. Stat.session(), BLUE)
+    bind(session, "BackgroundColor3", "Accent")
+    round(session, 12)
+
+    tx("TextLabel", {
+        Text = "SESSION",
+        TextSize = 8,
+        Position = UDim2.fromOffset(9, 2),
+        Size = UDim2.new(1, -18, 0, 9),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 27,
+        Parent = session,
+    }, 3, "Sub")
+
+    local sessionValue = tx("TextLabel", {
+        Text = Stat.session(),
+        TextSize = 10,
+        Position = UDim2.fromOffset(9, 11),
+        Size = UDim2.new(1, -18, 0, 11),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 27,
+        Parent = session,
+    }, 3)
+
     task.spawn(function()
-        while sessLbl.Parent do
-            sessLbl.Text = "Session: " .. Stat.session()
+        while sessionValue.Parent do
+            sessionValue.Text = Stat.session()
             task.wait(1)
         end
     end)
-    tag("v" .. Nihon.Version, GREEN)
 
-    -- Two columns
-    local cols = mk("Frame", {
-        Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1, LayoutOrder = 2, ZIndex = 24, Parent = rootHolder,
+    local version = mk("Frame", {
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -12, 0, 44),
+        Size = UDim2.fromOffset(94, 22),
+        BackgroundTransparency = 0.78,
+        ZIndex = 26,
+        Parent = hero,
     })
-    mk("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 8),
-        SortOrder = Enum.SortOrder.LayoutOrder, Parent = cols,
-    })
-
-    local leftCol = mk("Frame", {
-        Size = UDim2.new(0.5, -4, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1, LayoutOrder = 1, ZIndex = 24, Parent = cols,
-    })
-    stack(leftCol, 8)
-    local rightCol = mk("Frame", {
-        Size = UDim2.new(0.5, -4, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1, LayoutOrder = 2, ZIndex = 24, Parent = cols,
-    })
-    stack(rightCol, 8)
-
-    -- ═══ LEFT: SERVER ═══
-    local server, serverStroke = flatPanel(leftCol, 1)
-    panelHeader(server, "Server", "Live game performance", 1)
-    local serverList = innerList(server)
-    serverList.LayoutOrder = 2
-
-    statRow(serverList, 1, "FPS", function() return Metrics.fps end, function()
-        return Metrics.fps >= 50 and GREEN or (Metrics.fps >= 30 and AMBER or RED)
-    end)
-    statRow(serverList, 2, "Ping", function() return Metrics.ping .. " ms" end, function()
-        return Metrics.ping <= 90 and GREEN or (Metrics.ping <= 170 and AMBER or RED)
-    end)
-    statRow(serverList, 3, "Memory", function() return Metrics.mem .. " MB" end, function() return SUB end)
-
-    local rejoin = mk("TextButton", {
-        Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = CARD_BG,
-        BackgroundTransparency = 0, LayoutOrder = 4, ZIndex = 26, Parent = serverList,
-    })
-    round(rejoin, 8)
-    mk("UIStroke", {Thickness = 1, Color = BORDER, Transparency = 0.4, Parent = rejoin})
+    bind(version, "BackgroundColor3", "Elevated")
+    round(version, 11)
     tx("TextLabel", {
-        Text = "Rejoin Server", TextSize = 12, Size = UDim2.fromScale(1, 1),
-        TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = TEXT,
-        BackgroundTransparency = 1, ZIndex = 27, Parent = rejoin,
+        Text = "NIHON  v" .. Nihon.Version,
+        TextSize = 9,
+        Size = UDim2.fromScale(1, 1),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 27,
+        Parent = version,
+    }, 3, "Sub")
+
+    local metrics = mk("Frame", {
+        Size = UDim2.new(1, 0, 0, 68),
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        ZIndex = 24,
+        Parent = holder,
+    })
+
+    local metricLayout = mk("UIGridLayout", {
+        CellSize = UDim2.new(1 / 3, -6, 1, 0),
+        CellPadding = UDim2.fromOffset(8, 0),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = metrics,
+    })
+
+    local function metricCard(label, valueFn, toneFn, order)
+        local c = row(metrics, 68, order)
+        local dot = mk("Frame", {
+            Position = UDim2.fromOffset(12, 15),
+            Size = UDim2.fromOffset(7, 7),
+            BackgroundColor3 = Pal.Accent,
+            ZIndex = 27,
+            Parent = c,
+        })
+        round(dot, 4)
+
+        tx("TextLabel", {
+            Text = label,
+            TextSize = 9,
+            Position = UDim2.fromOffset(27, 9),
+            Size = UDim2.new(1, -38, 0, 13),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 27,
+            Parent = c,
+        }, 1, "Sub")
+
+        local val = tx("TextLabel", {
+            Text = "-",
+            TextSize = 17,
+            Position = UDim2.fromOffset(12, 27),
+            Size = UDim2.new(1, -24, 0, 23),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 27,
+            Parent = c,
+        }, 3)
+
+        task.spawn(function()
+            while c.Parent do
+                val.Text = tostring(valueFn())
+                val.TextColor3 = toneFn and toneFn() or Pal.Text
+                task.wait(0.35)
+            end
+        end)
+        return c
+    end
+
+    metricCard("FPS", function()
+        return Metrics.fps
+    end, function()
+        return Metrics.fps >= 50 and Status.Success or (Metrics.fps >= 30 and Status.Warning or Status.Error)
+    end, 1)
+
+    metricCard("PING", function()
+        return Metrics.ping .. " ms"
+    end, function()
+        return Metrics.ping <= 90 and Status.Success or (Metrics.ping <= 170 and Status.Warning or Status.Error)
+    end, 2)
+
+    metricCard("MEMORY", function()
+        return Metrics.mem .. " MB"
+    end, function()
+        return Pal.Text
+    end, 3)
+
+    local columns = mk("Frame", {
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        LayoutOrder = 3,
+        ZIndex = 24,
+        Parent = holder,
+    })
+
+    local cols = mk("UIListLayout", {
+        FillDirection = mobile and Enum.FillDirection.Vertical or Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = columns,
+    })
+
+    local left = mk("Frame", {
+        Size = mobile and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -4, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        LayoutOrder = 1,
+        ZIndex = 24,
+        Parent = columns,
+    })
+    stack(left, 8)
+
+    local right = mk("Frame", {
+        Size = mobile and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -4, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        ZIndex = 24,
+        Parent = columns,
+    })
+    stack(right, 8)
+
+    local server = panel(left, 0, 1)
+    title(server, "SERVER", "Live connection", 1)
+    local serverBody = mk("Frame", {
+        Size = UDim2.new(1, -20, 0, 0),
+        Position = UDim2.fromOffset(10, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        ZIndex = 25,
+        Parent = server,
+    })
+    stack(serverBody, 6)
+
+    local function infoRow(parent, label, valueFn, toneFn, order)
+        local r = row(parent, 34, order)
+        tx("TextLabel", {
+            Text = label,
+            TextSize = 10,
+            Position = UDim2.fromOffset(11, 0),
+            Size = UDim2.new(0.45, -12, 1, 0),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 27,
+            Parent = r,
+        }, 1, "Sub")
+        local v = tx("TextLabel", {
+            Text = "-",
+            TextSize = 11,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -11, 0.5, 0),
+            Size = UDim2.new(0.55, -12, 1, 0),
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 27,
+            Parent = r,
+        }, 3)
+        task.spawn(function()
+            while r.Parent do
+                v.Text = tostring(valueFn())
+                v.TextColor3 = toneFn and toneFn() or Pal.Text
+                task.wait(0.5)
+            end
+        end)
+        return r
+    end
+
+    infoRow(serverBody, "Players", function()
+        return #Players:GetPlayers() .. " / " .. Players.MaxPlayers
+    end, nil, 1)
+
+    infoRow(serverBody, "Job ID", function()
+        return game.JobId ~= "" and game.JobId:sub(1, 8) or "Studio"
+    end, nil, 2)
+
+    local rejoin = row(serverBody, 34, 3)
+    local rejoinIcon = makeIcon(rejoin, "refresh-cw", 14, "Accent", {
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 11, 0.5, 0),
+        ZIndex = 27,
+    })
+    rejoinIcon.Image.ZIndex = 27
+    rejoinIcon.Glyph.ZIndex = 27
+    tx("TextLabel", {
+        Text = "Rejoin server",
+        TextSize = 11,
+        Position = UDim2.fromOffset(33, 0),
+        Size = UDim2.new(1, -42, 1, 0),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 27,
+        Parent = rejoin,
     }, 3)
     rejoin.InputBegan:Connect(function(input)
         if not isPointer(input) then return end
         Nihon:Dialog({
-            Title = "Rejoin Server", Content = "Reconnect to the current server?",
+            Title = "Rejoin server",
+            Content = "Reconnect to the current server?",
             Buttons = {
                 {Name = "Cancel"},
                 {Name = "Rejoin", Primary = true, Callback = function()
@@ -5266,178 +5419,286 @@ local function populateAlwaysTab(tab)
         })
     end)
 
-    -- ═══ LEFT: MAIN ═══
-    local main, mainStroke = flatPanel(leftCol, 2)
-    panelHeader(main, "Main", "Quick shortcuts", 1)
-    local mainList = innerList(main)
-    mainList.LayoutOrder = 2
+    local actions = panel(left, 0, 2)
+    title(actions, "QUICK ACTIONS", "Common controls", 1)
+    local actionBody = mk("Frame", {
+        Size = UDim2.new(1, -20, 0, 0),
+        Position = UDim2.fromOffset(10, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        ZIndex = 25,
+        Parent = actions,
+    })
+    stack(actionBody, 6)
 
-    local mainBtns = {
-        {"Send test notification", GREEN},
-        {"Toggle overlay",        BLUE},
-        {"Player stats",          AMBER},
-        {"Settings",              RED},
-    }
-    for i, entry in ipairs(mainBtns) do
-        local name, tone = entry[1], entry[2]
-        local b = mk("TextButton", {
-            Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = CARD_BG,
-            BackgroundTransparency = 0, LayoutOrder = i, ZIndex = 26, Parent = mainList,
+    local function action(name, icon, color, callback, order)
+        local b = row(actionBody, 36, order)
+        local i = makeIcon(b, icon, 15, false, {
+            AnchorPoint = Vector2.new(0, 0.5),
+            Position = UDim2.new(0, 11, 0.5, 0),
+            ZIndex = 27,
         })
-        round(b, 8)
-        mk("UIStroke", {Thickness = 1, Color = BORDER, Transparency = 0.5, Parent = b})
-        local dot = mk("Frame", {
-            Position = UDim2.fromOffset(10, 12), Size = UDim2.fromOffset(6, 6),
-            BackgroundColor3 = tone, ZIndex = 27, Parent = b,
-        })
-        round(dot, 3)
+        i.Color(color)
+        i.Image.ZIndex = 27
+        i.Glyph.ZIndex = 27
         tx("TextLabel", {
-            Text = name, TextSize = 12, Position = UDim2.fromOffset(24, 0),
-            Size = UDim2.new(1, -32, 1, 0), TextXAlignment = Enum.TextXAlignment.Left,
-            TextColor3 = TEXT, BackgroundTransparency = 1, ZIndex = 27, Parent = b,
+            Text = name,
+            TextSize = 11,
+            Position = UDim2.fromOffset(34, 0),
+            Size = UDim2.new(1, -44, 1, 0),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 27,
+            Parent = b,
         }, 2)
         b.InputBegan:Connect(function(input)
             if not isPointer(input) then return end
-            if name == "Send test notification" then
-                Nihon:MakeNotification({Name = "It works!", Content = "Notifications are wired up.", Type = "Success"})
-            elseif name == "Toggle overlay" then
-                Hud.set(not Hud.enabled)
-            elseif name == "Player stats" then
-                Window:OpenStats()
-            elseif name == "Settings" then
-                for _, t in ipairs(Window.Tabs) do
-                    if t.Name == "Settings" then Window:SelectTab(t) break end
-                end
-            end
+            callback()
         end)
+        return b
     end
 
-    -- ═══ RIGHT: FRIENDS ═══
-    local friends, friendsStroke = flatPanel(rightCol, 1)
-    panelHeader(friends, "Friends", "Players in this server", 1)
-    local friendGrid = mk("Frame", {
-        Size = UDim2.new(1, -20, 0, 0), Position = UDim2.fromOffset(10, 0),
-        AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1,
-        LayoutOrder = 2, ZIndex = 25, Parent = friends,
-    })
-    mk("UIGridLayout", {
-        CellSize = UDim2.new(0.5, -3, 0, 34),
-        CellPadding = UDim2.new(0, 6, 0, 6),
-        SortOrder = Enum.SortOrder.LayoutOrder, Parent = friendGrid,
-    })
+    action("Test notification", "bell", Status.Success, function()
+        Nihon:MakeNotification({
+            Name = "It works!",
+            Content = "Notifications are wired up.",
+            Type = "Success",
+        })
+    end, 1)
 
-    local friendCells = {}
-    local function rebuildFriends()
-        for _, c in ipairs(friendCells) do c:Destroy() end
-        friendCells = {}
-        local shown = 0
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer then
-                shown = shown + 1
-                if shown > 4 then break end
-                local cell = mk("Frame", {
-                    BackgroundColor3 = CARD_BG, BackgroundTransparency = 0,
-                    LayoutOrder = shown, ZIndex = 26, Parent = friendGrid,
-                })
-                round(cell, 8)
-                mk("UIStroke", {Thickness = 1, Color = BORDER, Transparency = 0.5, Parent = cell})
-                local fAv = mk("ImageLabel", {
-                    Position = UDim2.fromOffset(4, 6), Size = UDim2.fromOffset(22, 22),
-                    BackgroundColor3 = CARD_BG2, ZIndex = 27, Parent = cell,
-                })
-                round(fAv, 11)
-                pcall(function()
-                    fAv.Image = Players:GetUserThumbnailAsync(plr.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
-                end)
-                tx("TextLabel", {
-                    Text = plr.DisplayName, TextSize = 10, Position = UDim2.fromOffset(30, 0),
-                    Size = UDim2.new(1, -34, 1, 0), TextXAlignment = Enum.TextXAlignment.Left,
-                    TextTruncate = Enum.TextTruncate.AtEnd, TextColor3 = TEXT, ZIndex = 27, Parent = cell,
-                }, 2)
-                friendCells[#friendCells + 1] = cell
+    action("Toggle overlay", "activity", Pal.Accent, function()
+        Hud.set(not Hud.enabled)
+    end, 2)
+
+    action("Player stats", "user", Status.Warning, function()
+        Window:OpenStats()
+    end, 3)
+
+    action("Open settings", "settings", Status.Error, function()
+        for _, t in ipairs(Window.Tabs) do
+            if t.Name == "Settings" then
+                Window:SelectTab(t)
+                break
             end
         end
-        if shown == 0 then
-            local empty = tx("TextLabel", {
-                Text = "You're playing solo", TextSize = 11,
-                Size = UDim2.new(1, 0, 0, 34), LayoutOrder = 1, ZIndex = 26,
-                TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = SUB,
-                Parent = friendGrid,
-            }, 1)
-            friendCells[#friendCells + 1] = empty
-        end
-    end
-    rebuildFriends()
-    keep(Players.PlayerAdded:Connect(function() task.wait(0.4) rebuildFriends() end))
-    keep(Players.PlayerRemoving:Connect(function() task.wait(0.4) rebuildFriends() end))
+    end, 4)
 
-    -- ═══ RIGHT: ABOUT ═══
-    local about, aboutStroke = flatPanel(rightCol, 2)
-    panelHeader(about, "About", "Library information", 1)
-    local aboutList = innerList(about)
-    aboutList.LayoutOrder = 2
+    local about = panel(right, 0, 1)
+    title(about, "GAME", "Current experience", 1)
+    local aboutBody = mk("Frame", {
+        Size = UDim2.new(1, -20, 0, 0),
+        Position = UDim2.fromOffset(10, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        ZIndex = 25,
+        Parent = about,
+    })
+    stack(aboutBody, 6)
 
     local gameName = "Loading..."
-    local creatorName = "..."
-    Stat.gameName(function(n) gameName = n end)
+    local creatorName = "Loading..."
+    Stat.gameName(function(n)
+        gameName = n
+    end)
     task.spawn(function()
-        local ok, info = pcall(function() return MarketplaceService:GetProductInfo(game.PlaceId) end)
-        if ok and info and info.Creator then creatorName = info.Creator.Name end
+        local ok, info = pcall(function()
+            return MarketplaceService:GetProductInfo(game.PlaceId)
+        end)
+        if ok and info and info.Creator then
+            creatorName = info.Creator.Name
+        end
     end)
 
-    statRow(aboutList, 1, "Game", function() return gameName end, function() return TEXT end)
-    statRow(aboutList, 2, "Creator", function() return creatorName end, function() return TEXT end)
-    statRow(aboutList, 3, "Place ID", function() return tostring(game.PlaceId) end, function() return SUB end)
-    statRow(aboutList, 4, "Executor", function()
+    infoRow(aboutBody, "Experience", function()
+        return gameName
+    end, nil, 1)
+
+    infoRow(aboutBody, "Creator", function()
+        return creatorName
+    end, nil, 2)
+
+    infoRow(aboutBody, "Place ID", function()
+        return tostring(game.PlaceId)
+    end, function()
+        return Pal.Sub
+    end, 3)
+
+    infoRow(aboutBody, "Executor", function()
         if identifyexecutor then
             local ok, n = pcall(identifyexecutor)
-            if ok and n then return tostring(n) end
+            if ok and n then
+                return tostring(n)
+            end
         end
         return "Unknown"
-    end, function() return TEXT end)
+    end, nil, 4)
 
-    -- ═══ DISCORD CTA (full width, at bottom) ═══
-    local ctaWrap = mk("Frame", {
-        Size = UDim2.new(1, 0, 0, 58), BackgroundColor3 = BLUE,
-        BackgroundTransparency = 0, LayoutOrder = 3, ZIndex = 24, Parent = rootHolder,
-    })
-    round(ctaWrap, 12)
-    mk("UIGradient", {
-        Color = ColorSequence.new(BLUE, Color3.fromRGB(114, 137, 218)),
-        Rotation = 0, Parent = ctaWrap,
-    })
-    mk("UIStroke", {Thickness = 1, Color = Color3.fromRGB(120, 135, 255), Transparency = 0.4, Parent = ctaWrap})
+    local players = panel(right, 0, 2)
+    title(players, "PLAYERS", "People in this server", 1)
 
-    local dBox = mk("Frame", {
-        Position = UDim2.fromOffset(14, 13), Size = UDim2.fromOffset(32, 32),
-        BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.88,
-        ZIndex = 25, Parent = ctaWrap,
+    local playerBody = mk("Frame", {
+        Size = UDim2.new(1, -20, 0, 0),
+        Position = UDim2.fromOffset(10, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        ZIndex = 25,
+        Parent = players,
     })
-    round(dBox, 8)
-    local dIcon = makeIcon(dBox, "discord", 18, false, {
-        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 26,
+
+    local playerGrid = mk("UIGridLayout", {
+        CellSize = mobile and UDim2.new(1, 0, 0, 38) or UDim2.new(0.5, -3, 0, 38),
+        CellPadding = UDim2.fromOffset(6, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = playerBody,
     })
-    dIcon.Color(Color3.new(1, 1, 1))
-    dIcon.Image.ZIndex = 26
-    dIcon.Glyph.ZIndex = 26
+
+    local playerCells = {}
+
+    local function rebuildPlayers()
+        for _, c in ipairs(playerCells) do
+            if c and c.Parent then c:Destroy() end
+        end
+        table.clear(playerCells)
+
+        local list = Players:GetPlayers()
+        for i, plr in ipairs(list) do
+            if i > (mobile and 4 or 6) then
+                break
+            end
+
+            local c = mk("Frame", {
+                BackgroundTransparency = 0.04,
+                LayoutOrder = i,
+                ZIndex = 26,
+                Parent = playerBody,
+            })
+            bind(c, "BackgroundColor3", "Elevated")
+            round(c, 9)
+            outline(c, "Stroke", 1, 0.58)
+
+            local a = mk("ImageLabel", {
+                Position = UDim2.fromOffset(5, 5),
+                Size = UDim2.fromOffset(28, 28),
+                BackgroundTransparency = 0,
+                ZIndex = 27,
+                Parent = c,
+            })
+            bind(a, "BackgroundColor3", "Surface")
+            round(a, 14)
+
+            pcall(function()
+                a.Image = Players:GetUserThumbnailAsync(
+                    plr.UserId,
+                    Enum.ThumbnailType.HeadShot,
+                    Enum.ThumbnailSize.Size100x100
+                )
+            end)
+
+            tx("TextLabel", {
+                Text = plr.DisplayName,
+                TextSize = 10,
+                Position = UDim2.fromOffset(39, 0),
+                Size = UDim2.new(1, -46, 1, 0),
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = 27,
+                Parent = c,
+            }, 2)
+
+            playerCells[#playerCells + 1] = c
+        end
+
+        if #list == 0 then
+            local empty = tx("TextLabel", {
+                Text = "No players",
+                TextSize = 11,
+                Size = UDim2.new(1, 0, 0, 38),
+                TextXAlignment = Enum.TextXAlignment.Center,
+                TextColor3 = Pal.Sub,
+                Parent = playerBody,
+            }, 1)
+            playerCells[#playerCells + 1] = empty
+        end
+    end
+
+    rebuildPlayers()
+    keep(Players.PlayerAdded:Connect(function()
+        task.wait(0.2)
+        if tab.Page.Visible then rebuildPlayers() end
+    end))
+    keep(Players.PlayerRemoving:Connect(function()
+        task.wait(0.2)
+        if tab.Page.Visible then rebuildPlayers() end
+    end))
+
+    local cta = mk("TextButton", {
+        Size = UDim2.new(1, 0, 0, 54),
+        BackgroundTransparency = 0,
+        LayoutOrder = 4,
+        ZIndex = 24,
+        Parent = holder,
+    })
+    bind(cta, "BackgroundColor3", "Accent")
+    round(cta, 12)
+    local ctaGrad = mk("UIGradient", {
+        Rotation = 0,
+        Parent = cta,
+    })
+    bind(ctaGrad, "Color", "Accent", function(_, pal)
+        return ColorSequence.new(pal.Accent, pal.Accent2)
+    end)
+    outline(cta, "Accent2", 1, 0.35)
+
+    local ctaIcon = mk("Frame", {
+        Position = UDim2.fromOffset(12, 11),
+        Size = UDim2.fromOffset(32, 32),
+        BackgroundTransparency = 0.82,
+        ZIndex = 26,
+        Parent = cta,
+    })
+    round(ctaIcon, 9)
+    local discord = makeIcon(ctaIcon, "discord", 18, false, {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        ZIndex = 27,
+    })
+    discord.Color(onAccent())
+    discord.Image.ZIndex = 27
+    discord.Glyph.ZIndex = 27
 
     tx("TextLabel", {
-        Text = "Discord", TextSize = 14, Position = UDim2.fromOffset(56, 10),
-        Size = UDim2.new(1, -76, 0, 18), TextXAlignment = Enum.TextXAlignment.Left,
-        TextColor3 = Color3.new(1, 1, 1), ZIndex = 25, Parent = ctaWrap,
+        Text = "Discord",
+        TextSize = 13,
+        Position = UDim2.fromOffset(56, 8),
+        Size = UDim2.new(1, -72, 0, 17),
+        ZIndex = 26,
+        Parent = cta,
     }, 3)
+
     tx("TextLabel", {
-        Text = "Join our community for updates & support",
-        TextSize = 10, Position = UDim2.fromOffset(56, 30),
-        Size = UDim2.new(1, -76, 0, 14), TextXAlignment = Enum.TextXAlignment.Left,
-        TextColor3 = Color3.new(1, 1, 1), TextTransparency = 0.2, ZIndex = 25, Parent = ctaWrap,
+        Text = "Updates, support and community",
+        TextSize = 10,
+        Position = UDim2.fromOffset(56, 27),
+        Size = UDim2.new(1, -72, 0, 14),
+        TextTransparency = 0.12,
+        ZIndex = 26,
+        Parent = cta,
     }, 1)
 
-    ctaWrap.InputBegan:Connect(function(input)
+    cta.InputBegan:Connect(function(input)
         if not isPointer(input) then return end
         local url = "https://discord.gg/yourinvite"
-        if setclipboard then pcall(setclipboard, url) end
-        Nihon:MakeNotification({Name = "Discord", Content = "Invite copied to clipboard.", Type = "Info", Time = 3})
+        if setclipboard then
+            pcall(setclipboard, url)
+        end
+        Nihon:MakeNotification({
+            Name = "Discord",
+            Content = "Invite copied to clipboard.",
+            Type = "Info",
+            Time = 3,
+        })
     end)
 end
 
