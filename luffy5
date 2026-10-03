@@ -40,6 +40,10 @@ local Nihon = {
     AutoShow = true,
     _keyCfg = nil,
     _keyVerified = false,
+    -- Key-file persistence
+    KeyFile = false,
+    KeyFileName = "key",
+    AutoVerify = true,
 }
 env.NihonLibInstance = Nihon
 
@@ -258,7 +262,7 @@ local function bind(obj, prop, key, fn)
     list[#list + 1] = {prop = prop, key = key, fn = fn}
     local v = Pal[key]
     if fn then v = fn(v, Pal) end
-    obj[prop] = v
+    if v ~= nil then obj[prop] = v end
     return obj
 end
 
@@ -268,10 +272,12 @@ local function refreshTheme(animated, accentOnly)
             if not accentOnly or rec.key == "Accent" or rec.key == "Accent2" then
                 local v = Pal[rec.key]
                 if rec.fn then v = rec.fn(v, Pal) end
-                if animated and typeof(v) == "Color3" and obj.Parent then
-                    play(obj, 0.35, {[rec.prop] = v})
-                else
-                    obj[rec.prop] = v
+                if v ~= nil then
+                    if animated and typeof(v) == "Color3" and obj.Parent then
+                        play(obj, 0.35, {[rec.prop] = v})
+                    else
+                        obj[rec.prop] = v
+                    end
                 end
             end
         end
@@ -2794,6 +2800,18 @@ local function snapTo(v, step, min)
     return min + math.floor((v - min) / step + 0.5) * step
 end
 
+-- Resolve a tone name to a Color3.
+-- Accepts: Color3 (passthrough), Pal key, Status key, or nil -> Pal.Accent.
+local function toneColor(name)
+    if name == nil then return Pal.Accent end
+    if typeof(name) == "Color3" then return name end
+    if type(name) == "string" then
+        if Pal[name] then return Pal[name] end
+        if Status[name] then return Status[name] end
+    end
+    return Pal.Accent
+end
+
 local function extendElements(E, ctx)
     local Window, Tab, P = ctx.Window, ctx.Tab, ctx.P
     local card, nameLabel, decorate, register, fail = ctx.card, ctx.nameLabel, ctx.decorate, ctx.register, ctx.fail
@@ -3676,7 +3694,12 @@ local function extendElements(E, ctx)
             if not buttons[v] then return end
             obj.Value = v
             paint()
-            if silent then firer.Sync(v) else firer.Fire() queueSave() end
+            if silent then
+                firer.Sync(v)
+            else
+                firer.Fire()
+                queueSave()
+            end
         end
         function obj:Get() return obj.Value end
         register(o.Flag, obj, o, function() return obj.Value end, function(v) obj:Set(v, true) end)
@@ -3869,7 +3892,6 @@ local function extendElements(E, ctx)
     function E:AddChip(o)
         o = type(o) == "table" and o or {Text = o}
         local text = tostring(o.Text or o.Name or "chip")
-        local tone = o.Tone or "Accent"
         local c = card(0, false)
         c.AutomaticSize = Enum.AutomaticSize.Y
         c.Size = UDim2.new(1, 0, 0, 0)
@@ -3879,8 +3901,8 @@ local function extendElements(E, ctx)
         local chip = tx("TextLabel", {
             Text = text, TextSize = 11, Size = UDim2.fromOffset(0, 22),
             AutomaticSize = Enum.AutomaticSize.X, TextXAlignment = Enum.TextXAlignment.Center,
-            ZIndex = 26, Parent = row,
-        }, 3, tone)
+            TextColor3 = toneColor(o.Tone), ZIndex = 26, Parent = row,
+        }, 3)
         bind(chip, "BackgroundColor3", "Elevated")
         chip.BackgroundTransparency = 0
         inset(chip, 0, 12, 0, 12)
@@ -3896,7 +3918,6 @@ local function extendElements(E, ctx)
         o = type(o) == "table" and o or {Text = o}
         local label = tostring(o.Name or "Badge")
         local count = tonumber(o.Count) or 0
-        local tone = o.Tone or "Accent"
         local c = card(rowH - 6, false)
         c.Active = false
         nameLabel(c, label, UDim2.new(1, -70, 1, 0))
@@ -3904,10 +3925,9 @@ local function extendElements(E, ctx)
             Text = tostring(count), TextSize = 11, AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(0, 20),
             AutomaticSize = Enum.AutomaticSize.X, TextXAlignment = Enum.TextXAlignment.Center,
+            BackgroundColor3 = toneColor(o.Tone), BackgroundTransparency = 0,
             ZIndex = 26, Parent = c,
         }, 3)
-        bind(badge, "BackgroundColor3", tone)
-        badge.BackgroundTransparency = 0
         inset(badge, 0, 10, 0, 10)
         round(badge, 10)
         badge.TextColor3 = onAccent()
@@ -3934,8 +3954,8 @@ local function extendElements(E, ctx)
             Text = value, TextSize = 12, AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.new(0.5, 0, 1, 0),
             TextXAlignment = Enum.TextXAlignment.Right, TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 26, Parent = c,
-        }, 3, o.Tone or "Accent")
+            TextColor3 = toneColor(o.Tone), ZIndex = 26, Parent = c,
+        }, 3)
         local obj = {}
         function obj:Set(v) val.Text = tostring(v) end
         function obj:Get() return val.Text end
@@ -4372,22 +4392,127 @@ local function loadingScreen(cfg, title, done)
 end
 
 -- ============================================
--- KEY SYSTEM
+-- KEY SYSTEM  (with GrabKeyFromSite + KeyFile)
 -- ============================================
 function Nihon:SetKeySystem(cfg)
-    -- Accept nil safely; the old code indexed the original cfg even when it was nil.
     cfg = cfg or {}
-    cfg.Title = cfg.Title or "Key System"
-    cfg.Subtitle = cfg.Subtitle or "Enter your key to continue"
-    cfg.ButtonText = cfg.ButtonText or "Verify"
-    cfg.GetKeyText = cfg.GetKeyText or "Get Key"
+    cfg.Title       = cfg.Title       or "Key System"
+    cfg.Subtitle    = cfg.Subtitle    or "Enter your key to continue"
+    cfg.ButtonText  = cfg.ButtonText  or "Verify"
+    cfg.GetKeyText  = cfg.GetKeyText  or "Get Key"
     cfg.DiscordText = cfg.DiscordText or "Discord"
+    cfg.Icon        = cfg.Icon        or "key"
+
+    if cfg.KeyFile ~= nil then Nihon.KeyFile = cfg.KeyFile == true end
+    if cfg.KeyFileName then Nihon.KeyFileName = tostring(cfg.KeyFileName) end
+    if cfg.AutoVerify ~= nil then Nihon.AutoVerify = cfg.AutoVerify ~= false end
+
     Nihon._keyCfg = cfg
 end
 
+-- ---------- Key file helpers ----------
+local function keyFSReady()
+    return type(writefile) == "function" and type(readfile) == "function"
+       and type(isfile) == "function" and type(makefolder) == "function"
+       and type(isfolder) == "function"
+end
+
+function Nihon:_keyFolder() return Nihon.Folder .. "/keys" end
+function Nihon:_keyPath()  return Nihon:_keyFolder() .. "/" .. tostring(Nihon.KeyFileName or "key") .. ".key" end
+
+function Nihon:SaveKeyToFile(key)
+    if not keyFSReady() or key == nil or key == "" then return false end
+    return pcall(function()
+        if not isfolder(Nihon:_keyFolder()) then makefolder(Nihon:_keyFolder()) end
+        writefile(Nihon:_keyPath(), tostring(key))
+    end)
+end
+
+function Nihon:LoadKeyFromFile()
+    if not keyFSReady() then return nil end
+    local path = Nihon:_keyPath()
+    local ok, data = pcall(function()
+        if not isfile(path) then return nil end
+        return readfile(path)
+    end)
+    if ok and data and data ~= "" then return data end
+    return nil
+end
+
+function Nihon:DeleteKeyFile()
+    if not keyFSReady() or type(delfile) ~= "function" then return false end
+    local path = Nihon:_keyPath()
+    return pcall(function()
+        if isfile(path) then delfile(path) end
+    end)
+end
+
+function Nihon:HasKeyFile()
+    if not keyFSReady() then return false end
+    local ok, exists = pcall(function() return isfile(Nihon:_keyPath()) end)
+    return ok and exists
+end
+
+-- ---------- GrabKeyFromSite ----------
+-- spec: string URL, OR table: {Url, Method, Headers, Body, Field}
+function Nihon:GrabKeyFromSite(spec)
+    local s
+    if type(spec) == "string" then
+        s = {Url = spec, Method = "GET"}
+    elseif type(spec) == "table" then
+        s = spec
+    else
+        return nil, "invalid spec"
+    end
+    local url = s.Url or s.URL or s.url
+    if not url then return nil, "no url" end
+
+    local method  = s.Method or "GET"
+    local headers = s.Headers or {}
+    local body    = s.Body
+    local field   = s.Field
+
+    local raw
+    if type(request) == "function" then
+        local ok, resp = pcall(request, {
+            Url = url, Method = method, Headers = headers, Body = body,
+        })
+        if ok and resp then
+            raw = resp.Body or (type(resp) == "string" and resp) or nil
+        end
+    elseif type(game.HttpGet) == "function" then
+        local ok, r = pcall(function() return game:HttpGet(url, true) end)
+        if ok then raw = r end
+    end
+
+    if not raw or raw == "" then return nil, "fetch failed" end
+
+    if field then
+        local decOk, dec = pcall(function() return HttpService:JSONDecode(raw) end)
+        if decOk and type(dec) == "table" and dec[field] ~= nil then
+            return tostring(dec[field])
+        end
+        return nil, "field not found"
+    end
+    return (tostring(raw):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+-- ---------- Validation ----------
+function Nihon:_validateKey(key)
+    local cfg = Nihon._keyCfg or {}
+    if type(cfg.Validate) == "function" then
+        local ok, r = pcall(cfg.Validate, key)
+        return ok and r == true
+    elseif cfg.Key ~= nil then
+        return tostring(key) == tostring(cfg.Key)
+    end
+    return true
+end
+
+-- ---------- The gate UI ----------
 function Nihon:_showKeyGate(onSuccess)
     local cfg = Nihon._keyCfg or {}
-    local mobile = Nihon.IsMobile
+    local prefill = Nihon:LoadKeyFromFile()
 
     local layer = mk("TextButton", {
         Name = "KeyGate", Size = UDim2.fromScale(1, 1),
@@ -4413,7 +4538,7 @@ function Nihon:_showKeyGate(onSuccess)
     inset(col, 22, 22, 22, 22)
     stack(col, 10)
 
-    -- Header: logo + title
+    -- Header
     local header = mk("Frame", {
         Size = UDim2.new(1, 0, 0, 46), BackgroundTransparency = 1, LayoutOrder = 1, Parent = col,
     })
@@ -4442,8 +4567,9 @@ function Nihon:_showKeyGate(onSuccess)
 
     -- Key input
     local input = tx("TextBox", {
-        Size = UDim2.new(1, 0, 0, 42), LayoutOrder = 2, PlaceholderText = "Paste your key here...",
-        TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 302, Parent = col,
+        Size = UDim2.new(1, 0, 0, 42), LayoutOrder = 2,
+        PlaceholderText = "Paste your key here...", Text = prefill or "", TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 302, Parent = col,
     }, 2)
     bind(input, "BackgroundColor3", "Elevated")
     input.BackgroundTransparency = 0
@@ -4458,9 +4584,10 @@ function Nihon:_showKeyGate(onSuccess)
         Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, LayoutOrder = 3, Parent = col,
     })
     mk("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
-        VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 8),
-        SortOrder = Enum.SortOrder.LayoutOrder, Parent = row,
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = row,
     })
 
     local getBtn = tx("TextButton", {
@@ -4483,12 +4610,12 @@ function Nihon:_showKeyGate(onSuccess)
     verifyBtn.TextColor3 = onAccent()
 
     -- Divider
-    local divider = mk("Frame", {
+    mk("Frame", {
         Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Pal.Stroke, BackgroundTransparency = 0.5,
         LayoutOrder = 4, ZIndex = 302, Parent = col,
     })
 
-    -- Discord button (full width)
+    -- Discord
     local discordBtn = tx("TextButton", {
         Text = tostring(cfg.DiscordText or "Discord"), TextSize = 13,
         Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 5,
@@ -4503,8 +4630,48 @@ function Nihon:_showKeyGate(onSuccess)
     dIco.Image.ZIndex = 303
     dIco.Glyph.ZIndex = 303
 
+    -- Save-key toggle (only shown if KeyFile enabled)
+    local saveRow, saveBox
+    if Nihon.KeyFile then
+        saveRow = mk("TextButton", {
+            Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1,
+            LayoutOrder = 6, ZIndex = 302, Parent = col,
+        })
+        saveBox = mk("Frame", {
+            Size = UDim2.fromOffset(18, 18), Position = UDim2.fromOffset(4, 4),
+            BackgroundColor3 = Pal.Elevated, ZIndex = 303, Parent = saveRow,
+        })
+        round(saveBox, 5)
+        local saveCheck = makeIcon(saveBox, "check", 12, false, {
+            AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 304,
+        })
+        saveCheck.Color(Pal.Accent)
+        saveCheck.Image.ImageTransparency = 1
+        saveCheck.Glyph.TextTransparency = 1
+        tx("TextLabel", {
+            Text = "Save key (auto-verify next time)", TextSize = 11,
+            Position = UDim2.fromOffset(30, 0), Size = UDim2.new(1, -34, 1, 0),
+            ZIndex = 303, Parent = saveRow,
+        }, 1, "Sub")
+        local saveOn = true
+        local function paintSave()
+            play(saveBox, 0.15, {BackgroundColor3 = saveOn and Pal.Accent or Pal.Elevated})
+            play(saveCheck.Image, 0.15, {ImageTransparency = saveOn and 0 or 1})
+            play(saveCheck.Glyph, 0.15, {TextTransparency = saveOn and 0 or 1})
+            if saveOn then saveCheck.Color(onAccent()) end
+        end
+        paintSave()
+        saveRow.Activated:Connect(function()
+            saveOn = not saveOn
+            paintSave()
+        end)
+        Nihon._keySaveToggle = function() return saveOn end
+    else
+        Nihon._keySaveToggle = function() return false end
+    end
+
     local status = tx("TextLabel", {
-        Text = "", TextSize = 11, LayoutOrder = 6, Size = UDim2.new(1, 0, 0, 16),
+        Text = "", TextSize = 11, LayoutOrder = 7, Size = UDim2.new(1, 0, 0, 16),
         TextXAlignment = Enum.TextXAlignment.Center, Visible = false, ZIndex = 302, Parent = col,
     }, 2, "Sub")
 
@@ -4529,16 +4696,28 @@ function Nihon:_showKeyGate(onSuccess)
     local verifying = false
 
     getBtn.Activated:Connect(function()
-        local url = cfg.GetKeyURL
-        if url and url ~= "" then
-            if setclipboard then pcall(setclipboard, url) end
-            pcall(function()
-                if request then request({Url = url, Method = "GET"}) end
+        local spec = cfg.GrabKeyFromSite or cfg.GetKeyURL
+        if not spec then
+            Nihon:MakeNotification({Name = "Get Key", Content = "No source configured.", Type = "Warning", Time = 3})
+            return
+        end
+        if type(spec) == "table" or (type(spec) == "string" and spec:find("^https?://")) then
+            setStatus("Fetching key...", Pal.Sub)
+            task.spawn(function()
+                local key, err = Nihon:GrabKeyFromSite(spec)
+                if key and key ~= "" then
+                    input.Text = key
+                    setStatus("Key loaded. Press Verify.", Status.Success)
+                    if cfg.OnGetKey then pcall(cfg.OnGetKey, key) end
+                else
+                    setStatus("Fetch failed: " .. tostring(err or "unknown"), Status.Error)
+                    if type(spec) == "string" then
+                        if setclipboard then pcall(setclipboard, spec) end
+                    elseif type(spec) == "table" and spec.Url then
+                        if setclipboard then pcall(setclipboard, spec.Url) end
+                    end
+                end
             end)
-            if cfg.OnGetKey then pcall(cfg.OnGetKey, url) end
-            Nihon:MakeNotification({Name = "Get Key", Content = "Link copied / opened.", Type = "Info", Time = 3})
-        else
-            Nihon:MakeNotification({Name = "Get Key", Content = "No URL configured.", Type = "Warning", Time = 3})
         end
     end)
 
@@ -4568,17 +4747,12 @@ function Nihon:_showKeyGate(onSuccess)
         verifying = true
         setStatus("Verifying...", Pal.Sub)
         task.spawn(function()
-            local ok = false
-            if type(cfg.Validate) == "function" then
-                local s, r = pcall(cfg.Validate, key)
-                ok = s and r == true
-            elseif cfg.Key ~= nil then
-                ok = (key == tostring(cfg.Key))
-            else
-                ok = true
-            end
+            local ok = Nihon:_validateKey(key)
             if ok then
                 Nihon._keyVerified = true
+                if Nihon.KeyFile and Nihon._keySaveToggle and Nihon._keySaveToggle() then
+                    Nihon:SaveKeyToFile(key)
+                end
                 setStatus("Verified!", Status.Success)
                 if cfg.OnSuccess then pcall(cfg.OnSuccess, key) end
                 task.wait(0.35)
@@ -5283,10 +5457,22 @@ end
 
 function Nihon:Init()
     if Nihon._ready then return end
-    -- Key system gate
+
+    -- Key system gate (with auto-verify from key file)
     if Nihon._keyCfg and not Nihon._keyVerified then
-        Nihon:_showKeyGate(function() Nihon:Init() end)
-        return
+        if Nihon.KeyFile and Nihon.AutoVerify then
+            local saved = Nihon:LoadKeyFromFile()
+            if saved and saved ~= "" and Nihon:_validateKey(saved) then
+                Nihon._keyVerified = true
+                if Nihon._keyCfg.OnSuccess then
+                    pcall(Nihon._keyCfg.OnSuccess, saved)
+                end
+            end
+        end
+        if not Nihon._keyVerified then
+            Nihon:_showKeyGate(function() Nihon:Init() end)
+            return
+        end
     end
 
     local window = Nihon.Windows[1]
@@ -5351,6 +5537,7 @@ function Nihon:Destroy()
         pcall(function() w._parts.launcher:Destroy() end)
     end
     Nihon.Windows = {}
+    Nihon._keySaveToggle = nil
     pcall(function() Root:Destroy() end)
     if env.NihonLibInstance == Nihon then env.NihonLibInstance = nil end
 end
