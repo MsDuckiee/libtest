@@ -2448,11 +2448,10 @@ function Nihon:MakeWindow(cfg)
             -- move center UP by half the shrink so the TOP edge (header) stays fixed
             local rise = (fullH - lift) / 2
 
-            -- body slides UP and fades out behind the header
+            -- body slides UP behind the header (clipped by shell)
             body.ClipsDescendants = true
             play(body, 0.35, {
                 Position = UDim2.fromOffset(0, -fullH),
-                GroupTransparency = (body:IsA("CanvasGroup") and 1) or 0,
             }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
 
             -- shell shrinks from the bottom, top edge pinned
@@ -2474,7 +2473,6 @@ function Nihon:MakeWindow(cfg)
         else
             body.Visible = true
             body.Position = UDim2.fromOffset(0, -fullH)
-            if body:IsA("CanvasGroup") then body.GroupTransparency = 1 end
 
             play(dragbar, 0.2, {BackgroundTransparency = 1})
             task.delay(0.2, function() dragbar.Visible = false end)
@@ -2490,7 +2488,6 @@ function Nihon:MakeWindow(cfg)
             -- body slides down into place
             play(body, 0.45, {
                 Position = UDim2.fromOffset(0, topH),
-                GroupTransparency = (body:IsA("CanvasGroup") and 0) or 0,
             }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         end
     end
