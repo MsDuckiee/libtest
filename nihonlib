@@ -512,10 +512,14 @@ local function makeDraggable(handles, target, opts)
         state.currentPos = state.currentPos:Lerp(state.targetPos, alpha)
 
         local p = screenToPosition(state.currentPos)
-        target.Position = UDim2.fromOffset(
-            math.floor(p.X + 0.5),
-            math.floor(p.Y + 0.5)
-        )
+        local cur = target.Position
+        local px = math.floor(p.X + 0.5)
+        local py = math.floor(p.Y + 0.5)
+        if cur.X.Scale ~= 0 or cur.Y.Scale ~= 0 then
+            target.Position = UDim2.fromOffset(px, py)
+        else
+            target.Position = UDim2.fromOffset(px, py)
+        end
 
         if not state.dragging and state.velocity.Magnitude < 0.6
            and (state.currentPos - state.targetPos).Magnitude < 0.6 then
@@ -1881,6 +1885,9 @@ function Nihon:MakeWindow(cfg)
     local closeBtn, closeGlyph = trafficLight(Color3.fromRGB(255, 95, 87), 1, "×")
     local minBtn, minGlyph = trafficLight(Color3.fromRGB(255, 189, 46), 2, "–")
     local searchBtn, searchGlyph = trafficLight(Color3.fromRGB(39, 201, 63), 3, "")
+    closeBtn.AutoButtonColor = false
+    minBtn.AutoButtonColor = false
+    searchBtn.AutoButtonColor = false
     searchGlyph.TextTransparency = 1
     local searchIco = makeIcon(searchBtn, SEARCH_ICON, 15, "Sub", {
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 27,
@@ -2082,7 +2089,7 @@ function Nihon:MakeWindow(cfg)
     local dragHandles = {dragbar}
     local grabStrip = mk("TextButton", {
         Name = "GrabStrip",
-        Size = UDim2.new(1, -210, 1, 0),
+        Size = UDim2.new(1, -100, 1, 0),
         Position = UDim2.fromOffset(0, 0),
         BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 30, Parent = header,
     })
@@ -2405,8 +2412,7 @@ function Nihon:MakeWindow(cfg)
         launcherMoved = false
     end)
 
-    closeBtn.InputEnded:Connect(function(input)
-        if not isPointer(input) then return end
+    closeBtn.Activated:Connect(function()
         hide(true)
         Nihon:MakeNotification({
             Name = "Menu hidden",
@@ -2451,9 +2457,26 @@ function Nihon:MakeWindow(cfg)
         end
     end
 
-    minBtn.InputEnded:Connect(function(input)
-        if isPointer(input) then
-            Window:SetMinimized(not Window.Minimized)
+    minBtn.Activated:Connect(function()
+        Window:SetMinimized(not Window.Minimized)
+    end)
+
+    searchBtn.Activated:Connect(function()
+        if Window.Hidden then return end
+        local ok = pcall(function()
+            local layer = Root:FindFirstChild("Search")
+            if layer then
+                layer.Visible = true
+                local input = layer:FindFirstChild("Box", true)
+                if input and input:IsA("TextBox") then
+                    input:CaptureFocus()
+                end
+            end
+        end)
+        if not ok then
+            pcall(function()
+                attachSearch(Window)
+            end)
         end
     end)
 
@@ -4504,6 +4527,11 @@ function ElementFactory(Window, Tab, parent, sectionName)
             obj:Set(not state.value)
         end)
 
+        c.Activated:Connect(function()
+            if obj:IsLocked() then return end
+            obj:Set(not state.value)
+        end)
+
         register(o.Flag, obj, o, function() return state.value end, function(v) obj:Set(v) end)
         decorate(obj, c, o, "Toggle")
         local start = o.Default and true or false
@@ -5348,6 +5376,7 @@ local function attachSearch(Window)
     })
     local w = math.clamp(viewport().X - 32, 260, 440)
     local box = mk("CanvasGroup", {
+        Name = "Box",
         AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, mobile and 16 or 70), Size = UDim2.fromOffset(w, 0),
         AutomaticSize = Enum.AutomaticSize.Y, GroupTransparency = 1, ZIndex = 181, Parent = layer,
     })
@@ -5359,6 +5388,7 @@ local function attachSearch(Window)
     local top = mk("Frame", {Size = UDim2.new(1, 0, 0, 46), BackgroundTransparency = 1, LayoutOrder = 1, ZIndex = 182, Parent = box})
     makeIcon(top, SEARCH_ICON, 16, "Sub", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 16, 0.5, 0), ZIndex = 183})
     local input = tx("TextBox", {
+        Name = "Input",
         Position = UDim2.fromOffset(42, 0), Size = UDim2.new(1, -90, 1, 0), PlaceholderText = "search features", TextSize = 14, ZIndex = 183, Parent = top,
     }, 2)
     input.ClearTextOnFocus = false
