@@ -2438,37 +2438,60 @@ function Nihon:MakeWindow(cfg)
         Window.Minimized = state
         Popup.close(true)
         if minTween then minTween:Cancel() end
+
         local lift = topH + 12
         local targetW = shell.Size.X.Offset
+        local pos = shell.Position
+
         if state then
             fullH = shell.Size.Y.Offset
-            -- keep the TOP edge fixed, let the BOTTOM edge rise up
+            -- move center UP by half the shrink so the TOP edge (header) stays fixed
             local rise = (fullH - lift) / 2
-            local pos = shell.Position
+
+            -- body slides UP and fades out behind the header
+            body.ClipsDescendants = true
+            play(body, 0.35, {
+                Position = UDim2.fromOffset(0, -fullH),
+                GroupTransparency = (body:IsA("CanvasGroup") and 1) or 0,
+            }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+
+            -- shell shrinks from the bottom, top edge pinned
             minTween = play(shell, 0.45, {
                 Size = UDim2.fromOffset(targetW, lift),
                 Position = UDim2.new(pos.X.Scale, pos.X.Offset, pos.Y.Scale, pos.Y.Offset - rise),
-            }, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
-            play(body, 0.25, {Position = UDim2.fromOffset(0, topH - 12)})
+            }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+
             dragbar.Visible = true
             dragbar.BackgroundTransparency = 1
             play(dragbar, 0.4, {BackgroundTransparency = 0.6})
-            task.delay(0.2, function()
-                if Window.Minimized then body.Visible = false end
+
+            task.delay(0.45, function()
+                if Window.Minimized then
+                    body.Visible = false
+                    body.Position = UDim2.fromOffset(0, 0)
+                end
             end)
         else
             body.Visible = true
-            body.Position = UDim2.fromOffset(0, topH - 12)
+            body.Position = UDim2.fromOffset(0, -fullH)
+            if body:IsA("CanvasGroup") then body.GroupTransparency = 1 end
+
             play(dragbar, 0.2, {BackgroundTransparency = 1})
             task.delay(0.2, function() dragbar.Visible = false end)
-            -- grow back downward, still keeping the TOP edge pinned
+
             local rise = (fullH - lift) / 2
-            local pos = shell.Position
+
+            -- shell grows downward, top edge still pinned
             minTween = play(shell, 0.5, {
                 Size = UDim2.fromOffset(targetW, fullH),
                 Position = UDim2.new(pos.X.Scale, pos.X.Offset, pos.Y.Scale, pos.Y.Offset + rise),
-            }, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
-            play(body, 0.45, {Position = UDim2.fromOffset(0, topH)})
+            }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+
+            -- body slides down into place
+            play(body, 0.45, {
+                Position = UDim2.fromOffset(0, topH),
+                GroupTransparency = (body:IsA("CanvasGroup") and 0) or 0,
+            }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         end
     end
 
