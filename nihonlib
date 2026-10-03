@@ -5049,369 +5049,45 @@ end
 
 local function populateAlwaysTab(tab)
     local Window = tab.Window or Nihon.Windows[1]
-    local P = Window._parts
-    local mobile = P.mobile
 
-    local function panel(parent, h, order)
-        local f = mk("Frame", {
-            Size = UDim2.new(1, 0, 0, h or 0),
-            AutomaticSize = h and Enum.AutomaticSize.None or Enum.AutomaticSize.Y,
-            BackgroundTransparency = 0.04,
-            LayoutOrder = order or 1,
-            ZIndex = 24,
-            Parent = parent,
-        })
-        bind(f, "BackgroundColor3", "Surface")
-        round(f, 12)
-        outline(f, "Stroke", 1, 0.35)
-        return f
-    end
-
-    local function title(parent, text, sub, order)
-        local h = mk("Frame", {
-            Size = UDim2.new(1, 0, 0, sub and 42 or 30),
-            BackgroundTransparency = 1,
-            LayoutOrder = order or 1,
-            ZIndex = 25,
-            Parent = parent,
-        })
-        tx("TextLabel", {
-            Text = text,
-            TextSize = 13,
-            Position = UDim2.fromOffset(14, 7),
-            Size = UDim2.new(1, -28, 0, 17),
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 26,
-            Parent = h,
-        }, 3)
-        if sub then
-            tx("TextLabel", {
-                Text = sub,
-                TextSize = 10,
-                Position = UDim2.fromOffset(14, 24),
-                Size = UDim2.new(1, -28, 0, 13),
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                ZIndex = 26,
-                Parent = h,
-            }, 1, "Sub")
-        end
-        return h
-    end
-
-    local function row(parent, h, order)
-        local r = mk("Frame", {
-            Size = UDim2.new(1, 0, 0, h or 34),
-            BackgroundTransparency = 0.08,
-            LayoutOrder = order or 1,
-            ZIndex = 26,
-            Parent = parent,
-        })
-        bind(r, "BackgroundColor3", "Elevated")
-        round(r, 9)
-        outline(r, "Stroke", 1, 0.58)
-        return r
-    end
-
-    local holder = tab.Scroll or tab.Holder
-    if not holder and tab.AddSection then
-        local root = tab:AddSection({Name = ""})
-        holder = root.Holder
-    end
-    if not holder then return end
-    holder.ZIndex = 24
-
-    local hero = panel(holder, mobile and 92 or 86, 1)
-
-    local avatar = mk("ImageLabel", {
-        Position = UDim2.fromOffset(14, 14),
-        Size = UDim2.fromOffset(58, 58),
-        BackgroundTransparency = 0,
-        ZIndex = 26,
-        Parent = hero,
+    local hero = tab:AddSection({Name = "Profile", Collapsible = false})
+    local avatarRow = hero:AddAvatar({
+        Name = LocalPlayer.DisplayName,
+        Subtitle = "@" .. LocalPlayer.Name .. "  ·  Session " .. Stat.session(),
+        Image = (function()
+            local ok, img = pcall(function()
+                return Players:GetUserThumbnailAsync(LocalPlayer.UserId,
+                    Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+            end)
+            return ok and img or nil
+        end)(),
     })
-    bind(avatar, "BackgroundColor3", "Elevated")
-    round(avatar, 29)
-    outline(avatar, "Stroke", 1, 0.2)
-    Stat.avatar(function(img)
-        if avatar.Parent then avatar.Image = img end
-    end)
-
-    local online = mk("Frame", {
-        AnchorPoint = Vector2.new(1, 1),
-        Position = UDim2.new(1, 0, 1, 0),
-        Size = UDim2.fromOffset(13, 13),
-        BackgroundColor3 = Status.Success,
-        ZIndex = 27,
-        Parent = avatar,
-    })
-    round(online, 7)
-    mk("UIStroke", {
-        Thickness = 2,
-        Color = Pal.Surface,
-        Parent = online,
-    })
-
-    tx("TextLabel", {
-        Text = LocalPlayer.DisplayName,
-        TextSize = 17,
-        Position = UDim2.fromOffset(84, 13),
-        Size = UDim2.new(1, -190, 0, 21),
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        ZIndex = 26,
-        Parent = hero,
-    }, 3)
-
-    tx("TextLabel", {
-        Text = "@" .. LocalPlayer.Name,
-        TextSize = 11,
-        Position = UDim2.fromOffset(84, 35),
-        Size = UDim2.new(1, -190, 0, 15),
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        ZIndex = 26,
-        Parent = hero,
-    }, 1, "Sub")
-
-    local session = mk("Frame", {
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -12, 0, 14),
-        Size = UDim2.fromOffset(94, 24),
-        BackgroundTransparency = 0.72,
-        ZIndex = 26,
-        Parent = hero,
-    })
-    bind(session, "BackgroundColor3", "Accent")
-    round(session, 12)
-
-    tx("TextLabel", {
-        Text = "SESSION",
-        TextSize = 8,
-        Position = UDim2.fromOffset(9, 2),
-        Size = UDim2.new(1, -18, 0, 9),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 27,
-        Parent = session,
-    }, 3, "Sub")
-
-    local sessionValue = tx("TextLabel", {
-        Text = Stat.session(),
-        TextSize = 10,
-        Position = UDim2.fromOffset(9, 11),
-        Size = UDim2.new(1, -18, 0, 11),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 27,
-        Parent = session,
-    }, 3)
-
     task.spawn(function()
-        while sessionValue.Parent do
-            sessionValue.Text = Stat.session()
+        while avatarRow.Card.Parent do
+            avatarRow:SetSubtitle("@" .. LocalPlayer.Name .. "  ·  Session " .. Stat.session())
             task.wait(1)
         end
     end)
 
-    local version = mk("Frame", {
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -12, 0, 44),
-        Size = UDim2.fromOffset(94, 22),
-        BackgroundTransparency = 0.78,
-        ZIndex = 26,
-        Parent = hero,
-    })
-    bind(version, "BackgroundColor3", "Elevated")
-    round(version, 11)
-    tx("TextLabel", {
-        Text = "NIHON  v" .. Nihon.Version,
-        TextSize = 9,
-        Size = UDim2.fromScale(1, 1),
-        TextXAlignment = Enum.TextXAlignment.Center,
-        ZIndex = 27,
-        Parent = version,
-    }, 3, "Sub")
-
-    local metrics = mk("Frame", {
-        Size = UDim2.new(1, 0, 0, 68),
-        BackgroundTransparency = 1,
-        LayoutOrder = 2,
-        ZIndex = 24,
-        Parent = holder,
-    })
-
-    local metricLayout = mk("UIGridLayout", {
-        CellSize = UDim2.new(1 / 3, -6, 1, 0),
-        CellPadding = UDim2.fromOffset(8, 0),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = metrics,
-    })
-
-    local function metricCard(label, valueFn, toneFn, order)
-        local c = row(metrics, 68, order)
-        local dot = mk("Frame", {
-            Position = UDim2.fromOffset(12, 15),
-            Size = UDim2.fromOffset(7, 7),
-            BackgroundColor3 = Pal.Accent,
-            ZIndex = 27,
-            Parent = c,
-        })
-        round(dot, 4)
-
-        tx("TextLabel", {
-            Text = label,
-            TextSize = 9,
-            Position = UDim2.fromOffset(27, 9),
-            Size = UDim2.new(1, -38, 0, 13),
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 27,
-            Parent = c,
-        }, 1, "Sub")
-
-        local val = tx("TextLabel", {
-            Text = "-",
-            TextSize = 17,
-            Position = UDim2.fromOffset(12, 27),
-            Size = UDim2.new(1, -24, 0, 23),
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 27,
-            Parent = c,
-        }, 3)
-
-        task.spawn(function()
-            while c.Parent do
-                val.Text = tostring(valueFn())
-                val.TextColor3 = toneFn and toneFn() or Pal.Text
-                task.wait(0.35)
-            end
-        end)
-        return c
-    end
-
-    metricCard("FPS", function()
-        return Metrics.fps
-    end, function()
-        return Metrics.fps >= 50 and Status.Success or (Metrics.fps >= 30 and Status.Warning or Status.Error)
-    end, 1)
-
-    metricCard("PING", function()
-        return Metrics.ping .. " ms"
-    end, function()
-        return Metrics.ping <= 90 and Status.Success or (Metrics.ping <= 170 and Status.Warning or Status.Error)
-    end, 2)
-
-    metricCard("MEMORY", function()
-        return Metrics.mem .. " MB"
-    end, function()
-        return Pal.Text
-    end, 3)
-
-    local columns = mk("Frame", {
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        LayoutOrder = 3,
-        ZIndex = 24,
-        Parent = holder,
-    })
-
-    local cols = mk("UIListLayout", {
-        FillDirection = mobile and Enum.FillDirection.Vertical or Enum.FillDirection.Horizontal,
-        Padding = UDim.new(0, 8),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = columns,
-    })
-
-    local left = mk("Frame", {
-        Size = mobile and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -4, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        LayoutOrder = 1,
-        ZIndex = 24,
-        Parent = columns,
-    })
-    stack(left, 8)
-
-    local right = mk("Frame", {
-        Size = mobile and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -4, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        LayoutOrder = 2,
-        ZIndex = 24,
-        Parent = columns,
-    })
-    stack(right, 8)
-
-    local server = panel(left, 0, 1)
-    title(server, "SERVER", "Live connection", 1)
-    local serverBody = mk("Frame", {
-        Size = UDim2.new(1, -20, 0, 0),
-        Position = UDim2.fromOffset(10, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        LayoutOrder = 2,
-        ZIndex = 25,
-        Parent = server,
-    })
-    stack(serverBody, 6)
-
-    local function infoRow(parent, label, valueFn, toneFn, order)
-        local r = row(parent, 34, order)
-        tx("TextLabel", {
-            Text = label,
-            TextSize = 10,
-            Position = UDim2.fromOffset(11, 0),
-            Size = UDim2.new(0.45, -12, 1, 0),
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 27,
-            Parent = r,
-        }, 1, "Sub")
-        local v = tx("TextLabel", {
-            Text = "-",
-            TextSize = 11,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -11, 0.5, 0),
-            Size = UDim2.new(0.55, -12, 1, 0),
-            TextXAlignment = Enum.TextXAlignment.Right,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 27,
-            Parent = r,
-        }, 3)
-        task.spawn(function()
-            while r.Parent do
-                v.Text = tostring(valueFn())
-                v.TextColor3 = toneFn and toneFn() or Pal.Text
-                task.wait(0.5)
-            end
-        end)
-        return r
-    end
-
-    infoRow(serverBody, "Players", function()
-        return #Players:GetPlayers() .. " / " .. Players.MaxPlayers
-    end, nil, 1)
-
-    infoRow(serverBody, "Job ID", function()
-        return game.JobId ~= "" and game.JobId:sub(1, 8) or "Studio"
-    end, nil, 2)
-
-    local rejoin = row(serverBody, 34, 3)
-    local rejoinIcon = makeIcon(rejoin, "refresh-cw", 14, "Accent", {
-        AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 11, 0.5, 0),
-        ZIndex = 27,
-    })
-    rejoinIcon.Image.ZIndex = 27
-    rejoinIcon.Glyph.ZIndex = 27
-    tx("TextLabel", {
-        Text = "Rejoin server",
-        TextSize = 11,
-        Position = UDim2.fromOffset(33, 0),
-        Size = UDim2.new(1, -42, 1, 0),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 27,
-        Parent = rejoin,
-    }, 3)
-    rejoin.InputBegan:Connect(function(input)
-        if not isPointer(input) then return end
+    local server = tab:AddSection({Name = "Server"})
+    local fpsPill = server:AddStatPill({Name = "FPS", Value = "-"})
+    local pingPill = server:AddStatPill({Name = "Ping", Value = "-"})
+    local memPill = server:AddStatPill({Name = "Memory", Value = "-"})
+    task.spawn(function()
+        while fpsPill.Card.Parent do
+            fpsPill:Set(Metrics.fps)
+            fpsPill:SetTone(Metrics.fps >= 50 and Status.Success
+                or Metrics.fps >= 30 and Status.Warning or Status.Error)
+            pingPill:Set(Metrics.ping .. " ms")
+            pingPill:SetTone(Metrics.ping <= 90 and Status.Success
+                or Metrics.ping <= 170 and Status.Warning or Status.Error)
+            memPill:Set(Metrics.mem .. " MB")
+            task.wait(0.5)
+        end
+    end)
+    server:AddButton({Name = "Rejoin Server", Icon = "refresh-cw", Callback = function()
         Nihon:Dialog({
-            Title = "Rejoin server",
+            Title = "Rejoin Server",
             Content = "Reconnect to the current server?",
             Buttons = {
                 {Name = "Cancel"},
@@ -5422,291 +5098,60 @@ local function populateAlwaysTab(tab)
                 end},
             },
         })
-    end)
+    end})
 
-    local actions = panel(left, 0, 2)
-    title(actions, "QUICK ACTIONS", "Common controls", 1)
-    local actionBody = mk("Frame", {
-        Size = UDim2.new(1, -20, 0, 0),
-        Position = UDim2.fromOffset(10, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        LayoutOrder = 2,
-        ZIndex = 25,
-        Parent = actions,
-    })
-    stack(actionBody, 6)
-
-    local function action(name, icon, color, callback, order)
-        local b = row(actionBody, 36, order)
-        local i = makeIcon(b, icon, 15, false, {
-            AnchorPoint = Vector2.new(0, 0.5),
-            Position = UDim2.new(0, 11, 0.5, 0),
-            ZIndex = 27,
-        })
-        i.Color(color)
-        i.Image.ZIndex = 27
-        i.Glyph.ZIndex = 27
-        tx("TextLabel", {
-            Text = name,
-            TextSize = 11,
-            Position = UDim2.fromOffset(34, 0),
-            Size = UDim2.new(1, -44, 1, 0),
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 27,
-            Parent = b,
-        }, 2)
-        b.InputBegan:Connect(function(input)
-            if not isPointer(input) then return end
-            callback()
-        end)
-        return b
-    end
-
-    action("Test notification", "bell", Status.Success, function()
-        Nihon:MakeNotification({
-            Name = "It works!",
-            Content = "Notifications are wired up.",
-            Type = "Success",
-        })
-    end, 1)
-
-    action("Toggle overlay", "activity", Pal.Accent, function()
-        Hud.set(not Hud.enabled)
-    end, 2)
-
-    action("Player stats", "user", Status.Warning, function()
-        Window:OpenStats()
-    end, 3)
-
-    action("Open settings", "settings", Status.Error, function()
-        for _, t in ipairs(Window.Tabs) do
-            if t.Name == "Settings" then
-                Window:SelectTab(t)
-                break
-            end
-        end
-    end, 4)
-
-    local about = panel(right, 0, 1)
-    title(about, "GAME", "Current experience", 1)
-    local aboutBody = mk("Frame", {
-        Size = UDim2.new(1, -20, 0, 0),
-        Position = UDim2.fromOffset(10, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        LayoutOrder = 2,
-        ZIndex = 25,
-        Parent = about,
-    })
-    stack(aboutBody, 6)
-
-    local gameName = "Loading..."
-    local creatorName = "Loading..."
-    Stat.gameName(function(n)
-        gameName = n
-    end)
-    task.spawn(function()
-        local ok, info = pcall(function()
-            return MarketplaceService:GetProductInfo(game.PlaceId)
-        end)
-        if ok and info and info.Creator then
-            creatorName = info.Creator.Name
-        end
-    end)
-
-    infoRow(aboutBody, "Experience", function()
-        return gameName
-    end, nil, 1)
-
-    infoRow(aboutBody, "Creator", function()
-        return creatorName
-    end, nil, 2)
-
-    infoRow(aboutBody, "Place ID", function()
-        return tostring(game.PlaceId)
-    end, function()
-        return Pal.Sub
-    end, 3)
-
-    infoRow(aboutBody, "Executor", function()
+    local about = tab:AddSection({Name = "About"})
+    local gameRow = about:AddKeyValue({Name = "Game", Value = "Loading..."})
+    local creatorRow = about:AddKeyValue({Name = "Creator", Value = "..."})
+    about:AddKeyValue({Name = "Place ID", Value = tostring(game.PlaceId)})
+    about:AddKeyValue({Name = "Executor", Value = (function()
         if identifyexecutor then
             local ok, n = pcall(identifyexecutor)
-            if ok and n then
-                return tostring(n)
-            end
+            if ok and n then return tostring(n) end
         end
         return "Unknown"
-    end, nil, 4)
+    end)()})
 
-    local players = panel(right, 0, 2)
-    title(players, "PLAYERS", "People in this server", 1)
+    Stat.gameName(function(n) gameRow:Set(n) end)
+    task.spawn(function()
+        local ok, info = pcall(function() return MarketplaceService:GetProductInfo(game.PlaceId) end)
+        if ok and info and info.Creator then creatorRow:Set(info.Creator.Name) end
+    end)
 
-    local playerBody = mk("Frame", {
-        Size = UDim2.new(1, -20, 0, 0),
-        Position = UDim2.fromOffset(10, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        LayoutOrder = 2,
-        ZIndex = 25,
-        Parent = players,
+    local players = tab:AddSection({Name = "Players"})
+    local playerCount = players:AddKeyValue({
+        Name = "In server",
+        Value = #Players:GetPlayers() .. " / " .. Players.MaxPlayers,
     })
-
-    local playerGrid = mk("UIGridLayout", {
-        CellSize = mobile and UDim2.new(1, 0, 0, 38) or UDim2.new(0.5, -3, 0, 38),
-        CellPadding = UDim2.fromOffset(6, 6),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = playerBody,
-    })
-
-    local playerCells = {}
-
-    local function rebuildPlayers()
-        for _, c in ipairs(playerCells) do
-            if c and c.Parent then c:Destroy() end
-        end
-        table.clear(playerCells)
-
-        local list = Players:GetPlayers()
-        for i, plr in ipairs(list) do
-            if i > (mobile and 4 or 6) then
-                break
-            end
-
-            local c = mk("Frame", {
-                BackgroundTransparency = 0.04,
-                LayoutOrder = i,
-                ZIndex = 26,
-                Parent = playerBody,
-            })
-            bind(c, "BackgroundColor3", "Elevated")
-            round(c, 9)
-            outline(c, "Stroke", 1, 0.58)
-
-            local a = mk("ImageLabel", {
-                Position = UDim2.fromOffset(5, 5),
-                Size = UDim2.fromOffset(28, 28),
-                BackgroundTransparency = 0,
-                ZIndex = 27,
-                Parent = c,
-            })
-            bind(a, "BackgroundColor3", "Surface")
-            round(a, 14)
-
-            pcall(function()
-                a.Image = Players:GetUserThumbnailAsync(
-                    plr.UserId,
-                    Enum.ThumbnailType.HeadShot,
-                    Enum.ThumbnailSize.Size100x100
-                )
-            end)
-
-            tx("TextLabel", {
-                Text = plr.DisplayName,
-                TextSize = 10,
-                Position = UDim2.fromOffset(39, 0),
-                Size = UDim2.new(1, -46, 1, 0),
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                ZIndex = 27,
-                Parent = c,
-            }, 2)
-
-            playerCells[#playerCells + 1] = c
-        end
-
-        if #list == 0 then
-            local empty = tx("TextLabel", {
-                Text = "No players",
-                TextSize = 11,
-                Size = UDim2.new(1, 0, 0, 38),
-                TextXAlignment = Enum.TextXAlignment.Center,
-                TextColor3 = Pal.Sub,
-                Parent = playerBody,
-            }, 1)
-            playerCells[#playerCells + 1] = empty
-        end
+    local function refreshPlayers()
+        playerCount:Set(#Players:GetPlayers() .. " / " .. Players.MaxPlayers)
     end
+    keep(Players.PlayerAdded:Connect(refreshPlayers))
+    keep(Players.PlayerRemoving:Connect(refreshPlayers))
 
-    rebuildPlayers()
-    keep(Players.PlayerAdded:Connect(function()
-        task.wait(0.2)
-        if tab.Page.Visible then rebuildPlayers() end
-    end))
-    keep(Players.PlayerRemoving:Connect(function()
-        task.wait(0.2)
-        if tab.Page.Visible then rebuildPlayers() end
-    end))
-
-    local cta = mk("TextButton", {
-        Size = UDim2.new(1, 0, 0, 54),
-        BackgroundTransparency = 0,
-        LayoutOrder = 4,
-        ZIndex = 24,
-        Parent = holder,
-    })
-    bind(cta, "BackgroundColor3", "Accent")
-    round(cta, 12)
-    local ctaGrad = mk("UIGradient", {
-        Rotation = 0,
-        Parent = cta,
-    })
-    bind(ctaGrad, "Color", "Accent", function(_, pal)
-        return ColorSequence.new(pal.Accent, pal.Accent2)
-    end)
-    outline(cta, "Accent2", 1, 0.35)
-
-    local ctaIcon = mk("Frame", {
-        Position = UDim2.fromOffset(12, 11),
-        Size = UDim2.fromOffset(32, 32),
-        BackgroundTransparency = 0.82,
-        ZIndex = 26,
-        Parent = cta,
-    })
-    round(ctaIcon, 9)
-    local discord = makeIcon(ctaIcon, "discord", 18, false, {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        ZIndex = 27,
-    })
-    discord.Color(onAccent())
-    discord.Image.ZIndex = 27
-    discord.Glyph.ZIndex = 27
-
-    tx("TextLabel", {
-        Text = "Discord",
-        TextSize = 13,
-        Position = UDim2.fromOffset(56, 8),
-        Size = UDim2.new(1, -72, 0, 17),
-        ZIndex = 26,
-        Parent = cta,
-    }, 3)
-
-    tx("TextLabel", {
-        Text = "Updates, support and community",
-        TextSize = 10,
-        Position = UDim2.fromOffset(56, 27),
-        Size = UDim2.new(1, -72, 0, 14),
-        TextTransparency = 0.12,
-        ZIndex = 26,
-        Parent = cta,
-    }, 1)
-
-    cta.InputBegan:Connect(function(input)
-        if not isPointer(input) then return end
-        local url = "https://discord.gg/yourinvite"
-        if setclipboard then
-            pcall(setclipboard, url)
+    local actions = tab:AddSection({Name = "Quick actions"})
+    actions:AddButton({Name = "Send test notification", Icon = "bell", Callback = function()
+        Nihon:MakeNotification({Name = "It works!", Content = "Notifications are wired up.", Type = "Success"})
+    end})
+    actions:AddButton({Name = "Toggle overlay", Icon = "activity", Callback = function()
+        Hud.set(not Hud.enabled)
+    end})
+    actions:AddButton({Name = "Player stats", Icon = "user", Callback = function()
+        Window:OpenStats()
+    end})
+    actions:AddButton({Name = "Open settings", Icon = "settings", Callback = function()
+        for _, t in ipairs(Window.Tabs) do
+            if t.Name == "Settings" then Window:SelectTab(t) break end
         end
-        Nihon:MakeNotification({
-            Name = "Discord",
-            Content = "Invite copied to clipboard.",
-            Type = "Info",
-            Time = 3,
-        })
-    end)
-end
+    end})
 
+    local cta = tab:AddSection({Name = "", Collapsible = false})
+    cta:AddLinkButton({
+        Name = "Join our Discord",
+        URL = "https://discord.gg/yourinvite",
+        Icon = "discord",
+    })
+end
 local function attachSettings(Window)
     function Window:AddSettingsTab(opts)
         opts = opts or {}
