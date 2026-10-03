@@ -2432,6 +2432,7 @@ function Nihon:MakeWindow(cfg)
     end))
 
     local minTween
+    local minimizedRestoreH = nil
     function Window:SetMinimized(state)
         state = state and true or false
         if Window.Minimized == state then return end
@@ -2441,54 +2442,45 @@ function Nihon:MakeWindow(cfg)
 
         local lift = topH + 12
         local targetW = shell.Size.X.Offset
-        local pos = shell.Position
+
+        -- Read current top edge in screen pixels
+        local vp = viewport()
+        local curScale = math.max(uiScale.Scale, 0.01)
+        local shellAbsPos = shell.AbsolutePosition
+        local shellAbsSize = shell.AbsoluteSize
+        local topEdge = shellAbsPos.Y
+        local leftEdge = shellAbsPos.X
 
         if state then
-            fullH = shell.Size.Y.Offset
-            -- move center UP by half the shrink so the TOP edge (header) stays fixed
-            local rise = (fullH - lift) / 2
-
-            -- body slides UP behind the header (clipped by shell)
-            body.ClipsDescendants = true
-            play(body, 0.35, {
-                Position = UDim2.fromOffset(0, -fullH),
-            }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
-
-            -- shell shrinks from the bottom, top edge pinned
-            minTween = play(shell, 0.45, {
-                Size = UDim2.fromOffset(targetW, lift),
-                Position = UDim2.new(pos.X.Scale, pos.X.Offset, pos.Y.Scale, pos.Y.Offset - rise),
-            }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
-
+            minimizedRestoreH = shell.Size.Y.Offset
+            body.Visible = false
             dragbar.Visible = true
             dragbar.BackgroundTransparency = 1
             play(dragbar, 0.4, {BackgroundTransparency = 0.6})
 
-            task.delay(0.45, function()
-                if Window.Minimized then
-                    body.Visible = false
-                    body.Position = UDim2.fromOffset(0, 0)
-                end
-            end)
+            -- Compute new position so the top edge stays fixed
+            -- shell.AbsolutePosition = Position - AnchorPoint * Size
+            -- We want new top edge == old top edge
+            local newPosX = leftEdge + (targetW * curScale) * 0.5
+            local newPosY = topEdge + (lift * curScale) * 0.5
+            minTween = play(shell, 0.45, {
+                Size = UDim2.fromOffset(targetW, lift),
+                Position = UDim2.fromOffset(math.floor(newPosX), math.floor(newPosY)),
+            }, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
         else
+            local restoreH = minimizedRestoreH or fullH
             body.Visible = true
-            body.Position = UDim2.fromOffset(0, -fullH)
-
+            body.Position = UDim2.fromOffset(0, topH)
             play(dragbar, 0.2, {BackgroundTransparency = 1})
             task.delay(0.2, function() dragbar.Visible = false end)
 
-            local rise = (fullH - lift) / 2
-
-            -- shell grows downward, top edge still pinned
+            -- Recompute so the top edge stays fixed when growing
+            local newPosX = leftEdge + (targetW * curScale) * 0.5
+            local newPosY = topEdge + (restoreH * curScale) * 0.5
             minTween = play(shell, 0.5, {
-                Size = UDim2.fromOffset(targetW, fullH),
-                Position = UDim2.new(pos.X.Scale, pos.X.Offset, pos.Y.Scale, pos.Y.Offset + rise),
-            }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
-
-            -- body slides down into place
-            play(body, 0.45, {
-                Position = UDim2.fromOffset(0, topH),
-            }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                Size = UDim2.fromOffset(targetW, restoreH),
+                Position = UDim2.fromOffset(math.floor(newPosX), math.floor(newPosY)),
+            }, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
         end
     end
 
