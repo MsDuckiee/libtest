@@ -4412,6 +4412,145 @@ local function extendElements(E, ctx)
         function obj:SetSubtitle(t) sl.Text = tostring(t) sl.Visible = tostring(t) ~= "" end
         return decorate(obj, c, o, "Avatar")
     end
+    -- ============================================
+    -- 27. TIMELINE
+    -- ============================================
+    function E:AddTimeline(o)
+        o = o or {}
+        local label = tostring(o.Name or "Timeline")
+        local steps = o.Steps or {}
+        local current = tonumber(o.Default) or 0
+        if current < 1 then current = 1 end
+        if current > #steps and #steps > 0 then current = #steps end
+
+        local c = card(0, false)
+        c.AutomaticSize = Enum.AutomaticSize.Y
+        c.Size = UDim2.new(1, 0, 0, 0)
+        c.Active = false
+        inset(c, 12, 14, 12, 14)
+
+        local title = tx("TextLabel", {
+            Text = label, TextSize = 12, Size = UDim2.new(1, 0, 0, 16),
+            ZIndex = 26, Parent = c,
+        }, 2, "Sub")
+
+        local body = mk("Frame", {
+            Position = UDim2.fromOffset(0, 22),
+            Size = UDim2.new(1, 0, 0, math.max(1, #steps) * 26),
+            BackgroundTransparency = 1, ZIndex = 25, Parent = c,
+        })
+
+        local dots = {}
+        local lines = {}
+        local labels = {}
+
+        local function paint(animated)
+            for i, dot in ipairs(dots) do
+                local done = i < current
+                local active = i == current
+                local col = done and Status.Success or active and Pal.Accent or Pal.Elevated
+                if animated then play(dot, 0.25, {BackgroundColor3 = col})
+                else dot.BackgroundColor3 = col end
+                if labels[i] then
+                    labels[i].TextColor3 = (done or active) and Pal.Text or Pal.Sub
+                end
+            end
+            for i, ln in ipairs(lines) do
+                local col = i < current and Status.Success or Pal.Stroke
+                if animated then play(ln, 0.25, {BackgroundColor3 = col})
+                else ln.BackgroundColor3 = col end
+            end
+        end
+
+        for i, name in ipairs(steps) do
+            local y = (i - 1) * 26
+            local dot = mk("Frame", {
+                Position = UDim2.fromOffset(0, y + 6),
+                Size = UDim2.fromOffset(12, 12),
+                BackgroundColor3 = Pal.Elevated, ZIndex = 27, Parent = body,
+            })
+            round(dot, 6)
+            dots[i] = dot
+
+            if i < #steps then
+                local ln = mk("Frame", {
+                    Position = UDim2.fromOffset(5, y + 20),
+                    Size = UDim2.fromOffset(2, 10),
+                    BackgroundColor3 = Pal.Stroke, ZIndex = 26, Parent = body,
+                })
+                lines[i] = ln
+            end
+
+            labels[i] = tx("TextLabel", {
+                Text = tostring(name), TextSize = 12,
+                Position = UDim2.fromOffset(22, y + 3),
+                Size = UDim2.new(1, -26, 0, 18),
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = 27, Parent = body,
+            }, 2)
+        end
+
+        local obj = {Value = current}
+        function obj:Set(step, silent)
+            step = math.clamp(tonumber(step) or 1, 1, math.max(#steps, 1))
+            current = step
+            obj.Value = step
+            paint(true)
+            if not silent and o.Callback then
+                pcall(o.Callback, step, steps[step] or "")
+            end
+        end
+        function obj:Get() return current end
+        function obj:Next() obj:Set(current + 1) end
+        function obj:Prev() obj:Set(current - 1) end
+
+        paint(false)
+        register(o.Flag, obj, o, function() return current end, function(v) obj:Set(v, true) end)
+        return decorate(obj, c, o, "Timeline")
+    end
+
+    -- ============================================
+    -- 28. LINK BUTTON
+    -- ============================================
+    function E:AddLinkButton(o)
+        o = type(o) == "table" and o or {Name = o}
+        local label = tostring(o.Name or "Open link")
+        local url = tostring(o.URL or o.Url or "")
+        local c = card(rowH, true)
+        nameLabel(c, label, UDim2.new(1, -60, 1, 0))
+        local ico = makeIcon(c, o.Icon or "external-link", 16, "Sub", {
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -14, 0.5, 0),
+            ZIndex = 25,
+        })
+        ico.Image.ZIndex = 25
+        ico.Glyph.ZIndex = 25
+
+        local obj = {}
+        function obj:SetURL(u) url = tostring(u) end
+        function obj:GetURL() return url end
+        function obj:Fire()
+            if url == "" then
+                fail(c, label, "no URL set")
+                return
+            end
+            if setclipboard then pcall(setclipboard, url) end
+            pcall(function()
+                if request then
+                    request({Url = url, Method = "GET"})
+                end
+            end)
+            if type(o.Callback) == "function" then
+                local ok, err = pcall(o.Callback, url)
+                if not ok then fail(c, label, err) end
+            end
+            flashCard(c, Status.Success, 0.5)
+        end
+
+        c.Activated:Connect(function() obj:Fire() end)
+        return decorate(obj, c, o, "LinkButton")
+    end
+
 end
 
 function ElementFactory(Window, Tab, parent, sectionName)
