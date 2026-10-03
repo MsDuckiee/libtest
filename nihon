@@ -1,5 +1,5 @@
 --[[
-    Nihon Lib  |  v4.1  (Morph launcher + Unified fades + Key System + 26 elements + Perf pass)
+    Nihon Lib  |  v4.0  (Morph launcher + Unified fades + Key System + 20+ elements + Perf pass)
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -21,7 +21,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "4.1.0",
+    Version = "4.0.0",
     Flags = {},
     Windows = {},
     Folder = "NihonLib",
@@ -44,8 +44,6 @@ local Nihon = {
     KeyFile = false,
     KeyFileName = "key",
     AutoVerify = true,
-    -- Key gate transparency (0 = opaque, 1 = invisible)
-    KeyGateOverlayTransparency = 0.35,
 }
 env.NihonLibInstance = Nihon
 
@@ -1544,7 +1542,7 @@ local kbFrame = mk("Frame", {
 bind(kbFrame, "BackgroundColor3", "Surface")
 round(kbFrame, 12)
 outline(kbFrame, "Stroke", 1, 0.15)
-inset(kbFrame, 10, 12, 12, 10)
+inset(kbFrame, 10, 12, 12, 12)
 stack(kbFrame, 5)
 mk("UIScale", {Scale = 1, Parent = kbFrame})
 local kbVisible = false
@@ -1850,6 +1848,7 @@ function Nihon:MakeWindow(cfg)
     round(pillBar, 2)
     accentGradient(pillBar, 90)
 
+    -- PILL: event-driven, only updates on selection / scroll / layout change
     local function updatePill()
         if not Window.Selected or not Window.Selected.Button or not Window.Selected.Button.Parent then
             if pill.Visible then pill.Visible = false pillBar.Visible = false end
@@ -2801,6 +2800,8 @@ local function snapTo(v, step, min)
     return min + math.floor((v - min) / step + 0.5) * step
 end
 
+-- Resolve a tone name to a Color3.
+-- Accepts: Color3 (passthrough), Pal key, Status key, or nil -> Pal.Accent.
 local function toneColor(name)
     if name == nil then return Pal.Accent end
     if typeof(name) == "Color3" then return name end
@@ -3246,262 +3247,6 @@ local function extendElements(E, ctx)
     function E:AddDropdown(o) return buildDropdown(o, false) end
     function E:AddMultiDropdown(o) return buildDropdown(o, true) end
 
-    function E:AddSegmented(o)
-        o = o or {}
-        local label = tostring(o.Name or "Segmented")
-        local raw = o.Options or o.Values or {}
-        local options = {}
-
-        local function normalize(list)
-            local out = {}
-            for i, v in ipairs(list or {}) do
-                if type(v) == "table" then
-                    local name = tostring(v.Name or v.Text or v.Label or v.Value or i)
-                    local value = v.Value
-                    if value == nil then value = v.Name or v.Text or v.Label or i end
-                    out[#out + 1] = {Name = name, Value = value, Disabled = v.Disabled == true}
-                else
-                    out[#out + 1] = {Name = tostring(v), Value = v, Disabled = false}
-                end
-            end
-            return out
-        end
-
-        options = normalize(raw)
-
-        local c = card(mobile and 68 or 62, true)
-        c.ClipsDescendants = false
-        nameLabel(c, label, UDim2.new(1, 0, 0, 22))
-
-        local holder = mk("Frame", {
-            Position = UDim2.fromOffset(10, 30),
-            Size = UDim2.new(1, -20, 0, mobile and 30 or 26),
-            BackgroundTransparency = 1,
-            ZIndex = 25,
-            Parent = c,
-        })
-
-        local scroll = mk("ScrollingFrame", {
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            CanvasSize = UDim2.fromOffset(0, 0),
-            AutomaticCanvasSize = Enum.AutomaticSize.X,
-            ScrollingDirection = Enum.ScrollingDirection.X,
-            ScrollBarThickness = 0,
-            ScrollingEnabled = true,
-            ZIndex = 25,
-            Parent = holder,
-        })
-
-        local row = mk("Frame", {
-            Size = UDim2.fromScale(1, 1),
-            AutomaticSize = Enum.AutomaticSize.X,
-            BackgroundTransparency = 1,
-            ZIndex = 25,
-            Parent = scroll,
-        })
-
-        mk("UIListLayout", {
-            FillDirection = Enum.FillDirection.Horizontal,
-            HorizontalAlignment = Enum.HorizontalAlignment.Left,
-            VerticalAlignment = Enum.VerticalAlignment.Center,
-            Padding = UDim.new(0, 5),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Parent = row,
-        })
-
-        inset(row, 0, 2, 0, 2)
-
-        local obj = {Value = nil, Options = {}}
-        local buttons = {}
-        local currentIndex = nil
-
-        local firer = makeFirer(function()
-            return obj.Value
-        end, function(v)
-            local ok, err = pcall(o.Callback or function() end, v)
-            if not ok then fail(c, label, err) end
-        end)
-
-        local function same(a, b)
-            if a == b then return true end
-            return tostring(a) == tostring(b)
-        end
-
-        local function optionIndex(v)
-            if type(v) == "number" and options[v] then
-                return v
-            end
-            for i, x in ipairs(options) do
-                if same(x.Value, v) or x.Name == tostring(v) then
-                    return i
-                end
-            end
-        end
-
-        local function restyle(animated)
-            for i, b in ipairs(buttons) do
-                local active = i == currentIndex
-                local bg = active and Pal.Accent or Pal.Elevated
-                local fg = active and onAccent() or Pal.Text
-                if animated then
-                    play(b, 0.18, {BackgroundColor3 = bg, TextColor3 = fg})
-                else
-                    b.BackgroundColor3 = bg
-                    b.TextColor3 = fg
-                end
-            end
-        end
-
-        local function rebuild()
-            for _, b in ipairs(buttons) do
-                b:Destroy()
-            end
-
-            buttons = {}
-            obj.Options = {}
-
-            for i, x in ipairs(options) do
-                obj.Options[i] = x.Value
-
-                local ts = TextService:GetTextSize(
-                    x.Name,
-                    mobile and 11 or 12,
-                    Fonts[currentFont][3],
-                    Vector2.new(1000, 28)
-                )
-
-                local bw = math.max(mobile and 58 or 64, ts.X + (mobile and 22 or 28))
-
-                local b = tx("TextButton", {
-                    Text = x.Name,
-                    TextSize = mobile and 11 or 12,
-                    Size = UDim2.fromOffset(bw, mobile and 28 or 26),
-                    LayoutOrder = i,
-                    TextXAlignment = Enum.TextXAlignment.Center,
-                    BackgroundTransparency = 0,
-                    ZIndex = 26,
-                    Parent = row,
-                }, 3)
-
-                round(b, 7)
-                outline(b, "Stroke", 1, 0.45)
-                b.AutoButtonColor = false
-                b.Active = not x.Disabled
-
-                if x.Disabled then
-                    b.TextTransparency = 0.5
-                    b.BackgroundTransparency = 0.35
-                end
-
-                b.Activated:Connect(function()
-                    if x.Disabled or obj:IsLocked() then return end
-                    obj:Set(x.Value)
-                end)
-
-                buttons[i] = b
-            end
-
-            restyle(false)
-        end
-
-        function obj:Set(v, silent)
-            local i = optionIndex(v)
-            if not i or options[i].Disabled then return false end
-
-            currentIndex = i
-            obj.Value = options[i].Value
-            restyle(true)
-
-            if silent then
-                firer.Sync(obj.Value)
-            else
-                firer.Fire()
-                queueSave()
-            end
-
-            return true
-        end
-
-        function obj:Get()
-            return obj.Value
-        end
-
-        function obj:Refresh(list, keepValue)
-            local old = obj.Value
-            options = normalize(list)
-            currentIndex = nil
-            obj.Value = nil
-            rebuild()
-
-            if keepValue and old ~= nil and optionIndex(old) then
-                obj:Set(old, true)
-            else
-                local d = o.Default
-                if d == nil and options[1] then
-                    d = options[1].Value
-                end
-                if d ~= nil then
-                    obj:Set(d, true)
-                end
-            end
-
-            return obj
-        end
-
-        function obj:Add(v)
-            local added = normalize({v})[1]
-            if not added then return obj end
-            options[#options + 1] = added
-            rebuild()
-            return obj
-        end
-
-        function obj:Clear()
-            options = {}
-            obj.Options = {}
-            currentIndex = nil
-            obj.Value = nil
-            rebuild()
-            firer.Sync(nil)
-            return obj
-        end
-
-        rebuild()
-
-        local default = o.Default
-        if default == nil and options[1] then
-            default = options[1].Value
-        end
-
-        if default ~= nil then
-            obj:Set(default, true)
-        end
-
-        register(
-            o.Flag,
-            obj,
-            o,
-            function()
-                return obj.Value
-            end,
-            function(v)
-                obj:Set(v)
-            end
-        )
-
-        decorate(obj, c, o, "Segmented")
-
-        initFires[#initFires + 1] = function()
-            if obj.Value ~= nil then
-                firer.Fire()
-            end
-        end
-
-        return obj
-    end
-
     -- ============================================
     -- COLORPICKER
     -- ============================================
@@ -3786,10 +3531,10 @@ local function extendElements(E, ctx)
     end
 
     -- ============================================
-    -- 6 MORE ELEMENTS (Input, Stepper, Radio, Note, Table, Image)
+    -- 14 NEW ELEMENTS
     -- ============================================
 
-    -- 15. INPUT (submit on enter)
+    -- 1. INPUT (submit on enter)
     function E:AddInput(o)
         o = o or {}
         local label = tostring(o.Name or "Input")
@@ -3832,7 +3577,7 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "Input")
     end
 
-    -- 16. NUMBER STEPPER
+    -- 2. NUMBER STEPPER
     function E:AddNumberStepper(o)
         o = o or {}
         local label = tostring(o.Name or "Value")
@@ -3892,160 +3637,7 @@ local function extendElements(E, ctx)
         return obj
     end
 
-
-    function E:AddCounter(o)
-        o = o or {}
-        local label = tostring(o.Name or "Counter")
-        local min = tonumber(o.Min)
-        local max = tonumber(o.Max)
-        local step = tonumber(o.Increment or o.Step) or 1
-        local value = tonumber(o.Default or o.Value) or 0
-        if min and value < min then value = min end
-        if max and value > max then value = max end
-
-        local c = card(rowH, true)
-        nameLabel(c, label, UDim2.new(0.5, 0, 1, 0))
-
-        local holder = mk("Frame", {
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -12, 0.5, 0),
-            Size = UDim2.fromOffset(126, 28),
-            BackgroundTransparency = 1,
-            ZIndex = 16,
-            Parent = c,
-        })
-
-        mk("UIListLayout", {
-            FillDirection = Enum.FillDirection.Horizontal,
-            Padding = UDim.new(0, 4),
-            VerticalAlignment = Enum.VerticalAlignment.Center,
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Parent = holder,
-        })
-
-        local function button(order, glyph)
-            local b = mk("TextButton", {
-                Size = UDim2.fromOffset(28, 28),
-                LayoutOrder = order,
-                BackgroundColor3 = Pal.Elevated,
-                ZIndex = 17,
-                Parent = holder,
-            })
-            round(b, 7)
-            outline(b, "Stroke", 1, 0.55)
-            local ic = makeIcon(b, glyph, 14, "Text", {
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.fromScale(0.5, 0.5),
-                ZIndex = 18,
-            })
-            ic.Image.ZIndex = 18
-            ic.Glyph.ZIndex = 18
-            return b
-        end
-
-        local minus = button(1, "minus")
-        local box = tx("TextBox", {
-            Size = UDim2.fromOffset(58, 28),
-            LayoutOrder = 2,
-            TextSize = 13,
-            TextXAlignment = Enum.TextXAlignment.Center,
-            ZIndex = 17,
-            Parent = holder,
-        }, 3, "Accent")
-        bind(box, "BackgroundColor3", "Surface")
-        box.BackgroundTransparency = 0
-        round(box, 7)
-
-        local plus = button(3, "plus")
-        local obj = {Value = value}
-
-        local fire = makeFirer(function()
-            return obj.Value
-        end, function(v)
-            local ok, err = pcall(o.Callback or function() end, v)
-            if not ok then fail(c, label, err) end
-        end)
-
-        local function snap(v)
-            v = tonumber(v)
-            if not v then return obj.Value end
-            if min then v = math.max(min, v) end
-            if max then v = math.min(max, v) end
-            if step > 0 then
-                local base = min or 0
-                v = base + math.floor((v - base) / step + 0.5) * step
-            end
-            if min then v = math.max(min, v) end
-            if max then v = math.min(max, v) end
-            return v
-        end
-
-        local function update(v, silent)
-            obj.Value = snap(v)
-            box.Text = numFormat(obj.Value, step, o.ValueName or "")
-            if silent then
-                fire.Sync(obj.Value)
-            else
-                fire.Fire()
-                queueSave()
-            end
-        end
-
-        minus.Activated:Connect(function()
-            if not obj:IsLocked() then update(obj.Value - step) end
-        end)
-
-        plus.Activated:Connect(function()
-            if not obj:IsLocked() then update(obj.Value + step) end
-        end)
-
-        box.FocusLost:Connect(function()
-            if not obj:IsLocked() then update(box.Text) else box.Text = numFormat(obj.Value, step, o.ValueName or "") end
-        end)
-
-        function obj:Set(v, silent)
-            update(v, silent)
-            return obj.Value
-        end
-
-        function obj:Get()
-            return obj.Value
-        end
-
-        function obj:Increment(v)
-            update(obj.Value + (tonumber(v) or step))
-            return obj.Value
-        end
-
-        function obj:Decrement(v)
-            update(obj.Value - (tonumber(v) or step))
-            return obj.Value
-        end
-
-        function obj:Reset()
-            update(tonumber(o.Default or o.Value) or 0)
-            return obj.Value
-        end
-
-        register(
-            o.Flag,
-            obj,
-            o,
-            function()
-                return obj.Value
-            end,
-            function(v)
-                obj:Set(v, true)
-            end
-        )
-
-        decorate(obj, c, o, "Counter")
-        box.Text = numFormat(obj.Value, step, o.ValueName or "")
-
-        return obj
-    end
-
-    -- 17. RADIO GROUP
+    -- 3. RADIO GROUP
     function E:AddRadioGroup(o)
         o = o or {}
         local label = tostring(o.Name or "Choice")
@@ -4116,7 +3708,7 @@ local function extendElements(E, ctx)
         return obj
     end
 
-    -- 18. NOTE / CALLOUT
+    -- 4. NOTE / CALLOUT
     function E:AddNote(o)
         o = type(o) == "table" and o or {Content = o}
         local kind = tostring(o.Type or "Info")
@@ -4150,7 +3742,7 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "Note")
     end
 
-    -- 19. TABLE
+    -- 5. TABLE
     function E:AddTable(o)
         o = o or {}
         local headers = o.Headers or {"Key", "Value"}
@@ -4207,7 +3799,7 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "Table")
     end
 
-    -- 20. IMAGE
+    -- 6. IMAGE
     function E:AddImage(o)
         o = o or {}
         local h = tonumber(o.Height) or 140
@@ -4225,9 +3817,7 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "Image")
     end
 
-    -- ============================================
-    -- 21. CODE BLOCK
-    -- ============================================
+    -- 7. CODE BLOCK
     function E:AddCode(o)
         o = o or {}
         local code = tostring(o.Code or o.Content or "")
@@ -4272,9 +3862,7 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "Code")
     end
 
-    -- ============================================
-    -- 22. SPINNER
-    -- ============================================
+    -- 8. SPINNER
     function E:AddSpinner(o)
         o = o or {}
         local label = tostring(o.Name or "Loading")
@@ -4300,9 +3888,7 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "Spinner")
     end
 
-    -- ============================================
-    -- 23. CHIP
-    -- ============================================
+    -- 9. CHIP
     function E:AddChip(o)
         o = type(o) == "table" and o or {Text = o}
         local text = tostring(o.Text or o.Name or "chip")
@@ -4327,9 +3913,7 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "Chip")
     end
 
-    -- ============================================
-    -- 24. BADGE
-    -- ============================================
+    -- 10. BADGE (like chip but with count/tone)
     function E:AddBadge(o)
         o = type(o) == "table" and o or {Text = o}
         local label = tostring(o.Name or "Badge")
@@ -4358,9 +3942,7 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "Badge")
     end
 
-    -- ============================================
-    -- 25. STAT PILL
-    -- ============================================
+    -- 11. STAT PILL (inline key / value)
     function E:AddStatPill(o)
         o = o or {}
         local label = tostring(o.Name or "Stat")
@@ -4380,9 +3962,35 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "StatPill")
     end
 
-    -- ============================================
-    -- 26. AVATAR
-    -- ============================================
+    -- 12. LINK BUTTON (opens URL)
+    function E:AddLinkButton(o)
+        o = o or {}
+        local label = tostring(o.Name or "Open link")
+        local url = tostring(o.URL or "https://example.com")
+        local c = card(rowH, true)
+        nameLabel(c, label, UDim2.new(1, -60, 1, 0))
+        local icon = makeIcon(c, o.Icon or "external-link", 15, "Accent", {
+            AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), ZIndex = 25,
+        })
+        icon.Image.ZIndex = 25
+        icon.Glyph.ZIndex = 25
+        c.Activated:Connect(function()
+            if setclipboard then pcall(setclipboard, url) end
+            if o.OnClick then pcall(o.OnClick, url) end
+            pcall(function()
+                if request then
+                    request({Url = url, Method = "GET"})
+                end
+            end)
+            Nihon:MakeNotification({Name = "Link copied", Content = url, Type = "Info", Time = 3})
+        end)
+        local obj = {}
+        function obj:GetURL() return url end
+        function obj:SetURL(u) url = tostring(u) end
+        return decorate(obj, c, o, "Link")
+    end
+
+    -- 13. AVATAR (image + name + sub)
     function E:AddAvatar(o)
         o = o or {}
         local label = tostring(o.Name or "User")
@@ -4412,145 +4020,30 @@ local function extendElements(E, ctx)
         function obj:SetSubtitle(t) sl.Text = tostring(t) sl.Visible = tostring(t) ~= "" end
         return decorate(obj, c, o, "Avatar")
     end
-    -- ============================================
-    -- 27. TIMELINE
-    -- ============================================
-    function E:AddTimeline(o)
+
+    -- 14. KEY-VALUE (compact row)
+    function E:AddKeyValue(o)
         o = o or {}
-        local label = tostring(o.Name or "Timeline")
-        local steps = o.Steps or {}
-        local current = tonumber(o.Default) or 0
-        if current < 1 then current = 1 end
-        if current > #steps and #steps > 0 then current = #steps end
-
-        local c = card(0, false)
-        c.AutomaticSize = Enum.AutomaticSize.Y
-        c.Size = UDim2.new(1, 0, 0, 0)
+        local label = tostring(o.Name or "Key")
+        local value = tostring(o.Value or "-")
+        local c = card(28, false)
         c.Active = false
-        inset(c, 12, 14, 12, 14)
-
-        local title = tx("TextLabel", {
-            Text = label, TextSize = 12, Size = UDim2.new(1, 0, 0, 16),
+        c.BackgroundTransparency = 0.5
+        tx("TextLabel", {
+            Text = label, TextSize = 11, Position = UDim2.fromOffset(14, 0),
+            Size = UDim2.new(0.5, 0, 1, 0), TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 26, Parent = c,
+        }, 1, "Sub")
+        local val = tx("TextLabel", {
+            Text = value, TextSize = 11, AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.new(0.5, 0, 1, 0),
+            TextXAlignment = Enum.TextXAlignment.Right, TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 26, Parent = c,
-        }, 2, "Sub")
-
-        local body = mk("Frame", {
-            Position = UDim2.fromOffset(0, 22),
-            Size = UDim2.new(1, 0, 0, math.max(1, #steps) * 26),
-            BackgroundTransparency = 1, ZIndex = 25, Parent = c,
-        })
-
-        local dots = {}
-        local lines = {}
-        local labels = {}
-
-        local function paint(animated)
-            for i, dot in ipairs(dots) do
-                local done = i < current
-                local active = i == current
-                local col = done and Status.Success or active and Pal.Accent or Pal.Elevated
-                if animated then play(dot, 0.25, {BackgroundColor3 = col})
-                else dot.BackgroundColor3 = col end
-                if labels[i] then
-                    labels[i].TextColor3 = (done or active) and Pal.Text or Pal.Sub
-                end
-            end
-            for i, ln in ipairs(lines) do
-                local col = i < current and Status.Success or Pal.Stroke
-                if animated then play(ln, 0.25, {BackgroundColor3 = col})
-                else ln.BackgroundColor3 = col end
-            end
-        end
-
-        for i, name in ipairs(steps) do
-            local y = (i - 1) * 26
-            local dot = mk("Frame", {
-                Position = UDim2.fromOffset(0, y + 6),
-                Size = UDim2.fromOffset(12, 12),
-                BackgroundColor3 = Pal.Elevated, ZIndex = 27, Parent = body,
-            })
-            round(dot, 6)
-            dots[i] = dot
-
-            if i < #steps then
-                local ln = mk("Frame", {
-                    Position = UDim2.fromOffset(5, y + 20),
-                    Size = UDim2.fromOffset(2, 10),
-                    BackgroundColor3 = Pal.Stroke, ZIndex = 26, Parent = body,
-                })
-                lines[i] = ln
-            end
-
-            labels[i] = tx("TextLabel", {
-                Text = tostring(name), TextSize = 12,
-                Position = UDim2.fromOffset(22, y + 3),
-                Size = UDim2.new(1, -26, 0, 18),
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                ZIndex = 27, Parent = body,
-            }, 2)
-        end
-
-        local obj = {Value = current}
-        function obj:Set(step, silent)
-            step = math.clamp(tonumber(step) or 1, 1, math.max(#steps, 1))
-            current = step
-            obj.Value = step
-            paint(true)
-            if not silent and o.Callback then
-                pcall(o.Callback, step, steps[step] or "")
-            end
-        end
-        function obj:Get() return current end
-        function obj:Next() obj:Set(current + 1) end
-        function obj:Prev() obj:Set(current - 1) end
-
-        paint(false)
-        register(o.Flag, obj, o, function() return current end, function(v) obj:Set(v, true) end)
-        return decorate(obj, c, o, "Timeline")
-    end
-
-    -- ============================================
-    -- 28. LINK BUTTON
-    -- ============================================
-    function E:AddLinkButton(o)
-        o = type(o) == "table" and o or {Name = o}
-        local label = tostring(o.Name or "Open link")
-        local url = tostring(o.URL or o.Url or "")
-        local c = card(rowH, true)
-        nameLabel(c, label, UDim2.new(1, -60, 1, 0))
-        local ico = makeIcon(c, o.Icon or "external-link", 16, "Sub", {
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -14, 0.5, 0),
-            ZIndex = 25,
-        })
-        ico.Image.ZIndex = 25
-        ico.Glyph.ZIndex = 25
-
+        }, 2)
         local obj = {}
-        function obj:SetURL(u) url = tostring(u) end
-        function obj:GetURL() return url end
-        function obj:Fire()
-            if url == "" then
-                fail(c, label, "no URL set")
-                return
-            end
-            if setclipboard then pcall(setclipboard, url) end
-            pcall(function()
-                if request then
-                    request({Url = url, Method = "GET"})
-                end
-            end)
-            if type(o.Callback) == "function" then
-                local ok, err = pcall(o.Callback, url)
-                if not ok then fail(c, label, err) end
-            end
-            flashCard(c, Status.Success, 0.5)
-        end
-
-        c.Activated:Connect(function() obj:Fire() end)
-        return decorate(obj, c, o, "LinkButton")
+        function obj:Set(v) val.Text = tostring(v) end
+        function obj:Get() return val.Text end
+        return decorate(obj, c, o, "KeyValue")
     end
-
 end
 
 function ElementFactory(Window, Tab, parent, sectionName)
@@ -4827,675 +4320,10 @@ function ElementFactory(Window, Tab, parent, sectionName)
         return obj
     end
 
-    function E:AddToggleList(o)
-        o = o or {}
-        local label = tostring(o.Name or "Toggle List")
-        local raw = o.Options or o.Values or o.Toggles or {}
-        local options = {}
-
-        local function normalize(list)
-            local out = {}
-            if type(list) ~= "table" then return out end
-            for i, v in ipairs(list) do
-                if type(v) == "table" then
-                    local n = tostring(v.Name or v.Text or v.Label or v.Value or i)
-                    local val = v.Value
-                    if val == nil then val = v.Name or v.Text or v.Label or i end
-                    out[#out + 1] = {Name = n, Value = val, Default = v.Default, Disabled = v.Disabled == true, Callback = v.Callback}
-                else
-                    out[#out + 1] = {Name = tostring(v), Value = v}
-                end
-            end
-            if #out == 0 then
-                for k, v in pairs(list) do
-                    if type(k) == "string" then
-                        out[#out + 1] = {Name = k, Value = v}
-                    end
-                end
-            end
-            return out
-        end
-
-        options = normalize(raw)
-
-        local states = {}
-        local rows = {}
-        local obj = {Values = {}, Options = {}}
-
-        local function getDefault(x, i)
-            local d = o.Default
-            if type(d) == "table" then
-                if d[x.Value] ~= nil then return d[x.Value] and true or false end
-                if d[x.Name] ~= nil then return d[x.Name] and true or false end
-                if d[i] ~= nil then return d[i] and true or false end
-            elseif d ~= nil then
-                return d and true or false
-            end
-            if x.Default ~= nil then return x.Default and true or false end
-            return false
-        end
-
-        local c = card(math.max(rowH, 34 + (#options * rowH)), true)
-        c.ClipsDescendants = false
-        nameLabel(c, label, UDim2.new(1, 0, 0, 24))
-
-        local body = mk("Frame", {
-            Position = UDim2.fromOffset(0, 24),
-            Size = UDim2.new(1, 0, 0, math.max(rowH, #options * rowH)),
-            BackgroundTransparency = 1,
-            ZIndex = 24,
-            Parent = c,
-        })
-
-        local layout = mk("UIListLayout", {
-            FillDirection = Enum.FillDirection.Vertical,
-            Padding = UDim.new(0, 2),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Parent = body,
-        })
-
-        local function callback(x, v)
-            if x.Callback then
-                local ok, err = pcall(x.Callback, v, obj.Values)
-                if not ok then fail(c, x.Name, err) end
-            end
-            if o.Callback then
-                local ok, err = pcall(o.Callback, x.Value, v, obj.Values, x.Name)
-                if not ok then fail(c, label, err) end
-            end
-        end
-
-        local function paint(i, animated)
-            local r = rows[i]
-            if not r then return end
-            local v = states[i] == true
-            local dur = animated and 0.2 or 0.001
-            play(r.fill, dur, {BackgroundTransparency = v and 0 or 1})
-            play(r.knob, dur, {Position = UDim2.new(0, v and 23 or 3, 0.5, 0)}, Enum.EasingStyle.Back)
-            play(r.stroke, dur, {Transparency = v and 1 or 0.25})
-        end
-
-        local function rebuild()
-            for _, r in ipairs(rows) do
-                if r.frame then r.frame:Destroy() end
-            end
-            rows = {}
-            states = {}
-            obj.Values = {}
-            obj.Options = {}
-
-            local h = math.max(rowH, #options * rowH)
-            body.Size = UDim2.new(1, 0, 0, h)
-            c.Size = UDim2.new(1, 0, 0, 24 + h)
-
-            for i, x in ipairs(options) do
-                obj.Options[i] = x.Value
-                states[i] = getDefault(x, i)
-                obj.Values[x.Value] = states[i]
-
-                local r = mk("TextButton", {
-                    Size = UDim2.new(1, 0, 0, rowH),
-                    BackgroundTransparency = 1,
-                    Text = "",
-                    AutoButtonColor = false,
-                    Active = not x.Disabled,
-                    LayoutOrder = i,
-                    ZIndex = 25,
-                    Parent = body,
-                })
-
-                local title = tx("TextLabel", {
-                    Position = UDim2.fromOffset(12, 0),
-                    Size = UDim2.new(1, -68, 1, 0),
-                    Text = x.Name,
-                    TextSize = 12,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
-                    ZIndex = 26,
-                    Parent = r,
-                }, 2)
-
-                local track = mk("Frame", {
-                    AnchorPoint = Vector2.new(1, 0.5),
-                    Position = UDim2.new(1, -12, 0.5, 0),
-                    Size = UDim2.fromOffset(42, 22),
-                    ZIndex = 26,
-                    Parent = r,
-                })
-                bind(track, "BackgroundColor3", "Elevated")
-                round(track, 11)
-                local stroke = outline(track, "Stroke", 1, 0.25)
-                local fill = mk("Frame", {
-                    Size = UDim2.fromScale(1, 1),
-                    BackgroundColor3 = Color3.new(1, 1, 1),
-                    BackgroundTransparency = 1,
-                    ZIndex = 27,
-                    Parent = track,
-                })
-                round(fill, 11)
-                accentGradient(fill, 25)
-                local knob = mk("Frame", {
-                    AnchorPoint = Vector2.new(0, 0.5),
-                    Position = UDim2.new(0, 3, 0.5, 0),
-                    Size = UDim2.fromOffset(16, 16),
-                    BackgroundColor3 = Color3.new(1, 1, 1),
-                    ZIndex = 28,
-                    Parent = track,
-                })
-                round(knob, 8)
-
-                if x.Disabled then
-                    r.TextTransparency = 0.45
-                    r.BackgroundTransparency = 0.2
-                    title.TextTransparency = 0.45
-                end
-
-                rows[i] = {frame = r, fill = fill, knob = knob, stroke = stroke}
-
-                r.Activated:Connect(function()
-                    if x.Disabled or obj:IsLocked() then return end
-                    obj:Set(x.Value, not states[i])
-                end)
-
-                paint(i, false)
-            end
-
-            for i, x in ipairs(options) do
-                if states[i] then
-                    obj.Values[x.Value] = true
-                end
-            end
-        end
-
-        function obj:Set(key, value, silent)
-            local i
-            if type(key) == "number" and options[key] then
-                i = key
-            else
-                for n, x in ipairs(options) do
-                    if x.Value == key or x.Name == tostring(key) then
-                        i = n
-                        break
-                    end
-                end
-            end
-            if not i or options[i].Disabled then return false end
-
-            value = value and true or false
-            states[i] = value
-            obj.Values[options[i].Value] = value
-            paint(i, true)
-
-            if not silent then
-                callback(options[i], value)
-                queueSave()
-            end
-            return true
-        end
-
-        function obj:Get(key)
-            if key == nil then
-                local out = {}
-                for k, v in pairs(obj.Values) do out[k] = v end
-                return out
-            end
-            for i, x in ipairs(options) do
-                if x.Value == key or x.Name == tostring(key) or i == key then
-                    return states[i] == true
-                end
-            end
-            return nil
-        end
-
-        function obj:Toggle(key)
-            local v = obj:Get(key)
-            if v == nil then return false end
-            return obj:Set(key, not v)
-        end
-
-        function obj:Refresh(list, keep)
-            local old = obj:Get()
-            options = normalize(list)
-            rebuild()
-            if keep and type(old) == "table" then
-                for i, x in ipairs(options) do
-                    if old[x.Value] ~= nil then obj:Set(i, old[x.Value], true) end
-                end
-            end
-            return obj
-        end
-
-        function obj:Add(v)
-            local x = normalize({v})[1]
-            if not x then return obj end
-            options[#options + 1] = x
-            rebuild()
-            return obj
-        end
-
-        function obj:Clear()
-            options = {}
-            rebuild()
-            return obj
-        end
-
-        rebuild()
-
-        register(o.Flag, obj, o, function()
-            return obj:Get()
-        end, function(v)
-            if type(v) ~= "table" then return end
-            for i, x in ipairs(options) do
-                if v[x.Value] ~= nil then obj:Set(i, v[x.Value], true) end
-            end
-        end)
-
-        decorate(obj, c, o, "ToggleList")
-
-        initFires[#initFires + 1] = function()
-            for i, x in ipairs(options) do
-                if states[i] then callback(x, true) end
-            end
-        end
-
-        return obj
-    end
-
-    function E:AddColorPicker(o)
-        return E:AddColorpicker(o)
-    end
-
-    function E:AddKeyValueList(o)
-        return E:AddKeyValue(o)
-    end
-
-    function E:AddKV(o)
-        return E:AddKeyValue(o)
-    end
-
-    function E:AddKeybind(o)
-        return E:AddBind(o)
-    end
-
-    function E:AddKeyBind(o)
-        return E:AddBind(o)
-    end
-
-    function E:AddTextBox(o)
-        return E:AddTextbox(o)
-    end
-
-    function E:AddMultiSelect(o)
-        return E:AddMultiDropdown(o)
-    end
-
-    function E:AddSelect(o)
-        return E:AddDropdown(o)
-    end
-
-    function E:AddKeyValue(o)
-        o = type(o) == "table" and o or {Name = o}
-        local label = tostring(o.Name or o.Title or "Key Value")
-        local key = tostring(o.Key or o.Label or "Value")
-        local value = o.Value
-        local c = card(rowH, true)
-        nameLabel(c, label, UDim2.new(1, -150, 1, 0))
-
-        local valueBox = tx("TextLabel", {
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -14, 0.5, 0),
-            Size = UDim2.fromOffset(135, 24),
-            Text = tostring(value == nil and "" or value),
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 25,
-            Parent = c,
-        }, 2, "Sub")
-
-        local obj = {Key = key, Value = value}
-
-        local function setValue(v, silent)
-            value = v
-            obj.Value = v
-            valueBox.Text = tostring(v == nil and "" or v)
-            if not silent and type(o.Callback) == "function" then
-                local ok, err = pcall(o.Callback, key, v)
-                if not ok then fail(c, label, err) end
-            end
-            if not silent then queueSave() end
-        end
-
-        function obj:Set(v, silent)
-            setValue(v, silent)
-            return obj
-        end
-
-        function obj:Get()
-            return value
-        end
-
-        function obj:GetKey()
-            return key
-        end
-
-        function obj:SetKey(v)
-            key = tostring(v)
-            obj.Key = key
-            return obj
-        end
-
-        function obj:SetCallback(fn)
-            o.Callback = fn
-            return obj
-        end
-
-        register(o.Flag, obj, o, function()
-            return value
-        end, function(v)
-            setValue(v, true)
-        end)
-
-        decorate(obj, c, o, "KeyValue")
-
-        if o.Default ~= nil and value == nil then
-            setValue(o.Default, true)
-        end
-
-        return obj
-    end
-
-    function E:AddKeyvalue(o)
-        return E:AddKeyValue(o)
-    end
-
-    function E:AddKeyValuePair(o)
-        return E:AddKeyValue(o)
-    end
-
-    function E:AddChecklist(o)
-        o = type(o) == "table" and o or {Name = o}
-        o.Name = o.Name or "Checklist"
-        o.Options = o.Options or o.Values or o.Items or {}
-        return E:AddToggleList(o)
-    end
-
-    function E:AddCheckList(o)
-        return E:AddChecklist(o)
-    end
-
-    function E:AddCheckboxList(o)
-        return E:AddChecklist(o)
-    end
-
-    function E:AddMultiToggle(o)
-        return E:AddToggleList(o)
-    end
-
-    function E:AddInlineTabs(o)
-        o = type(o) == "table" and o or {Options = o}
-        local label = tostring(o.Name or o.Title or "Tabs")
-        local raw = o.Options or o.Tabs or o.Items or {}
-        local tabs = {}
-        local buttons = {}
-        local pages = {}
-        local selected = nil
-        local obj = {}
-
-        local c = card(o.Height or (mobile and 96 or 88), true)
-        nameLabel(c, label, UDim2.new(1, -20, 0, 22))
-
-        local bar = mk("ScrollingFrame", {
-            Position = UDim2.fromOffset(10, 28),
-            Size = UDim2.new(1, -20, 0, mobile and 32 or 30),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ScrollBarThickness = 0,
-            ScrollingDirection = Enum.ScrollingDirection.X,
-            AutomaticCanvasSize = Enum.AutomaticSize.X,
-            CanvasSize = UDim2.fromOffset(0, 0),
-            ZIndex = 26,
-            Parent = c,
-        })
-
-        local row = mk("Frame", {
-            Size = UDim2.fromScale(1, 1),
-            AutomaticSize = Enum.AutomaticSize.X,
-            BackgroundTransparency = 1,
-            ZIndex = 26,
-            Parent = bar,
-        })
-
-        mk("UIListLayout", {
-            FillDirection = Enum.FillDirection.Horizontal,
-            Padding = UDim.new(0, 5),
-            VerticalAlignment = Enum.VerticalAlignment.Center,
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Parent = row,
-        })
-
-        local body = mk("Frame", {
-            Position = UDim2.fromOffset(10, mobile and 64 or 60),
-            Size = UDim2.new(1, -20, 0, o.ContentHeight or (mobile and 28 or 24)),
-            BackgroundTransparency = 1,
-            ZIndex = 25,
-            Parent = c,
-        })
-
-        local function normalize(v)
-            local out = {}
-            if type(v) ~= "table" then return out end
-            for i, x in ipairs(v) do
-                if type(x) == "table" then
-                    out[#out + 1] = {
-                        Name = tostring(x.Name or x.Title or x.Text or x.Label or i),
-                        Value = x.Value ~= nil and x.Value or (x.Name or x.Title or x.Text or x.Label or i),
-                        Callback = x.Callback or x.OnSelect,
-                        Build = x.Build or x.Builder or x.Content,
-                        Disabled = x.Disabled == true,
-                    }
-                else
-                    out[#out + 1] = {
-                        Name = tostring(x),
-                        Value = x,
-                    }
-                end
-            end
-            return out
-        end
-
-        tabs = normalize(raw)
-
-        local function restyle()
-            for i, b in ipairs(buttons) do
-                local on = tabs[i] and tabs[i].Value == selected
-                local bg = on and Pal.Accent or Pal.Elevated
-                local fg = on and onAccent() or Pal.Text
-                play(b, 0.16, {BackgroundColor3 = bg, TextColor3 = fg})
-            end
-        end
-
-        local function selectTab(v, silent)
-            local index
-            for i, t in ipairs(tabs) do
-                if t.Value == v or tostring(t.Value) == tostring(v) or t.Name == tostring(v) then
-                    index = i
-                    break
-                end
-            end
-            if not index or tabs[index].Disabled then return false end
-
-            selected = tabs[index].Value
-
-            for _, page in ipairs(pages) do
-                page.Visible = false
-            end
-
-            local page = pages[index]
-            if not page then
-                page = mk("Frame", {
-                    Size = UDim2.fromScale(1, 1),
-                    BackgroundTransparency = 1,
-                    Visible = false,
-                    ZIndex = 26,
-                    Parent = body,
-                })
-                pages[index] = page
-
-                local build = tabs[index].Build
-                if type(build) == "function" then
-                    pcall(build, page, obj)
-                elseif type(build) == "Instance" then
-                    build.Parent = page
-                elseif type(build) == "string" then
-                    tx("TextLabel", {
-                        Size = UDim2.fromScale(1, 1),
-                        Text = build,
-                        TextWrapped = true,
-                        TextSize = 12,
-                        Parent = page,
-                    }, 2, "Sub")
-                end
-            end
-
-            page.Visible = true
-            restyle()
-
-            if not silent and type(tabs[index].Callback) == "function" then
-                local ok, err = pcall(tabs[index].Callback, tabs[index].Value, tabs[index], obj)
-                if not ok then fail(c, label, err) end
-            end
-
-            if not silent and type(o.Callback) == "function" then
-                local ok, err = pcall(o.Callback, tabs[index].Value, tabs[index], obj)
-                if not ok then fail(c, label, err) end
-            end
-
-            obj.Value = tabs[index].Value
-            obj.Index = index
-            return true
-        end
-
-        local function rebuild()
-            for _, b in ipairs(buttons) do b:Destroy() end
-            for _, page in ipairs(pages) do page:Destroy() end
-            buttons = {}
-            pages = {}
-
-            for i, t in ipairs(tabs) do
-                local w = TextService:GetTextSize(t.Name, mobile and 11 or 12, Fonts[currentFont][3], Vector2.new(1000, 28))
-                local b = tx("TextButton", {
-                    Text = t.Name,
-                    TextSize = mobile and 11 or 12,
-                    Size = UDim2.fromOffset(math.max(58, w.X + 24), mobile and 28 or 26),
-                    LayoutOrder = i,
-                    TextXAlignment = Enum.TextXAlignment.Center,
-                    BackgroundTransparency = 0,
-                    ZIndex = 27,
-                    Parent = row,
-                }, 3)
-                round(b, 7)
-                outline(b, "Stroke", 1, 0.45)
-                b.Activated:Connect(function()
-                    selectTab(t.Value, false)
-                end)
-                if t.Disabled then
-                    b.Active = false
-                    b.TextTransparency = 0.5
-                end
-                buttons[i] = b
-            end
-
-            if selected ~= nil then
-                selectTab(selected, true)
-            elseif tabs[1] then
-                selectTab(tabs[1].Value, true)
-            end
-        end
-
-        function obj:Set(v, silent)
-            return selectTab(v, silent)
-        end
-
-        function obj:Get()
-            return selected
-        end
-
-        function obj:GetIndex()
-            return obj.Index
-        end
-
-        function obj:Refresh(v, keep)
-            local old = selected
-            tabs = normalize(v)
-            selected = nil
-            obj.Value = nil
-            obj.Index = nil
-            rebuild()
-            if keep and old ~= nil then
-                selectTab(old, true)
-            end
-            return obj
-        end
-
-        function obj:Add(v)
-            local n = normalize({v})[1]
-            if not n then return obj end
-            tabs[#tabs + 1] = n
-            rebuild()
-            return obj
-        end
-
-        function obj:Clear()
-            tabs = {}
-            selected = nil
-            obj.Value = nil
-            obj.Index = nil
-            rebuild()
-            return obj
-        end
-
-        function obj:SetCallback(fn)
-            o.Callback = fn
-            return obj
-        end
-
-        function obj:GetOptions()
-            local out = {}
-            for i, t in ipairs(tabs) do
-                out[i] = t.Value
-            end
-            return out
-        end
-
-        rebuild()
-
-        register(o.Flag, obj, o, function()
-            return selected
-        end, function(v)
-            selectTab(v, true)
-        end)
-
-        decorate(obj, c, o, "InlineTabs")
-
-        return obj
-    end
-
     extendElements(E, {
         Window = Window, Tab = Tab, P = P, card = card, nameLabel = nameLabel, decorate = decorate,
         register = register, fail = fail, mobile = mobile, rowH = rowH,
     })
-
-    function E:AddInlineTab(o)
-        return E:AddInlineTabs(o)
-    end
-
-    function E:AddTabs(o)
-        return E:AddInlineTabs(o)
-    end
-
-    function E:AddTabList(o)
-        return E:AddInlineTabs(o)
-    end
 
     return E
 end
@@ -5564,7 +4392,7 @@ local function loadingScreen(cfg, title, done)
 end
 
 -- ============================================
--- KEY SYSTEM  (with GrabKeyFromSite + KeyFile + Close button + Non-blocking overlay)
+-- KEY SYSTEM  (with GrabKeyFromSite + KeyFile)
 -- ============================================
 function Nihon:SetKeySystem(cfg)
     cfg = cfg or {}
@@ -5578,28 +4406,8 @@ function Nihon:SetKeySystem(cfg)
     if cfg.KeyFile ~= nil then Nihon.KeyFile = cfg.KeyFile == true end
     if cfg.KeyFileName then Nihon.KeyFileName = tostring(cfg.KeyFileName) end
     if cfg.AutoVerify ~= nil then Nihon.AutoVerify = cfg.AutoVerify ~= false end
-    if cfg.OverlayTransparency ~= nil then
-        Nihon.KeyGateOverlayTransparency = math.clamp(tonumber(cfg.OverlayTransparency) or 0.35, 0, 1)
-    end
 
     Nihon._keyCfg = cfg
-end
-
--- PromptKey: public method to show the key gate on demand
-function Nihon:PromptKey(cfg)
-    if cfg then Nihon:SetKeySystem(cfg) end
-    if not Nihon._keyCfg then return end
-    Nihon:_showKeyGate(function()
-        Nihon:MakeNotification({Name = "Verified", Content = "You now have access.", Type = "Success"})
-    end)
-end
-
--- SetKeyGateTransparency: control how dark the overlay is (0 = opaque, 1 = invisible)
-function Nihon:SetKeyGateTransparency(t)
-    Nihon.KeyGateOverlayTransparency = math.clamp(tonumber(t) or 0.35, 0, 1)
-    if Nihon._keyGateLayer then
-        Nihon._keyGateLayer.BackgroundTransparency = Nihon.KeyGateOverlayTransparency
-    end
 end
 
 -- ---------- Key file helpers ----------
@@ -5646,6 +4454,7 @@ function Nihon:HasKeyFile()
 end
 
 -- ---------- GrabKeyFromSite ----------
+-- spec: string URL, OR table: {Url, Method, Headers, Body, Field}
 function Nihon:GrabKeyFromSite(spec)
     local s
     if type(spec) == "string" then
@@ -5705,25 +4514,18 @@ function Nihon:_showKeyGate(onSuccess)
     local cfg = Nihon._keyCfg or {}
     local prefill = Nihon:LoadKeyFromFile()
 
-    -- Layer: Frame (not TextButton!) so background clicks pass through to the game.
-    -- We set BackgroundTransparency from Nihon.KeyGateOverlayTransparency.
-    local layer = mk("Frame", {
+    local layer = mk("TextButton", {
         Name = "KeyGate", Size = UDim2.fromScale(1, 1),
-        BackgroundColor3 = Color3.new(0, 0, 0),
-        BackgroundTransparency = Nihon.KeyGateOverlayTransparency or 0.35,
+        BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35,
         ZIndex = 300, Parent = Root,
     })
-    Nihon._keyGateLayer = layer
 
-    -- The dialog box itself. Its own Active = true so it captures its own clicks
-    -- and does not pass them through. Background clicks still pass through the layer.
     local w = math.clamp(viewport().X - 32, 300, 420)
     local box = mk("CanvasGroup", {
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
         Size = UDim2.fromOffset(w, 0), AutomaticSize = Enum.AutomaticSize.Y,
         GroupTransparency = 1, ZIndex = 301, Parent = layer,
     })
-    box.Active = true
     bind(box, "BackgroundColor3", "Bg")
     box.BackgroundTransparency = 0.02
     round(box, 18)
@@ -5754,35 +4556,14 @@ function Nihon:_showKeyGate(onSuccess)
 
     tx("TextLabel", {
         Text = tostring(cfg.Title or "Key System"), TextSize = 18,
-        Position = UDim2.fromOffset(52, 3), Size = UDim2.new(1, -100, 0, 22),
+        Position = UDim2.fromOffset(52, 3), Size = UDim2.new(1, -60, 0, 22),
         TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 302, Parent = header,
     }, 3)
     tx("TextLabel", {
         Text = tostring(cfg.Subtitle or ""), TextSize = 11,
-        Position = UDim2.fromOffset(52, 24), Size = UDim2.new(1, -100, 0, 16),
+        Position = UDim2.fromOffset(52, 24), Size = UDim2.new(1, -60, 0, 16),
         TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 302, Parent = header,
     }, 1, "Sub")
-
-    -- X close button (top-right)
-    local closeX = mk("TextButton", {
-        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0, 23),
-        Size = UDim2.fromOffset(30, 30), BackgroundTransparency = 1, ZIndex = 304, Parent = header,
-    })
-    round(closeX, 8)
-    local closeIcon = makeIcon(closeX, "x", 16, "Sub", {
-        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 305,
-    })
-    closeIcon.Image.ZIndex = 305
-    closeIcon.Glyph.ZIndex = 305
-
-    closeX.MouseEnter:Connect(function()
-        play(closeX, 0.15, {BackgroundTransparency = 0.85})
-        closeIcon.Color(Pal.Text, true)
-    end)
-    closeX.MouseLeave:Connect(function()
-        play(closeX, 0.2, {BackgroundTransparency = 1})
-        closeIcon.Color(Pal.Sub, true)
-    end)
 
     -- Key input
     local input = tx("TextBox", {
@@ -5895,35 +4676,16 @@ function Nihon:_showKeyGate(onSuccess)
     }, 2, "Sub")
 
     -- Animations in
-    play(layer, 0.25, {BackgroundTransparency = Nihon.KeyGateOverlayTransparency or 0.35})
+    play(layer, 0.25, {BackgroundTransparency = 0.35})
     fadeGroup(box, 0.3, 0, Enum.EasingStyle.Quart)
     play(boxScale, 0.45, {Scale = 1}, Enum.EasingStyle.Back)
 
     local function closeGate()
-        Nihon._keyGateLayer = nil
         play(layer, 0.25, {BackgroundTransparency = 1})
         fadeGroup(box, 0.26, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         play(boxScale, 0.28, {Scale = 0.94})
         task.delay(0.32, function() layer:Destroy() end)
     end
-
-    closeX.Activated:Connect(function()
-        closeGate()
-        if cfg.OnClose then pcall(cfg.OnClose) end
-        Nihon:MakeNotification({
-            Name = "Key system closed",
-            Content = "You can reopen it from the Settings tab.",
-            Type = "Info", Time = 4,
-        })
-    end)
-
-    -- Right-click on box also closes
-    box.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton2 then
-            closeGate()
-            if cfg.OnClose then pcall(cfg.OnClose) end
-        end
-    end)
 
     local function setStatus(text, tone)
         status.Text = tostring(text or "")
@@ -6012,8 +4774,6 @@ function Nihon:_showKeyGate(onSuccess)
     input.FocusLost:Connect(function(enter)
         if enter then doVerify() end
     end)
-
-    return {close = closeGate, layer = layer}
 end
 
 -- ============================================
@@ -6248,44 +5008,6 @@ local function attachSettings(Window)
         opts = opts or {}
         local tab = Window:MakeTab({Name = opts.Name or "Settings", Icon = opts.Icon or "settings"})
         local P = Window._parts
-
-        -- NEW: Key System section (only shown if key system is configured)
-        if Nihon._keyCfg then
-            local keySec = tab:AddSection({Name = "Key System"})
-            keySec:AddButton({
-                Name = "Reopen key system", Icon = "key",
-                Callback = function()
-                    Nihon:_showKeyGate(function()
-                        Nihon:MakeNotification({Name = "Key verified", Content = "Access granted!", Type = "Success"})
-                    end)
-                end,
-            })
-            keySec:AddButton({
-                Name = "Delete saved key", Icon = "trash-2",
-                Callback = function()
-                    if Nihon:DeleteKeyFile() then
-                        Nihon:MakeNotification({Name = "Key deleted", Content = "Saved key removed.", Type = "Success"})
-                    else
-                        Nihon:MakeNotification({Name = "Delete failed", Content = "Could not remove key file.", Type = "Error"})
-                    end
-                end,
-            })
-            keySec:AddToggle({
-                Name = "Auto-verify saved key", Default = Nihon.AutoVerify, Flag = "_autoVerify", Save = true,
-                Callback = function(v) Nihon.AutoVerify = v end,
-            })
-            keySec:AddToggle({
-                Name = "Save key to file", Default = Nihon.KeyFile, Flag = "_keyFile", Save = true,
-                Callback = function(v) Nihon.KeyFile = v end,
-            })
-            keySec:AddSlider({
-                Name = "Overlay opacity", Min = 0, Max = 90, Default = 65, Increment = 5, ValueName = "%", Flag = "_keyGateOpacity",
-                Callback = function(v)
-                    Nihon:SetKeyGateTransparency(1 - (v / 100))
-                end,
-            })
-        end
-
         local look = tab:AddSection({Name = "Appearance"})
         look:AddDropdown({
             Name = "Theme", Options = ThemeOrder, Default = themeName, Flag = "_theme", Save = true,
@@ -6519,6 +5241,7 @@ local function attachSearch(Window)
         if open then return end
         open = true
         Popup.close(true)
+        -- Force-build lazy tabs so they can be searched
         for _, t in ipairs(Window.Tabs) do if t._EnsureBuilt then t:_EnsureBuilt() end end
         input.Text = ""
         layer.Visible = true
@@ -6815,7 +5538,6 @@ function Nihon:Destroy()
     end
     Nihon.Windows = {}
     Nihon._keySaveToggle = nil
-    Nihon._keyGateLayer = nil
     pcall(function() Root:Destroy() end)
     if env.NihonLibInstance == Nihon then env.NihonLibInstance = nil end
 end
