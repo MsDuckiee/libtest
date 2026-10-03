@@ -5047,7 +5047,6 @@ end
 
 local function populateAlwaysTab(tab)
     local Window = tab.Window
-    local P = Window._parts
 
     -- ── Layout constants pulled straight from the mock ──
     local PANEL_BG     = Color3.fromRGB(28, 28, 32)
