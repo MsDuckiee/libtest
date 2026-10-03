@@ -1,5 +1,5 @@
 --[[
-    Nihon Lib  |  v4.1  (Morph launcher + Unified fades + Key System + 20+ elements + Perf pass + Smooth drag + Glow)
+    Nihon Lib  |  v4.2  (macOS themed + smooth drag + fixed toggles + launcher top-center)
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -21,7 +21,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "4.1.0",
+    Version = "4.2.0",
     Flags = {},
     Windows = {},
     Folder = "NihonLib",
@@ -53,6 +53,26 @@ local function keep(c)
 end
 
 local Themes = {
+    MacOS = {
+        Bg = Color3.fromRGB(28, 28, 30),
+        Surface = Color3.fromRGB(42, 42, 45),
+        Elevated = Color3.fromRGB(58, 58, 61),
+        Stroke = Color3.fromRGB(72, 72, 76),
+        Text = Color3.fromRGB(242, 242, 247),
+        Sub = Color3.fromRGB(152, 152, 160),
+        Accent = Color3.fromRGB(10, 132, 255),
+        Accent2 = Color3.fromRGB(94, 168, 255),
+    },
+    MacOSLight = {
+        Bg = Color3.fromRGB(238, 238, 242),
+        Surface = Color3.fromRGB(255, 255, 255),
+        Elevated = Color3.fromRGB(246, 246, 248),
+        Stroke = Color3.fromRGB(212, 212, 218),
+        Text = Color3.fromRGB(22, 22, 27),
+        Sub = Color3.fromRGB(124, 124, 132),
+        Accent = Color3.fromRGB(0, 122, 255),
+        Accent2 = Color3.fromRGB(84, 158, 255),
+    },
     Nihon = {
         Bg = Color3.fromRGB(12, 12, 17), Surface = Color3.fromRGB(24, 24, 32), Elevated = Color3.fromRGB(34, 34, 46),
         Stroke = Color3.fromRGB(48, 48, 66), Text = Color3.fromRGB(243, 241, 248), Sub = Color3.fromRGB(151, 149, 173),
@@ -94,18 +114,18 @@ local Themes = {
         Accent = Color3.fromRGB(224, 52, 84), Accent2 = Color3.fromRGB(255, 120, 90),
     },
 }
-local ThemeOrder = {"Nihon", "Sakura", "Midnight", "Ocean", "Forest", "Sunset", "Amoled", "Light"}
+local ThemeOrder = {"MacOS", "MacOSLight", "Nihon", "Sakura", "Midnight", "Ocean", "Forest", "Sunset", "Amoled", "Light"}
 local Pal = {}
-local themeName = "Nihon"
+local themeName = "MacOS"
 
 local function loadPalette(name)
-    local base = Themes.Nihon
+    local base = Themes.MacOS
     local src = Themes[name] or base
     for k, v in pairs(base) do
         Pal[k] = src[k] or v
     end
 end
-loadPalette("Nihon")
+loadPalette("MacOS")
 
 local Status = {
     Info = Color3.fromRGB(96, 156, 255),
@@ -430,7 +450,7 @@ end
 local function v2(input) return Vector2.new(input.Position.X, input.Position.Y) end
 
 -- ============================================
--- SMOOTH DRAG (RenderStepped lerp + inertia + edge bounce)
+-- SMOOTH DRAG
 -- ============================================
 local function makeDraggable(handles, target, opts)
     opts = opts or {}
@@ -1782,16 +1802,16 @@ function Nihon:MakeWindow(cfg)
         Visible = false, ZIndex = 10, Parent = Root,
     })
     bind(shell, "BackgroundColor3", "Bg")
-    shell.BackgroundTransparency = 0.02
-    round(shell, 16)
-    outline(shell, "Stroke", 1, 0.12)
+    shell.BackgroundTransparency = 0.06
+    round(shell, 12)
+    outline(shell, "Stroke", 1, 0.35)
     local uiScale = mk("UIScale", {Scale = 0.9, Parent = shell})
     Window.Shell = shell
 
     local clip = mk("Frame", {
         Name = "Clip", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 20, Parent = shell,
     })
-    round(clip, 16)
+    round(clip, 12)
 
     local dragbar = mk("Frame", {
         Name = "Dragbar", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4),
@@ -1805,15 +1825,64 @@ function Nihon:MakeWindow(cfg)
         Name = "Header", Size = UDim2.new(1, 0, 0, topH), BackgroundTransparency = 1, ZIndex = 22, Parent = clip,
     })
 
+    -- ═══ macOS traffic lights (left) ═══
+    local tlHolder = mk("Frame", {
+        Name = "TrafficLights",
+        Position = UDim2.fromOffset(16, 0), Size = UDim2.fromOffset(70, topH),
+        BackgroundTransparency = 1, ZIndex = 30, Parent = header,
+    })
+    mk("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = tlHolder,
+    })
+
+    local function trafficLight(color, order, glyph)
+        local dot = mk("TextButton", {
+            Size = UDim2.fromOffset(14, 14), BackgroundColor3 = color,
+            BackgroundTransparency = 0, LayoutOrder = order, ZIndex = 31, Parent = tlHolder,
+        })
+        round(dot, 7)
+        mk("UIStroke", {
+            Thickness = 1, Color = Color3.new(0, 0, 0), Transparency = 0.82,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = dot,
+        })
+        local lbl = tx("TextLabel", {
+            Size = UDim2.fromScale(1, 1), Text = glyph or "", TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center,
+            TextColor3 = Color3.fromRGB(60, 20, 20), TextTransparency = 1, ZIndex = 32, Parent = dot,
+        }, 3)
+        dot.MouseEnter:Connect(function()
+            lbl.TextTransparency = 0.1
+            play(dot, 0.12, {BackgroundTransparency = 0})
+        end)
+        dot.MouseLeave:Connect(function()
+            lbl.TextTransparency = 1
+            play(dot, 0.18, {BackgroundTransparency = 0.05})
+        end)
+        dot.InputBegan:Connect(function(input)
+            if isPointer(input) then play(dot, 0.08, {BackgroundTransparency = 0.3}) end
+        end)
+        return dot, lbl
+    end
+
+    local closeBtn, closeGlyph = trafficLight(Color3.fromRGB(255, 95, 87), 1, "×")
+    local minBtn, minGlyph = trafficLight(Color3.fromRGB(255, 189, 46), 2, "–")
+    local searchBtn, searchGlyph = trafficLight(Color3.fromRGB(39, 201, 63), 3, "⌕")
+    local searchIco = {Image = searchGlyph, Glyph = searchGlyph}
+    local minIco = {Image = minGlyph, Glyph = minGlyph}
+
     local logo = mk("TextButton", {
-        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 20, 0.5, 0), Size = UDim2.fromOffset(34, 34),
+        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 98, 0.5, 0), Size = UDim2.fromOffset(30, 30),
         BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 23, Parent = header,
     })
     logo.Text = ""
     logo.AutoButtonColor = false
-    round(logo, 10)
+    round(logo, 8)
     accentGradient(logo, 45)
-    local logoIcon = makeIcon(logo, cfg.Icon or "zap", 18, false, {
+    local logoIcon = makeIcon(logo, cfg.Icon or "zap", 16, false, {
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 24,
     })
     logoIcon.Color(Color3.new(1, 1, 1))
@@ -1823,25 +1892,26 @@ function Nihon:MakeWindow(cfg)
     Window.LogoIcon = logoIcon
 
     local titleLbl = tx("TextLabel", {
-        Text = title, TextSize = 16, Position = UDim2.new(0, 64, 0, subtitle ~= "" and 10 or 0),
-        Size = UDim2.new(1, -240, 0, subtitle ~= "" and 22 or topH), TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 23, Parent = header,
+        Text = title, TextSize = 15, Position = UDim2.new(0, 138, 0, subtitle ~= "" and 12 or 0),
+        Size = UDim2.new(1, -320, 0, subtitle ~= "" and 20 or topH),
+        TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 23, Parent = header,
     }, 3)
     local subLbl = tx("TextLabel", {
-        Text = subtitle, TextSize = 11, Position = UDim2.new(0, 64, 0, 32), Size = UDim2.new(1, -240, 0, 14),
+        Text = subtitle, TextSize = 11, Position = UDim2.new(0, 138, 0, 32), Size = UDim2.new(1, -320, 0, 14),
         TextTruncate = Enum.TextTruncate.AtEnd, Visible = subtitle ~= "", ZIndex = 23, Parent = header,
     }, 1, "Sub")
     Window.TitleLabel, Window.SubtitleLabel = titleLbl, subLbl
 
     local userCard = mk("Frame", {
-        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), Size = UDim2.fromOffset(180, 40),
-        BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.85, ZIndex = 23, Parent = header,
+        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(180, 38),
+        BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.9, ZIndex = 23, Parent = header,
     })
     bind(userCard, "BackgroundColor3", "Surface")
-    round(userCard, 20)
-    outline(userCard, "Stroke", 1, 0.5)
+    round(userCard, 19)
+    outline(userCard, "Stroke", 1, 0.65)
 
     local avatar = mk("ImageLabel", {
-        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 6, 0.5, 0), Size = UDim2.fromOffset(28, 28), ZIndex = 24, Parent = userCard,
+        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 5, 0.5, 0), Size = UDim2.fromOffset(28, 28), ZIndex = 24, Parent = userCard,
     })
     bind(avatar, "BackgroundColor3", "Elevated")
     round(avatar, 14)
@@ -1854,42 +1924,13 @@ function Nihon:MakeWindow(cfg)
     round(dot, 4)
     outline(dot, "Surface", 2, 0)
     tx("TextLabel", {
-        Text = "Hello, " .. LocalPlayer.DisplayName, TextSize = 12, Position = UDim2.new(0, 40, 0, 6), Size = UDim2.new(1, -50, 0, 15),
+        Text = "Hello, " .. LocalPlayer.DisplayName, TextSize = 12, Position = UDim2.new(0, 40, 0, 5), Size = UDim2.new(1, -50, 0, 15),
         TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 24, Parent = userCard,
     }, 3)
     tx("TextLabel", {
-        Text = "@" .. LocalPlayer.Name, TextSize = 10, Position = UDim2.new(0, 40, 0, 21), Size = UDim2.new(1, -50, 0, 13),
+        Text = "@" .. LocalPlayer.Name, TextSize = 10, Position = UDim2.new(0, 40, 0, 20), Size = UDim2.new(1, -50, 0, 13),
         TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 24, Parent = userCard,
     }, 1, "Sub")
-
-    local controls = mk("Frame", {
-        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -210, 0.5, 0), Size = UDim2.fromOffset(0, 32),
-        AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, ZIndex = 24, Parent = header,
-    })
-    mk("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right,
-        VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = controls,
-    })
-
-    local function ctrlButton(order, icon, hover)
-        local btn = mk("TextButton", {
-            Size = UDim2.fromOffset(mobile and 36 or 30, mobile and 36 or 30), BackgroundColor3 = hover or Color3.new(1, 1, 1),
-            BackgroundTransparency = 1, LayoutOrder = order, ZIndex = 25, Parent = controls,
-        })
-        round(btn, 8)
-        local ico = makeIcon(btn, icon, 16, "Sub", {
-            AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 26,
-        })
-        ico.Image.ZIndex = 26
-        ico.Glyph.ZIndex = 26
-        btn.MouseEnter:Connect(function() play(btn, 0.15, {BackgroundTransparency = 0.85}) end)
-        btn.MouseLeave:Connect(function() play(btn, 0.2, {BackgroundTransparency = 1}) end)
-        return btn, ico
-    end
-
-    local searchBtn, searchIco = ctrlButton(1, SEARCH_ICON)
-    local minBtn, minIco = ctrlButton(2, "minus")
-    local closeBtn = ctrlButton(3, "x", Status.Error)
 
     local body = mk("Frame", {
         Name = "Body", Position = UDim2.fromOffset(0, topH), Size = UDim2.new(1, 0, 1, -topH), BackgroundTransparency = 1, ZIndex = 21, Parent = clip,
@@ -1899,8 +1940,8 @@ function Nihon:MakeWindow(cfg)
         Name = "Sidebar", AnchorPoint = Vector2.new(0, 0), Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(0, sideW, 1, 0), ZIndex = 22, Parent = body,
     })
     bind(side, "BackgroundColor3", "Surface")
-    side.BackgroundTransparency = 0.55
-    outline(side, "Stroke", 1, 0.75)
+    side.BackgroundTransparency = 0.35
+    outline(side, "Stroke", 1, 0.85)
 
     local tabScroll = mk("ScrollingFrame", {
         Name = "Tabs", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ScrollBarThickness = 0,
@@ -1914,7 +1955,7 @@ function Nihon:MakeWindow(cfg)
         Name = "Pill", Size = UDim2.new(1, -16, 0, 0), Position = UDim2.fromOffset(8, 8),
         BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.88, Visible = false, ZIndex = 22, Parent = side,
     })
-    round(pill, 10)
+    round(pill, 8)
 
     local pillBar = mk("Frame", {
         Name = "Bar", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 4, 0, 0),
@@ -2034,7 +2075,6 @@ function Nihon:MakeWindow(cfg)
         table.insert(dragHandles, grabStrip)
     end
 
-    -- Smooth drag + velocity-scaled bump + accent stroke pulse
     makeDraggable(dragHandles, shell, {
         smoothing = 28,
         clamp = function(topLeft)
@@ -2101,19 +2141,19 @@ function Nihon:MakeWindow(cfg)
         end))
     end
 
-    -- LAUNCHER
+    -- ═══ LAUNCHER (always top-center) ═══
     local launcher = mk("TextButton", {
-        Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0, 60),
-        Size = UDim2.fromOffset(210, 50), BackgroundColor3 = Color3.fromRGB(20, 20, 24),
+        Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, 16),
+        Size = UDim2.fromOffset(210, 50), BackgroundColor3 = Pal.Surface,
         Visible = false, ZIndex = 250, Parent = Root,
     })
-    round(launcher, 25)
+    round(launcher, 12)
     local launcherStroke = outline(launcher, "Stroke", 1, 0.55)
 
     local iconBox = mk("Frame", {
         AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0),
-        Size = UDim2.fromOffset(30, 30), BackgroundColor3 = Color3.fromRGB(36, 36, 44),
+        Size = UDim2.fromOffset(30, 30), BackgroundColor3 = Pal.Elevated,
         ZIndex = 251, Parent = launcher,
     })
     round(iconBox, 8)
@@ -2129,14 +2169,14 @@ function Nihon:MakeWindow(cfg)
         Position = UDim2.fromOffset(50, 8), Size = UDim2.new(1, -58, 0, 18),
         TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 251, Parent = launcher,
     }, 3)
-    launcherTitle.TextColor3 = Color3.new(1, 1, 1)
+    launcherTitle.TextColor3 = Pal.Text
 
     local launcherSub = tx("TextLabel", {
         Text = "Tap to show", TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left,
         Position = UDim2.fromOffset(50, 26), Size = UDim2.new(1, -58, 0, 14),
         TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 251, Parent = launcher,
-    }, 1)
-    launcherSub.TextColor3 = Color3.fromRGB(160, 160, 175)
+    }, 1, "Sub")
+    launcherSub.TextColor3 = Pal.Sub
 
     local launcherScale = mk("UIScale", {Scale = 0, Parent = launcher})
     Window.LauncherIcon = launcherIcon
@@ -2144,7 +2184,14 @@ function Nihon:MakeWindow(cfg)
     Window.LauncherSub = launcherSub
     Window.Launcher = launcher
 
+    local function resetLauncherPosition()
+        launcher.AnchorPoint = Vector2.new(0.5, 0)
+        launcher.Position = UDim2.new(0.5, 0, 0, 16)
+    end
+
     local launcherMoved = false
+    local launcherDrag = {x = 0, y = 0}
+
     makeDraggable({launcher}, launcher, {
         smoothing = 30,
         clamp = function(p)
@@ -2175,21 +2222,12 @@ function Nihon:MakeWindow(cfg)
                     end)
                 end
             end)
-            play(launcherStroke, 0.06, {Transparency = 0})
-            task.delay(0.06, function()
-                if launcherStroke.Parent then
-                    play(launcherStroke, 0.28, {Transparency = 0.55}, Enum.EasingStyle.Quart)
-                end
-            end)
         end,
     })
 
-    local function showLauncher(on, spawnPoint)
+    local function showLauncher(on)
         if on then
-            if spawnPoint then
-                launcher.AnchorPoint = Vector2.new(0.5, 0.5)
-                launcher.Position = UDim2.fromOffset(spawnPoint.X, spawnPoint.Y)
-            end
+            resetLauncherPosition()
             launcher.BackgroundTransparency = 0
             launcherStroke.Transparency = 0.55
             launcherTitle.TextTransparency = 0
@@ -2218,17 +2256,16 @@ function Nihon:MakeWindow(cfg)
         end
         Window.Hidden = false
         applyScale(false)
-        if not placed then
-            placed = true
-            uiScale.Scale = activeScale
-            local v = viewport()
-            local s = Vector2.new(baseW, shell.Size.Y.Offset) * uiScale.Scale
-            shell.AnchorPoint = Vector2.new(0, 0)
-            shell.Position = UDim2.fromOffset(math.floor((v.X - s.X) / 2), math.floor((v.Y - s.Y) / 2))
-        end
+
+        -- Always open at dead center
+        uiScale.Scale = activeScale
+        local v = viewport()
+        shell.AnchorPoint = Vector2.new(0.5, 0.5)
+        shell.Position = UDim2.fromScale(0.5, 0.5)
+        placed = true
+
         closeToken = closeToken + 1
         local mine = closeToken
-        controls.Position = UDim2.new(1, -210, 0.5, 0)
         titleLbl.TextTransparency = 0
         subLbl.TextTransparency = 0
         body.Visible = not Window.Minimized
@@ -2237,40 +2274,36 @@ function Nihon:MakeWindow(cfg)
 
         if fromMorph and launcher.Visible then
             Window.Morphing = true
-            local lp = launcher.AbsolutePosition + launcher.AbsoluteSize * 0.5
-            local sp = shell.AbsolutePosition + shell.AbsoluteSize * 0.5
-
-            launcher.BackgroundTransparency = 0
-            play(launcher, 0.35, {BackgroundTransparency = 1, Position = UDim2.fromOffset(sp.X - launcher.AbsoluteSize.X / 2, sp.Y - launcher.AbsoluteSize.Y / 2)}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            play(launcherStroke, 0.35, {Transparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            play(launcherTitle, 0.25, {TextTransparency = 1})
-            play(launcherSub, 0.25, {TextTransparency = 1})
-            play(iconBox, 0.3, {BackgroundTransparency = 1})
-            play(launcherIcon.Image, 0.3, {ImageTransparency = 1})
-            play(launcherIcon.Glyph, 0.3, {TextTransparency = 1})
-            play(launcherScale, 0.4, {Scale = 0.15}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(launcher, 0.32, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(launcherStroke, 0.32, {Transparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(launcherTitle, 0.22, {TextTransparency = 1})
+            play(launcherSub, 0.22, {TextTransparency = 1})
+            play(iconBox, 0.28, {BackgroundTransparency = 1})
+            play(launcherIcon.Image, 0.28, {ImageTransparency = 1})
+            play(launcherIcon.Glyph, 0.28, {TextTransparency = 1})
+            play(launcherScale, 0.36, {Scale = 0.15}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
 
             shell.Visible = true
-            uiScale.Scale = activeScale * 0.4
+            uiScale.Scale = activeScale * 0.5
             shell.Size = UDim2.fromOffset(targetW, targetH)
             shell.BackgroundTransparency = 1
             fadeGroup(shell, 0.01, 0)
             shell.GroupTransparency = 1
-            play(shell, 0.35, {BackgroundTransparency = 0.02}, Enum.EasingStyle.Quart)
+            play(shell, 0.32, {BackgroundTransparency = 0.06}, Enum.EasingStyle.Quart)
             play(uiScale, 0.5, {Scale = activeScale}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             if shell:IsA("CanvasGroup") then
-                fadeGroup(shell, 0.35, 0)
+                fadeGroup(shell, 0.32, 0)
             else
                 for _, d in ipairs(shell:GetDescendants()) do
                     if d:IsA("UIStroke") then
                         local base = d:GetAttribute("_baseTrans") or 0
                         d.Transparency = 1
-                        play(d, 0.35, {Transparency = base})
+                        play(d, 0.32, {Transparency = base})
                     end
                 end
             end
 
-            task.delay(0.42, function()
+            task.delay(0.40, function()
                 if mine ~= closeToken then return end
                 launcher.Visible = false
                 launcherScale.Scale = 0
@@ -2295,22 +2328,19 @@ function Nihon:MakeWindow(cfg)
 
         if toMorph and Nihon.ShowLauncher then
             Window.Morphing = true
-            local sp = shell.AbsolutePosition + shell.AbsoluteSize * 0.5
 
             local startW = shell.Size.X.Offset
             local startH = shell.Size.Y.Offset
-            local targetSize = 60
-            play(shell, 0.36, {
-                Size = UDim2.fromOffset(targetSize, targetSize),
-                Position = UDim2.fromOffset(sp.X - targetSize / 2 * uiScale.Scale, sp.Y - targetSize / 2 * uiScale.Scale),
-                BackgroundTransparency = 1,
-            }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
-            fadeGroup(shell, 0.36, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(shell, 0.3, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            fadeGroup(shell, 0.3, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(uiScale, 0.3, {Scale = activeScale * 0.75}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
 
-            task.delay(0.4, function()
+            task.delay(0.34, function()
                 if mine ~= closeToken then return end
                 shell.Visible = false
                 shell.Size = UDim2.fromOffset(startW, fullH)
+                shell.Position = UDim2.fromScale(0.5, 0.5)
+                shell.AnchorPoint = Vector2.new(0.5, 0.5)
                 restoreGroup(shell)
                 body.Visible = true
                 Window.Minimized = false
@@ -2322,7 +2352,7 @@ function Nihon:MakeWindow(cfg)
                 launcherIcon.Image.ImageTransparency = 1
                 launcherIcon.Glyph.TextTransparency = 1
                 iconBox.BackgroundTransparency = 1
-                showLauncher(true, sp)
+                showLauncher(true)
                 play(launcher, 0.4, {BackgroundTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                 play(launcherStroke, 0.4, {Transparency = 0.55}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                 play(launcherTitle, 0.35, {TextTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -2340,6 +2370,8 @@ function Nihon:MakeWindow(cfg)
             task.delay(0.32, function()
                 if mine == closeToken and Window.Hidden then
                     shell.Size = UDim2.fromOffset(baseW, fullH)
+                    shell.Position = UDim2.fromScale(0.5, 0.5)
+                    shell.AnchorPoint = Vector2.new(0.5, 0.5)
                     restoreGroup(shell)
                     body.Visible = true
                     Window.Minimized = false
@@ -2355,15 +2387,15 @@ function Nihon:MakeWindow(cfg)
         if Window.Hidden then show(true) else hide(true) end
     end
 
-    launcher.Activated:Connect(function()
-        if launcherMoved then
-            launcherMoved = false
-            return
+    launcher.InputEnded:Connect(function(input)
+        if isPointer(input) and not launcherMoved then
+            show(true)
         end
-        show(true)
+        launcherMoved = false
     end)
 
-    closeBtn.Activated:Connect(function()
+    closeBtn.InputEnded:Connect(function(input)
+        if not isPointer(input) then return end
         hide(true)
         Nihon:MakeNotification({
             Name = "Menu hidden",
@@ -2392,8 +2424,6 @@ function Nihon:MakeWindow(cfg)
             fullH = shell.Size.Y.Offset
             minTween = play(shell, 0.45, {Size = UDim2.fromOffset(targetW, lift)}, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
             play(body, 0.25, {Position = UDim2.fromOffset(0, topH - 12)})
-            play(minIco.Image, 0.35, {Rotation = 180}, Enum.EasingStyle.Back)
-            play(minIco.Glyph, 0.35, {Rotation = 180}, Enum.EasingStyle.Back)
             dragbar.Visible = true
             dragbar.BackgroundTransparency = 1
             play(dragbar, 0.4, {BackgroundTransparency = 0.6})
@@ -2407,13 +2437,13 @@ function Nihon:MakeWindow(cfg)
             task.delay(0.2, function() dragbar.Visible = false end)
             minTween = play(shell, 0.5, {Size = UDim2.fromOffset(targetW, fullH)}, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
             play(body, 0.45, {Position = UDim2.fromOffset(0, topH)})
-            play(minIco.Image, 0.35, {Rotation = 0}, Enum.EasingStyle.Back)
-            play(minIco.Glyph, 0.35, {Rotation = 0}, Enum.EasingStyle.Back)
         end
     end
 
-    minBtn.Activated:Connect(function()
-        Window:SetMinimized(not Window.Minimized)
+    minBtn.InputEnded:Connect(function(input)
+        if isPointer(input) then
+            Window:SetMinimized(not Window.Minimized)
+        end
     end)
 
     Window.RequestOpen = function()
@@ -2509,7 +2539,7 @@ function TabImpl.make(Window, tcfg)
         BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1,
         LayoutOrder = index, ZIndex = 24, Parent = P.tabScroll,
     })
-    round(btn, 10)
+    round(btn, 8)
     Tab.Button = btn
 
     local ico = makeIcon(btn, tcfg.Icon or name, mobile and 22 or 20, "Sub", {
@@ -2577,8 +2607,8 @@ function TabImpl.make(Window, tcfg)
     btn.InputBegan:Connect(function(i)
         if isPointer(i) then hideTip() end
     end)
-    btn.Activated:Connect(function()
-        Window:SelectTab(Tab)
+    btn.InputBegan:Connect(function(i)
+        if isPointer(i) then Window:SelectTab(Tab) end
     end)
 
     if #Window.Tabs == 1 then
@@ -2693,7 +2723,9 @@ function TabImpl.make(Window, tcfg)
             end
             refreshSubHighlight()
         end
-        sBtn.Activated:Connect(selectSubtab)
+        sBtn.InputBegan:Connect(function(i)
+            if isPointer(i) then selectSubtab() end
+        end)
         subApi.Select = selectSubtab
         sBtn.MouseEnter:Connect(function()
             if selectedSub ~= subApi then play(sBtn, 0.12, {BackgroundTransparency = 0.92}) end
@@ -2785,7 +2817,8 @@ function TabImpl.make(Window, tcfg)
                 end)
             end
         end
-        head.Activated:Connect(function()
+        head.InputBegan:Connect(function(i)
+            if not isPointer(i) then return end
             if sc.Collapsible == false then return end
             setCollapsed(not collapsed)
         end)
@@ -2912,7 +2945,7 @@ local function extendElements(E, ctx)
     local mobile, rowH = ctx.mobile, ctx.rowH
 
     -- ============================================
-    -- SLIDER (with glowing knob)
+    -- SLIDER (no glow)
     -- ============================================
     function E:AddSlider(o)
         o = o or {}
@@ -2942,18 +2975,12 @@ local function extendElements(E, ctx)
             BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 19, Parent = rail,
         })
         round(knob, 9)
-        local knobGlow = mk("UIStroke", {
-            Thickness = 3, Color = Pal.Accent, Transparency = 0.35,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = knob,
-        })
-        bind(knobGlow, "Color", "Accent")
         local value = math.clamp(tonumber(o.Default) or min, min, max)
         local obj = {Value = value}
         local function fracOf(v) return math.clamp((v - min) / (max - min), 0, 1) end
         local function draw(frac)
             fillBar.Size = UDim2.new(frac, 0, 1, 0)
             knob.Position = UDim2.new(frac, 0, 0.5, 0)
-            knobGlow.Transparency = frac > 0.001 and 0.25 or 0.6
         end
         local firer = makeFirer(function() return obj.Value end, function(v)
             local ok, err = pcall(o.Callback or function() end, v)
@@ -3077,7 +3104,8 @@ local function extendElements(E, ctx)
             if not silent then queueSave() end
         end
         function obj:Get() return obj.Value end
-        chip.Activated:Connect(function()
+        chip.InputBegan:Connect(function(input)
+            if not isPointer(input) then return end
             if obj:IsLocked() then return end
             obj.Binding = true
             refresh()
@@ -3275,7 +3303,8 @@ local function extendElements(E, ctx)
                 b.MouseLeave:Connect(function()
                     if not selected(opt) then play(b, 0.18, {BackgroundTransparency = 1}) end
                 end)
-                b.Activated:Connect(function()
+                b.InputBegan:Connect(function(input)
+                    if not isPointer(input) then return end
                     if multi then
                         obj.Value[opt] = (not obj.Value[opt]) or nil
                         restyle()
@@ -3330,7 +3359,9 @@ local function extendElements(E, ctx)
         end
         function obj:Add(opt) obj.Options[#obj.Options + 1] = opt end
 
-        header.Activated:Connect(function() obj:Toggle() end)
+        header.InputBegan:Connect(function(input)
+            if isPointer(input) then obj:Toggle() end
+        end)
         register(o.Flag, obj, o, current, function(v) obj:Set(v) end)
         decorate(obj, c, o, multi and "Multi Dropdown" or "Dropdown")
         if multi then obj:Set(o.Default or {}, true)
@@ -3465,7 +3496,8 @@ local function extendElements(E, ctx)
             for i, pc in ipairs(presets) do
                 local p = mk("TextButton", {Size = UDim2.fromOffset(mobile and 22 or 24, 22), BackgroundColor3 = pc, LayoutOrder = i, ZIndex = 63, Parent = swatchRow})
                 round(p, 6)
-                p.Activated:Connect(function()
+                p.InputBegan:Connect(function(input)
+                    if not isPointer(input) then return end
                     h, s, v = pc:ToHSV()
                     obj.Rainbow = false
                     apply()
@@ -3511,7 +3543,8 @@ local function extendElements(E, ctx)
                 end
                 hex.Text = "#" .. obj.Value:ToHex():upper()
             end)
-            rb.Activated:Connect(function()
+            rb.InputBegan:Connect(function(input)
+                if not isPointer(input) then return end
                 obj.Rainbow = not obj.Rainbow
                 rb.TextColor3 = obj.Rainbow and Pal.Accent or Pal.Text
             end)
@@ -3554,7 +3587,9 @@ local function extendElements(E, ctx)
         end
         function obj:Get() return obj.Value end
 
-        header.Activated:Connect(function() obj:Toggle() end)
+        header.InputBegan:Connect(function(input)
+            if isPointer(input) then obj:Toggle() end
+        end)
 
         register(o.Flag, obj, o, function() return obj.Value end, function(col) obj:Set(col) end)
         decorate(obj, c, o, "Colorpicker")
@@ -3726,8 +3761,12 @@ local function extendElements(E, ctx)
             valBox.Text = numFormat(v, step, o.ValueName or "")
             if silent then firer.Sync(v) else firer.Fire() queueSave() end
         end
-        minus.Activated:Connect(function() commit(obj.Value - step) end)
-        plus.Activated:Connect(function() commit(obj.Value + step) end)
+        minus.InputBegan:Connect(function(input)
+            if isPointer(input) then commit(obj.Value - step) end
+        end)
+        plus.InputBegan:Connect(function(input)
+            if isPointer(input) then commit(obj.Value + step) end
+        end)
         valBox.FocusLost:Connect(function() commit(valBox.Text) end)
         function obj:Set(v, silent) commit(v, silent) end
         function obj:Get() return obj.Value end
@@ -3785,7 +3824,8 @@ local function extendElements(E, ctx)
             round(b, 8)
             b.BackgroundTransparency = 0
             buttons[opt] = b
-            b.Activated:Connect(function()
+            b.InputBegan:Connect(function(input)
+                if not isPointer(input) then return end
                 obj.Value = opt
                 paint()
                 firer.Fire()
@@ -3957,7 +3997,8 @@ local function extendElements(E, ctx)
         body.BackgroundTransparency = 0
         inset(body, 8, 8, 8, 8)
         round(body, 6)
-        copy.Activated:Connect(function()
+        copy.InputBegan:Connect(function(input)
+            if not isPointer(input) then return end
             if setclipboard then
                 pcall(setclipboard, code)
                 copy.Text = "copied!"
@@ -4094,7 +4135,8 @@ local function extendElements(E, ctx)
         })
         icon.Image.ZIndex = 25
         icon.Glyph.ZIndex = 25
-        c.Activated:Connect(function()
+        c.InputBegan:Connect(function(input)
+            if not isPointer(input) then return end
             if setclipboard then pcall(setclipboard, url) end
             if o.OnClick then pcall(o.OnClick, url) end
             pcall(function()
@@ -4176,7 +4218,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
     local E = {_count = 0}
     local rowH = mobile and 44 or 40
 
-    -- Card with hover accent glow
+    -- Card WITHOUT glow
     local function card(height, hover)
         local c = mk("TextButton", {
             Size = UDim2.new(1, 0, 0, height or rowH), BackgroundTransparency = 0.15, ZIndex = 24,
@@ -4185,23 +4227,15 @@ function ElementFactory(Window, Tab, parent, sectionName)
         bind(c, "BackgroundColor3", "Surface")
         round(c, 10)
         local st = outline(c, "Stroke", 1, 0.45)
-
-        local glow = mk("UIStroke", {
-            Thickness = 2, Color = Pal.Accent, Transparency = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = c,
-        })
-        bind(glow, "Color", "Accent")
         c:SetAttribute("NihonCard", true)
 
         local function onEnter()
-            play(c,    0.14, {BackgroundTransparency = 0})
-            play(st,   0.14, {Transparency = 0.10})
-            play(glow, 0.18, {Transparency = 0.80})
+            play(c,  0.14, {BackgroundTransparency = 0})
+            play(st, 0.14, {Transparency = 0.15})
         end
         local function onLeave()
-            play(c,    0.20, {BackgroundTransparency = 0.15})
-            play(st,   0.20, {Transparency = 0.45})
-            play(glow, 0.24, {Transparency = 1})
+            play(c,  0.20, {BackgroundTransparency = 0.15})
+            play(st, 0.20, {Transparency = 0.45})
         end
 
         if hover ~= false then
@@ -4384,14 +4418,16 @@ function ElementFactory(Window, Tab, parent, sectionName)
             end)
             return true
         end
-        c.Activated:Connect(function() obj:Fire() end)
+        c.InputBegan:Connect(function(input)
+            if isPointer(input) then obj:Fire() end
+        end)
         function obj:SetCallback(fn) o.Callback = fn end
         function obj:SetCooldown(s) cooldown = tonumber(s) or 0 end
         return decorate(obj, c, o, "Button")
     end
 
     -- ============================================
-    -- TOGGLE (glowing)
+    -- TOGGLE (fixed, no glow)
     -- ============================================
     function E:AddToggle(o)
         o = o or {}
@@ -4401,45 +4437,38 @@ function ElementFactory(Window, Tab, parent, sectionName)
 
         local track = mk("Frame", {
             AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0),
-            Size = UDim2.fromOffset(42, 22), ZIndex = 25, Parent = c,
+            Size = UDim2.fromOffset(42, 24), ZIndex = 25, Parent = c,
         })
         bind(track, "BackgroundColor3", "Elevated")
-        round(track, 11)
+        round(track, 12)
 
-        local trackStroke = outline(track, "Stroke", 1, 0.25)
-        local trackGlow = mk("UIStroke", {
-            Thickness = 6, Color = Pal.Accent, Transparency = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = track,
-        })
-        bind(trackGlow, "Color", "Accent")
+        local trackStroke = outline(track, "Stroke", 1, 0.3)
 
         local fill = mk("Frame", {
             Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1),
             BackgroundTransparency = 1, ZIndex = 26, Parent = track,
         })
-        round(fill, 11)
+        round(fill, 12)
         accentGradient(fill, 25)
 
         local knob = mk("Frame", {
             AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 3, 0.5, 0),
-            Size = UDim2.fromOffset(16, 16), BackgroundColor3 = Color3.new(1, 1, 1),
+            Size = UDim2.fromOffset(18, 18), BackgroundColor3 = Color3.new(1, 1, 1),
             ZIndex = 28, Parent = track,
         })
-        round(knob, 8)
-        local knobGlow = mk("UIStroke", {
-            Thickness = 4, Color = Color3.new(1, 1, 1), Transparency = 1,
+        round(knob, 9)
+        mk("UIStroke", {
+            Thickness = 1, Color = Color3.new(0, 0, 0), Transparency = 0.85,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = knob,
         })
 
         local state = {value = false}
         local obj = {Value = false}
         local function paint(v, animated)
-            local dur = animated and 0.30 or 0.001
+            local dur = animated and 0.28 or 0.001
             play(fill,        dur, {BackgroundTransparency = v and 0 or 1},   Enum.EasingStyle.Quart)
-            play(knob,        dur, {Position = UDim2.new(0, v and 23 or 3, 0.5, 0)}, Enum.EasingStyle.Back)
-            play(trackStroke, dur, {Transparency = v and 1 or 0.25})
-            play(trackGlow,   dur, {Transparency = v and 0.55 or 1})
-            play(knobGlow,    dur, {Transparency = v and 0.5  or 1})
+            play(knob,        dur, {Position = UDim2.new(0, v and 21 or 3, 0.5, 0)}, Enum.EasingStyle.Back)
+            play(trackStroke, dur, {Transparency = v and 1 or 0.3})
         end
         local firer = makeFirer(function() return state.value end, function(v)
             local ok, err = pcall(o.Callback or function() end, v)
@@ -4454,10 +4483,14 @@ function ElementFactory(Window, Tab, parent, sectionName)
         end
         function obj:Get() return state.value end
         function obj:Toggle() obj:Set(not state.value) end
-        c.Activated:Connect(function()
+
+        -- ✅ FIXED: InputBegan fires instantly on press, works with touch and mouse
+        c.InputBegan:Connect(function(input)
+            if not isPointer(input) then return end
             if obj:IsLocked() then return end
             obj:Set(not state.value)
         end)
+
         register(o.Flag, obj, o, function() return state.value end, function(v) obj:Set(v) end)
         decorate(obj, c, o, "Toggle")
         local start = o.Default and true or false
@@ -4799,7 +4832,8 @@ function Nihon:_showKeyGate(onSuccess)
             if saveOn then saveCheck.Color(onAccent()) end
         end
         paintSave()
-        saveRow.Activated:Connect(function()
+        saveRow.InputBegan:Connect(function(input)
+            if not isPointer(input) then return end
             saveOn = not saveOn
             paintSave()
         end)
@@ -4832,7 +4866,8 @@ function Nihon:_showKeyGate(onSuccess)
 
     local verifying = false
 
-    getBtn.Activated:Connect(function()
+    getBtn.InputBegan:Connect(function(input)
+        if not isPointer(input) then return end
         local spec = cfg.GrabKeyFromSite or cfg.GetKeyURL
         if not spec then
             Nihon:MakeNotification({Name = "Get Key", Content = "No source configured.", Type = "Warning", Time = 3})
@@ -4858,7 +4893,8 @@ function Nihon:_showKeyGate(onSuccess)
         end
     end)
 
-    discordBtn.Activated:Connect(function()
+    discordBtn.InputBegan:Connect(function(input)
+        if not isPointer(input) then return end
         local url = cfg.DiscordURL
         if url and url ~= "" then
             if setclipboard then pcall(setclipboard, url) end
@@ -4907,7 +4943,9 @@ function Nihon:_showKeyGate(onSuccess)
         end)
     end
 
-    verifyBtn.Activated:Connect(doVerify)
+    verifyBtn.InputBegan:Connect(function(input)
+        if isPointer(input) then doVerify() end
+    end)
     input.FocusLost:Connect(function(enter)
         if enter then doVerify() end
     end)
@@ -5245,9 +5283,8 @@ local function attachSettings(Window)
         ui:AddButton({Name = "Player stats", Icon = "user", Callback = function() Window:OpenStats() end})
         ui:AddButton({Name = "Reset position", Icon = "refresh-cw", Callback = function()
             local shell = P.shell
-            local v = viewport()
-            local s = shell.AbsoluteSize
-            shell.Position = UDim2.fromOffset(math.floor((v.X - s.X) / 2), math.floor((v.Y - s.Y) / 2))
+            shell.AnchorPoint = Vector2.new(0.5, 0.5)
+            shell.Position = UDim2.fromScale(0.5, 0.5)
         end})
         ui:AddButton({Name = "Destroy menu", Icon = "trash-2", Callback = function()
             Nihon:Dialog({
@@ -5354,7 +5391,8 @@ local function attachSearch(Window)
                 Text = e.kind, TextSize = 10, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(70, 14),
                 TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 184, Parent = b,
             }, 3, "Accent")
-            b.Activated:Connect(function()
+            b.InputBegan:Connect(function(input)
+                if not isPointer(input) then return end
                 Window:CloseSearch()
                 e.go()
             end)
@@ -5407,7 +5445,9 @@ local function attachSearch(Window)
         end)
     end
 
-    layer.Activated:Connect(function() Window:CloseSearch() end)
+    layer.InputBegan:Connect(function(input)
+        if isPointer(input) then Window:CloseSearch() end
+    end)
     box.Active = true
     input.FocusLost:Connect(function(enter)
         if enter and shown[picked] then
@@ -5435,7 +5475,8 @@ local function attachSearch(Window)
         end
     end))
 
-    P.searchBtn.Activated:Connect(function()
+    P.searchBtn.InputBegan:Connect(function(input)
+        if not isPointer(input) then return end
         if open then Window:CloseSearch() else Window:OpenSearch() end
     end)
 end
@@ -5539,8 +5580,12 @@ local function attachStats(Window)
         end)
     end
 
-    layer.Activated:Connect(function() Window:CloseStats() end)
-    done.Activated:Connect(function() Window:CloseStats() end)
+    layer.InputBegan:Connect(function(input)
+        if isPointer(input) then Window:CloseStats() end
+    end)
+    done.InputBegan:Connect(function(input)
+        if isPointer(input) then Window:CloseStats() end
+    end)
 
     if P.avatar and P.avatar.Parent then
         local userCard = P.avatar.Parent
