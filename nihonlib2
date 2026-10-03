@@ -1888,6 +1888,9 @@ function Nihon:MakeWindow(cfg)
     closeBtn.AutoButtonColor = false
     minBtn.AutoButtonColor = false
     searchBtn.AutoButtonColor = false
+    closeBtn.ZIndex = 60
+    minBtn.ZIndex = 60
+    searchBtn.ZIndex = 60
     searchGlyph.TextTransparency = 1
     local searchIco = makeIcon(searchBtn, SEARCH_ICON, 15, "Sub", {
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 27,
@@ -2091,7 +2094,7 @@ function Nihon:MakeWindow(cfg)
         Name = "GrabStrip",
         Size = UDim2.new(1, -100, 1, 0),
         Position = UDim2.fromOffset(0, 0),
-        BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 30, Parent = header,
+        BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 20, Parent = header,
     })
     table.insert(dragHandles, grabStrip)
 
@@ -4527,7 +4530,17 @@ function ElementFactory(Window, Tab, parent, sectionName)
             obj:Set(not state.value)
         end)
 
-        c.Activated:Connect(function()
+        local rowClick = mk("TextButton", {
+            Name = "ToggleHitbox",
+            Size = UDim2.fromScale(1, 1),
+            Position = UDim2.fromScale(0, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            AutoButtonColor = false,
+            ZIndex = 29,
+            Parent = c,
+        })
+        rowClick.Activated:Connect(function()
             if obj:IsLocked() then return end
             obj:Set(not state.value)
         end)
