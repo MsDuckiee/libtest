@@ -2433,6 +2433,8 @@ function Nihon:MakeWindow(cfg)
 
     local minTween
     local minimizedRestoreH = nil
+    local minimizedTopEdge = nil
+    local minimizedLeftEdge = nil
     function Window:SetMinimized(state)
         state = state and true or false
         if Window.Minimized == state then return end
@@ -2442,39 +2444,37 @@ function Nihon:MakeWindow(cfg)
 
         local lift = topH + 12
         local targetW = shell.Size.X.Offset
-
-        -- Read current top edge in screen pixels
-        local vp = viewport()
         local curScale = math.max(uiScale.Scale, 0.01)
-        local shellAbsPos = shell.AbsolutePosition
-        local shellAbsSize = shell.AbsoluteSize
-        local topEdge = shellAbsPos.Y
-        local leftEdge = shellAbsPos.X
 
         if state then
+            -- Capture the ORIGINAL top/left so we can restore to them later
             minimizedRestoreH = shell.Size.Y.Offset
+            minimizedTopEdge = shell.AbsolutePosition.Y
+            minimizedLeftEdge = shell.AbsolutePosition.X
+
             body.Visible = false
             dragbar.Visible = true
             dragbar.BackgroundTransparency = 1
             play(dragbar, 0.4, {BackgroundTransparency = 0.6})
 
-            -- Compute new position so the top edge stays fixed
-            -- shell.AbsolutePosition = Position - AnchorPoint * Size
-            -- We want new top edge == old top edge
-            local newPosX = leftEdge + (targetW * curScale) * 0.5
-            local newPosY = topEdge + (lift * curScale) * 0.5
+            -- Keep the top edge fixed while shrinking
+            local newPosX = minimizedLeftEdge + (targetW * curScale) * 0.5
+            local newPosY = minimizedTopEdge + (lift * curScale) * 0.5
             minTween = play(shell, 0.45, {
                 Size = UDim2.fromOffset(targetW, lift),
                 Position = UDim2.fromOffset(math.floor(newPosX), math.floor(newPosY)),
             }, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
         else
             local restoreH = minimizedRestoreH or fullH
+            local topEdge = minimizedTopEdge or shell.AbsolutePosition.Y
+            local leftEdge = minimizedLeftEdge or shell.AbsolutePosition.X
+
             body.Visible = true
             body.Position = UDim2.fromOffset(0, topH)
             play(dragbar, 0.2, {BackgroundTransparency = 1})
             task.delay(0.2, function() dragbar.Visible = false end)
 
-            -- Recompute so the top edge stays fixed when growing
+            -- Grow downward back to the ORIGINAL position
             local newPosX = leftEdge + (targetW * curScale) * 0.5
             local newPosY = topEdge + (restoreH * curScale) * 0.5
             minTween = play(shell, 0.5, {
