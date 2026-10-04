@@ -4459,7 +4459,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
     function E:AddParagraph(o)
         o = o or {}
         local c = card(0, false)
-        c.AutomaticSize = Enum.AutomaticSize.Y
+        c.AutomaticSize = Enum.AutomaticSize.None
         c.Size = UDim2.new(1, 0, 0, 0)
         c.Active = false
         inset(c, 10, 13, 10, 13)
@@ -4469,7 +4469,6 @@ function ElementFactory(Window, Tab, parent, sectionName)
             Text = tostring(o.Title or o.Name or "Note"),
             TextSize = 13,
             Size = UDim2.new(1, 0, 0, 18),
-            AutomaticSize = Enum.AutomaticSize.None,
             TextWrapped = false,
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -4487,24 +4486,46 @@ function ElementFactory(Window, Tab, parent, sectionName)
             TextYAlignment = Enum.TextYAlignment.Top,
             LineHeight = 1.05,
             Size = UDim2.new(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
             LayoutOrder = 2,
             ZIndex = 25,
             Parent = c,
         }, 1, "Sub")
 
-        local function refresh()
-            text.Size = UDim2.new(1, 0, 0, math.max(text.TextBounds.Y, 18))
+        local lastWidth = -1
+        local function refresh(force)
+            local w = math.floor(c.AbsoluteSize.X - 26)
+            if w < 80 then
+                task.defer(function() refresh(force) end)
+                return
+            end
+            if not force and w == lastWidth then return end
+            lastWidth = w
+            local h = 0
+            if text.Text ~= "" then
+                local ok, size = pcall(function()
+                    return TextService:GetTextSize(text.Text, text.TextSize, text.Font, Vector2.new(w, 100000))
+                end)
+                if ok and size then h = math.max(18, math.ceil(size.Y)) end
+            else
+                h = 18
+            end
+            text.Size = UDim2.new(1, 0, 0, h)
+            c.Size = UDim2.new(1, 0, 0, 10 + 18 + 5 + h + 10)
         end
 
         local obj = {}
         function obj:Set(t)
             text.Text = tostring(t)
-            task.defer(refresh)
+            lastWidth = -1
+            task.defer(function() refresh(true) end)
         end
         function obj:Get() return text.Text end
         function obj:SetTitle(t) head.Text = tostring(t) end
-        task.defer(refresh)
+        c:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            refresh(false)
+        end)
+        task.defer(function() refresh(true) end)
+        task.delay(0.1, function() refresh(true) end)
         o.Name = o.Name or o.Title
         return decorate(obj, c, o, "Paragraph")
     end
