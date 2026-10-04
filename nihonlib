@@ -4462,18 +4462,49 @@ function ElementFactory(Window, Tab, parent, sectionName)
         c.AutomaticSize = Enum.AutomaticSize.Y
         c.Size = UDim2.new(1, 0, 0, 0)
         c.Active = false
-        inset(c, 11, 14, 12, 14)
-        stack(c, 4)
+        inset(c, 10, 13, 10, 13)
+        stack(c, 5)
+
         local head = tx("TextLabel", {
-            Text = tostring(o.Title or o.Name or "Note"), TextSize = 13, Size = UDim2.new(1, 0, 0, 18), LayoutOrder = 1, ZIndex = 25, Parent = c,
+            Text = tostring(o.Title or o.Name or "Note"),
+            TextSize = 13,
+            Size = UDim2.new(1, 0, 0, 18),
+            AutomaticSize = Enum.AutomaticSize.None,
+            TextWrapped = false,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            LayoutOrder = 1,
+            ZIndex = 25,
+            Parent = c,
         }, 3)
+
         local text = tx("TextLabel", {
-            Text = tostring(o.Content or ""), TextSize = 12, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
-            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, ZIndex = 25, Parent = c,
+            Text = tostring(o.Content or ""),
+            TextSize = 12,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            LineHeight = 1.05,
+            Size = UDim2.new(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            LayoutOrder = 2,
+            ZIndex = 25,
+            Parent = c,
         }, 1, "Sub")
+
+        local function refresh()
+            text.Size = UDim2.new(1, 0, 0, math.max(text.TextBounds.Y, 18))
+        end
+
         local obj = {}
-        function obj:Set(t) text.Text = tostring(t) end
+        function obj:Set(t)
+            text.Text = tostring(t)
+            task.defer(refresh)
+        end
+        function obj:Get() return text.Text end
         function obj:SetTitle(t) head.Text = tostring(t) end
+        task.defer(refresh)
         o.Name = o.Name or o.Title
         return decorate(obj, c, o, "Paragraph")
     end
