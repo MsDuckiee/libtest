@@ -1,5 +1,5 @@
 --[[
-    Nihon Lib  |  v5.0  (macOS themed + smooth drag + fixed toggles + launcher top-center + enhanced visuals)
+    Nihon Lib  |  v5.1  (macOS themed + smooth drag + fixed toggles + launcher top-center + enhanced visuals + polish pass)
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -21,7 +21,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "5.0.0",
+    Version = "5.1.0",
     Flags = {},
     Windows = {},
     Folder = "NihonLib",
@@ -50,6 +50,25 @@ local conns = {}
 local function keep(c)
     conns[#conns + 1] = c
     return c
+end
+
+-- ============================================
+-- TEXT MEASUREMENT CACHE (performance)
+-- ============================================
+local textSizeCache = {}
+local textSizeCacheCount = 0
+local function measure(text, size, font, bounds)
+    local key = text .. "\0" .. size .. "\0" .. font.Name .. "\0" .. bounds.X .. "x" .. bounds.Y
+    local cached = textSizeCache[key]
+    if cached then return cached end
+    local result = TextService:GetTextSize(text, size, font, bounds)
+    if textSizeCacheCount > 512 then
+        textSizeCache = {}
+        textSizeCacheCount = 0
+    end
+    textSizeCache[key] = result
+    textSizeCacheCount = textSizeCacheCount + 1
+    return result
 end
 
 local Themes = {
@@ -301,6 +320,7 @@ local function bind(obj, prop, key, fn)
 end
 
 local function refreshTheme(animated, accentOnly)
+    for _, hook in ipairs(themeHooks) do pcall(hook, animated) end
     for obj, list in pairs(binds) do
         for _, rec in ipairs(list) do
             if not accentOnly or rec.key == "Accent" or rec.key == "Accent2" then
@@ -316,7 +336,6 @@ local function refreshTheme(animated, accentOnly)
             end
         end
     end
-    for _, hook in ipairs(themeHooks) do pcall(hook, animated) end
 end
 
 local function onTheme(fn) themeHooks[#themeHooks + 1] = fn end
@@ -527,14 +546,9 @@ local function makeDraggable(handles, target, opts)
         state.currentPos = state.currentPos:Lerp(state.targetPos, alpha)
 
         local p = screenToPosition(state.currentPos)
-        local cur = target.Position
         local px = math.floor(p.X + 0.5)
         local py = math.floor(p.Y + 0.5)
-        if cur.X.Scale ~= 0 or cur.Y.Scale ~= 0 then
-            target.Position = UDim2.fromOffset(px, py)
-        else
-            target.Position = UDim2.fromOffset(px, py)
-        end
+        target.Position = UDim2.fromOffset(px, py)
 
         if not state.dragging and state.velocity.Magnitude < 0.6
            and (state.currentPos - state.targetPos).Magnitude < 0.6 then
@@ -614,6 +628,12 @@ local function makeDraggable(handles, target, opts)
             if not state.moved and opts.onClick then opts.onClick() end
         end))
     end
+
+    local cleanup
+    cleanup = target.Destroying:Connect(function()
+        if state.runConn then state.runConn:Disconnect() state.runConn = nil end
+        if cleanup then cleanup:Disconnect() end
+    end)
 end
 
 local function makeFirer(getValue, run)
@@ -710,7 +730,7 @@ end
 local function showTip(text)
     if tipBox then tipBox:Destroy() tipBox = nil end
     if not text or text == "" then return end
-    local size = TextService:GetTextSize(tostring(text), 12, Fonts[currentFont][2], Vector2.new(230, 1000))
+    local size = measure(tostring(text), 12, Fonts[currentFont][2], Vector2.new(230, 1000))
     local box = mk("CanvasGroup", {
         Size = UDim2.fromOffset(size.X + 20, size.Y + 10),
         ZIndex = 400,
@@ -1001,7 +1021,7 @@ spawnNote = function(entry)
     local content = tostring(cfg.Content or "")
 
     local frame = mk("CanvasGroup", {
-        Name = "Note", Size = UDim2.fromOffset(w, 0), AutomaticSize = Enum.AutomaticSize.Y,
+        Name = "Note", Size = UDim2.fromOffset(w, 0),
         GroupTransparency = 1, BackgroundColor3 = Pal.Surface, Parent = noteLayer,
     })
     round(frame, 12)
@@ -1057,7 +1077,7 @@ spawnNote = function(entry)
     local body = tx("TextLabel", {
         Text = content, TextSize = 12,
         Position = UDim2.fromOffset(12, 30), Size = UDim2.new(1, -24, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true,
+        TextWrapped = true,
         TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
         Visible = content ~= "", TextColor3 = Pal.Sub, Parent = frame,
     }, 1)
@@ -1077,7 +1097,7 @@ spawnNote = function(entry)
         })
         for i, act in ipairs(cfg.Actions) do
             local lbl = tostring(act.Name or "OK")
-            local sz = TextService:GetTextSize(lbl, 12, Fonts[currentFont][3], Vector2.new(400, 26))
+            local sz = measure(lbl, 12, Fonts[currentFont][3], Vector2.new(400, 26))
             local b = tx("TextButton", {
                 Text = lbl, TextSize = 12, Size = UDim2.fromOffset(sz.X + 20, 22),
                 LayoutOrder = i, TextXAlignment = Enum.TextXAlignment.Center,
@@ -1103,13 +1123,18 @@ spawnNote = function(entry)
     end
 
     task.defer(function()
+        if n.dying or not frame.Parent then return end
         local topPad = 12
         local titleH = 24
         local bodyH = 0
-        if content ~= "" then bodyH = body.AbsoluteSize.Y end
+        if content ~= "" then
+            local sz = measure(content, 12, Fonts[currentFont][1], Vector2.new(w - 24, 1000))
+            bodyH = math.max(16, math.ceil(sz.Y))
+            body.Size = UDim2.new(1, -24, 0, bodyH)
+            body.Position = UDim2.fromOffset(12, topPad + titleH)
+        end
         local actionsH = actionsRow and 30 or 0
         local bottomPad = 12
-        if content ~= "" then body.Position = UDim2.fromOffset(12, topPad + titleH) end
         if actionsRow then actionsRow.Position = UDim2.fromOffset(0, topPad + titleH + bodyH) end
         local total = topPad + titleH + bodyH + actionsH + bottomPad
         n.height = math.max(64, total)
@@ -1295,7 +1320,7 @@ function Nihon:Dialog(cfg)
     local buttons = cfg.Buttons or {{Name = "OK", Primary = true}}
     for i, b in ipairs(buttons) do
         local label = tostring(b.Name or "OK")
-        local size = TextService:GetTextSize(label, 13, Fonts[currentFont][3], Vector2.new(400, 34))
+        local size = measure(label, 13, Fonts[currentFont][3], Vector2.new(400, 34))
         local btn = tx("TextButton", {
             Text = label, Size = UDim2.fromOffset(math.max(80, size.X + 30), 36), LayoutOrder = i,
             TextXAlignment = Enum.TextXAlignment.Center, BackgroundTransparency = 0, ZIndex = 202, Parent = row,
@@ -1339,19 +1364,27 @@ local saveToken = 0
 local function encode(v)
     local t = typeof(v)
     if t == "Color3" then return {t = "c", r = v.R, g = v.G, b = v.B}
-    elseif t == "EnumItem" then return {t = "k", n = v.Name}
+    elseif t == "EnumItem" then return {t = "k", n = v.Name, e = tostring(v.EnumType)}
     elseif t == "table" then
         local list = {}
         for i, x in ipairs(v) do list[i] = x end
         return {t = "l", v = list}
-    elseif v == nil then return {t = "k"} end
+    elseif v == nil then return {t = "k"}
+    end
     return v
 end
 
 local function decode(v)
     if type(v) ~= "table" then return v end
     if v.t == "c" then return Color3.new(v.r, v.g, v.b)
-    elseif v.t == "k" then return v.n and Enum.KeyCode[v.n] or nil
+    elseif v.t == "k" then
+        if v.n == nil then return nil end
+        local enumType = v.e
+        if enumType and Enum[enumType] then
+            local ok, item = pcall(function() return Enum[enumType][v.n] end)
+            if ok and item then return item end
+        end
+        return Enum.KeyCode[v.n] or Enum.UserInputType[v.n]
     elseif v.t == "l" then return v.v end
     return v
 end
@@ -1854,7 +1887,7 @@ function Nihon:MakeWindow(cfg)
         Name = "Header", Size = UDim2.new(1, 0, 0, topH), BackgroundTransparency = 1, ZIndex = 22, Parent = clip,
     })
 
-    -- ═══ macOS traffic lights (left) ═══
+    -- macOS traffic lights (left)
     local tlHolder = mk("Frame", {
         Name = "TrafficLights",
         Position = UDim2.fromOffset(16, 0), Size = UDim2.fromOffset(70, topH),
@@ -2179,7 +2212,7 @@ function Nihon:MakeWindow(cfg)
         end))
     end
 
-    -- ═══ LAUNCHER (always top-center) ═══
+    -- LAUNCHER (always top-center)
     local launcher = mk("TextButton", {
         Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0),
         Position = UDim2.new(0.5, 0, 0, 16),
@@ -2577,8 +2610,10 @@ local function errorText(err)
 end
 
 local function flashCard(card, color, seconds)
+    if not card or not card.Parent then return end
     local sheet = mk("Frame", {
-        Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BackgroundTransparency = 0.55, ZIndex = 44, Parent = card,
+        Size = UDim2.fromScale(1, 1), BackgroundColor3 = color,
+        BackgroundTransparency = 0.55, ZIndex = 44, Parent = card,
     })
     round(sheet, 11)
     local stroke = card:FindFirstChildOfClass("UIStroke")
@@ -2586,14 +2621,15 @@ local function flashCard(card, color, seconds)
     if stroke then stroke.Color = color stroke.Transparency = 0 end
     local dur = seconds or 0.9
     local tw = play(sheet, dur, {BackgroundTransparency = 1}, Enum.EasingStyle.Quint)
-    after(tw, function() sheet:Destroy() end)
+    after(tw, function() if sheet.Parent then sheet:Destroy() end end)
     task.delay(dur, function()
-        if stroke and stroke.Parent then play(stroke, 0.3, {Color = Pal.Stroke, Transparency = oldTrans}) end
+        if stroke and stroke.Parent then play(stroke, 0.3, {Color = Pal.Stroke, Transparency = oldTrans or 0.45}) end
         if sheet.Parent then sheet:Destroy() end
     end)
 end
 
 local function shake(card)
+    if not card or not card.Parent then return end
     local base = card.Position
     task.spawn(function()
         local offs = {6, -6, 4, -4, 2, 0}
@@ -2602,7 +2638,7 @@ local function shake(card)
             card.Position = base + UDim2.fromOffset(dx, 0)
             task.wait(0.03)
         end
-        card.Position = base
+        if card.Parent then card.Position = base end
     end)
 end
 
@@ -2896,12 +2932,22 @@ function TabImpl.make(Window, tcfg)
                 count.Text = ""
                 play(chev.Image, 0.25, {Rotation = 0})
                 play(chev.Glyph, 0.25, {Rotation = 0})
-                collapseTween = play(bodyClip, 0.34, {Size = UDim2.new(1, 0, 0, fullSize)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
-                after(collapseTween, function()
-                    if not collapsed then
-                        bodyClip.AutomaticSize = Enum.AutomaticSize.Y
-                        bodyClip.ClipsDescendants = false
-                    end
+                local target = fullSize
+                bodyClip.Size = UDim2.new(1, 0, 0, 0)
+                bodyClip.AutomaticSize = Enum.AutomaticSize.Y
+                task.defer(function()
+                    if collapsed then return end
+                    local measured = bodyClip.AbsoluteSize.Y / math.max(currentScale, 0.01)
+                    if measured > 0 then target = measured end
+                    bodyClip.AutomaticSize = Enum.AutomaticSize.None
+                    bodyClip.ClipsDescendants = true
+                    collapseTween = play(bodyClip, 0.34, {Size = UDim2.new(1, 0, 0, target)}, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+                    after(collapseTween, function()
+                        if not collapsed then
+                            bodyClip.AutomaticSize = Enum.AutomaticSize.Y
+                            bodyClip.ClipsDescendants = false
+                        end
+                    end)
                 end)
             end
         end
@@ -3033,7 +3079,7 @@ local function extendElements(E, ctx)
     local mobile, rowH = ctx.mobile, ctx.rowH
 
     -- ============================================
-    -- SLIDER (enhanced with glow)
+    -- SLIDER (with shift-snap and glow)
     -- ============================================
     function E:AddSlider(o)
         o = o or {}
@@ -3063,7 +3109,6 @@ local function extendElements(E, ctx)
             BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 19, Parent = rail,
         })
         round(knob, 9)
-        -- Glow effect
         local knobGlow = mk("Frame", {
             AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(mobile and 18 or 14, mobile and 18 or 14),
             BackgroundColor3 = Pal.Accent, BackgroundTransparency = 0.7, ZIndex = 18, Parent = rail,
@@ -3081,7 +3126,15 @@ local function extendElements(E, ctx)
             local ok, err = pcall(o.Callback or function() end, v)
             if not ok then fail(c, label, err) end
         end)
+        local function shiftDown()
+            return UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
+                or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+        end
         local function commit(v, silent, jump)
+            if shiftDown() then
+                local bigStep = step * 10
+                v = math.clamp(min + math.floor((v - min) / bigStep + 0.5) * bigStep, min, max)
+            end
             v = math.clamp(snapTo(v, step, min), min, max)
             if v == obj.Value and not jump then return end
             obj.Value = v
@@ -3101,7 +3154,6 @@ local function extendElements(E, ctx)
             if obj:IsLocked() then return end
             railDragging = true
             fromX(input.Position.X)
-            -- Pulse on grab
             play(knobGlow, 0.15, {BackgroundTransparency = 0.3})
             play(knobGlow, 0.2, {Size = UDim2.fromOffset(mobile and 24 or 20, mobile and 24 or 20)}, Enum.EasingStyle.Back)
             task.delay(0.2, function()
@@ -3124,6 +3176,14 @@ local function extendElements(E, ctx)
         valBox.FocusLost:Connect(function()
             local n = tonumber(valBox.Text:match("-?%d+%.?%d*"))
             if n then obj:Set(n) else valBox.Text = numFormat(obj.Value, step, suffix) end
+        end)
+        valBox.Focused:Connect(function()
+            task.defer(function()
+                if valBox:IsFocused() then
+                    valBox.CursorPosition = #valBox.Text + 1
+                    valBox.SelectionStart = -1
+                end
+            end)
         end)
         register(o.Flag, obj, o, function() return obj.Value end, function(v) obj:Set(v) end)
         decorate(obj, c, o, "Slider")
@@ -3200,6 +3260,10 @@ local function extendElements(E, ctx)
             if kbVisible then kbRebuild() end
         end
         function obj:Set(k, silent)
+            -- Accept Enum.KeyCode, Enum.UserInputType, string name, or nil
+            if typeof(k) == "string" then
+                k = Enum.KeyCode[k] or Enum.UserInputType[k] or nil
+            end
             obj.Value = k
             obj.Binding = false
             refresh()
@@ -3378,6 +3442,10 @@ local function extendElements(E, ctx)
                     layoutList()
                 end)
                 searchBox = searchHolder
+                -- Force a layout pass so the search box is included in height calc
+                task.defer(function()
+                    if obj.IsOpen then layoutList() end
+                end)
             end
             for i, opt in ipairs(obj.Options) do
                 local b = mk("TextButton", {
@@ -3635,7 +3703,10 @@ local function extendElements(E, ctx)
             end))
 
             hex.FocusLost:Connect(function()
-                local txt = hex.Text:gsub("#", "")
+                local txt = hex.Text:gsub("#", ""):upper()
+                if #txt == 3 then
+                    txt = txt:sub(1,1):rep(2) .. txt:sub(2,2):rep(2) .. txt:sub(3,3):rep(2)
+                end
                 if #txt == 6 then
                     local ok, col = pcall(Color3.fromHex, txt)
                     if ok then
@@ -4324,7 +4395,6 @@ function ElementFactory(Window, Tab, parent, sectionName)
     local E = {_count = 0}
     local rowH = mobile and 44 or 40
 
-    -- Card WITH enhanced hover glow
     local function card(height, hover)
         local c = mk("TextButton", {
             Size = UDim2.new(1, 0, 0, height or rowH), BackgroundTransparency = 0.15, ZIndex = 24,
@@ -4335,7 +4405,6 @@ function ElementFactory(Window, Tab, parent, sectionName)
         local st = outline(c, "Stroke", 1, 0.45)
         c:SetAttribute("NihonCard", true)
 
-        -- Subtle accent glow behind card
         local glow = mk("Frame", {
             Size = UDim2.new(1, 4, 1, 4), Position = UDim2.fromOffset(-2, -2),
             BackgroundColor3 = Pal.Accent, BackgroundTransparency = 1, ZIndex = 23, Parent = c,
@@ -4492,25 +4561,24 @@ function ElementFactory(Window, Tab, parent, sectionName)
         }, 1, "Sub")
 
         local lastWidth = -1
+        local refreshQueued = false
         local function refresh(force)
-            local w = math.floor(c.AbsoluteSize.X - 26)
-            if w < 80 then
-                task.defer(function() refresh(force) end)
-                return
-            end
-            if not force and w == lastWidth then return end
-            lastWidth = w
-            local h = 0
-            if text.Text ~= "" then
-                local ok, size = pcall(function()
-                    return TextService:GetTextSize(text.Text, text.TextSize, text.Font, Vector2.new(w, 100000))
-                end)
-                if ok and size then h = math.max(18, math.ceil(size.Y)) end
-            else
-                h = 18
-            end
-            text.Size = UDim2.new(1, 0, 0, h)
-            c.Size = UDim2.new(1, 0, 0, 10 + 18 + 5 + h + 10)
+            if refreshQueued then return end
+            refreshQueued = true
+            task.defer(function()
+                refreshQueued = false
+                local w = math.floor(c.AbsoluteSize.X - 26)
+                if w < 80 then return end
+                if not force and w == lastWidth then return end
+                lastWidth = w
+                local h = 18
+                if text.Text ~= "" then
+                    local ok, size = pcall(measure, text.Text, text.TextSize, text.Font, Vector2.new(w, 100000))
+                    if ok and size then h = math.max(18, math.ceil(size.Y)) end
+                end
+                text.Size = UDim2.new(1, 0, 0, h)
+                c.Size = UDim2.new(1, 0, 0, 10 + 18 + 5 + h + 10)
+            end)
         end
 
         local obj = {}
@@ -4577,7 +4645,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
                 local ok, err = pcall(cb, table.unpack(args, 1, args.n))
                 running = false
                 if not ok then
-                    if type(o.OnError) == "function" then pcall(o.OnError, err) end
+                    if type(o.OnError) == "function" then pcall(o.OnError, err, label) end
                     fail(c, label, err)
                 else
                     flashCard(c, Status.Success, 0.55)
@@ -4594,7 +4662,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
     end
 
     -- ============================================
-    -- TOGGLE (enhanced with glow)
+    -- TOGGLE (enhanced with spring bounce + glow)
     -- ============================================
     function E:AddToggle(o)
         o = o or {}
@@ -4629,7 +4697,6 @@ function ElementFactory(Window, Tab, parent, sectionName)
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = knob,
         })
 
-        -- Glow ring around track when ON
         local glowRing = mk("Frame", {
             Size = UDim2.fromScale(1, 1), BackgroundColor3 = Pal.Accent,
             BackgroundTransparency = 1, ZIndex = 24, Parent = track,
@@ -4641,9 +4708,17 @@ function ElementFactory(Window, Tab, parent, sectionName)
         local function paint(v, animated)
             local dur = animated and 0.28 or 0.001
             play(fill,        dur, {BackgroundTransparency = v and 0 or 1},   Enum.EasingStyle.Quart)
-            play(knob,        dur, {Position = UDim2.new(0, v and 21 or 3, 0.5, 0)}, Enum.EasingStyle.Back)
             play(trackStroke, dur, {Transparency = v and 1 or 0.3})
             play(glowRing,    dur + 0.1, {BackgroundTransparency = v and 0.85 or 1})
+            play(knob, dur, {Position = UDim2.new(0, v and 21 or 3, 0.5, 0)}, Enum.EasingStyle.Back)
+            if animated then
+                task.delay(dur * 0.55, function()
+                    if knob.Parent then
+                        local target = v and 21 or 3
+                        play(knob, 0.16, {Position = UDim2.new(0, target, 0.5, 0)}, Enum.EasingStyle.Quart)
+                    end
+                end)
+            end
         end
         local firer = makeFirer(function() return state.value end, function(v)
             local ok, err = pcall(o.Callback or function() end, v)
@@ -4758,7 +4833,9 @@ local function loadingScreen(cfg, title, done)
         fadeGroup(card, 0.28, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         play(cardScale, 0.3, {Scale = 1.06}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
         play(layer, 0.3, {BackgroundTransparency = 1})
-        task.wait(0.35)
+        task.wait(0.22)
+        play(cardScale, 0.22, {Scale = 0.9}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        task.wait(0.24)
         layer:Destroy()
         done()
     end)
@@ -5247,6 +5324,7 @@ local function populateAlwaysTab(tab)
         Icon = "discord",
     })
 end
+
 local function attachSettings(Window)
     function Window:AddSettingsTab(opts)
         opts = opts or {}
