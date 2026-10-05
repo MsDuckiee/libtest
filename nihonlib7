@@ -1949,6 +1949,7 @@ function Nihon:MakeWindow(cfg)
         BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 22, Parent = clip,
     })
     Window.Content = content
+    local body = content
 
     -- Resize Grip
     local resizeGrip = mk("TextButton", {
