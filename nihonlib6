@@ -892,7 +892,7 @@ function Nihon:SetAutosave(on, delay)
 end
 
 -- ============================================
--- NOTIFICATIONS (REDESIGNED)
+-- NOTIFICATIONS (REDESIGNED TO MATCH SKETCH)
 -- ============================================
 local Notes = {active = {}, queue = {}, byKey = {}, queuedKey = {}, max = 5, duration = 4, position = "TopRight"}
 local noteLayer = mk("Frame", {Name = "Notifications", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 100, Parent = Root})
@@ -1000,7 +1000,7 @@ spawnNote = function(entry)
     n.expires = os.clock() + n.time
     local content = tostring(cfg.Content or "")
 
-    -- New macOS style: Glassy frame with a distinct icon circle
+    -- New macOS style: Glassy frame with a distinct icon circle on the left
     local frame = mk("CanvasGroup", {
         Name = "Note", Size = UDim2.fromOffset(w, 0), AutomaticSize = Enum.AutomaticSize.Y,
         GroupTransparency = 1, BackgroundColor3 = Pal.Surface, Parent = noteLayer,
@@ -1055,7 +1055,7 @@ spawnNote = function(entry)
     end)
     closeBtn.Activated:Connect(function() dismissNote(n) end)
 
-    -- Body
+    -- Body (Description)
     local body = tx("TextLabel", {
         Text = content, TextSize = 12,
         Position = UDim2.fromOffset(34, 36), Size = UDim2.new(1, -46, 0, 0),
@@ -1792,7 +1792,7 @@ local ALWAYS_NAME = "Home - NihonLib"
 local SEARCH_ICON = "118685771787843"
 
 -- ============================================
--- MAIN WINDOW (REDESIGNED)
+-- MAIN WINDOW
 -- ============================================
 function Nihon:MakeWindow(cfg)
     cfg = cfg or {}
@@ -1949,7 +1949,6 @@ function Nihon:MakeWindow(cfg)
         BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 22, Parent = clip,
     })
     Window.Content = content
-    local body = content
 
     -- Resize Grip
     local resizeGrip = mk("TextButton", {
@@ -2806,8 +2805,7 @@ local function flipTabs(Window, from, to, forward)
         play(outPage, 0.32, {Position = UDim2.fromOffset(-contentW * dir, 0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
         play(outPage, 0.26, {GroupTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
         task.delay(0.34, function()
-            if Window.Selected ~= from then
-                outPage.Visible = false
+            if Window.Selected ~= from then                outPage.Visible = false
                 outPage.Position = UDim2.fromOffset(0, 0)
                 outPage.GroupTransparency = 1
             end
