@@ -1473,6 +1473,7 @@ end
 function Watermark.setText(t) Watermark.text = tostring(t) if Watermark.label then Watermark.label.Text = Watermark.text end end
 function Watermark.setSub(t) Watermark.sub = tostring(t) if Watermark.subLabel then Watermark.subLabel.Text = Watermark.sub end end
 Nihon.Watermark = Watermark
+Nihon.Hud = Hud
 
 local kbEntries = {}
 local kbFrame = mk("Frame", {
@@ -1625,6 +1626,7 @@ function Nihon:MakeWindow(cfg)
         Size = UDim2.new(),
         AutomaticSize = Enum.AutomaticSize.XY,
         BackgroundTransparency = 1,
+        GroupTransparency = 1,
         Visible = false,
         ZIndex = 10,
         Parent = Root,
@@ -2364,9 +2366,12 @@ function TabImpl.make(Window, tcfg)
     Tab.Index = index
 
     -- Tab pill inside the horizontal tab scroll
+    -- Measure text to size the pill
+    local measureW = measure(name, 13, Fonts[currentFont][2], Vector2.new(400, 100))
+    local pillW = math.max(72, math.ceil(measureW.X) + 32 + 16)  -- icon offset + text + right pad
     local btn = mk("TextButton", {
-        Name = "Tab_" .. name, Size = UDim2.fromOffset(72, 38),
-        AutomaticSize = Enum.AutomaticSize.X,
+        Name = "Tab_" .. name,
+        Size = UDim2.fromOffset(pillW, 38),
         BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1,
         LayoutOrder = index, ZIndex = 17, Parent = P.tabScroll,
     })
@@ -4424,9 +4429,8 @@ local function attachWindowMethods(Window)
         Watermark.setSub(t)
     end
     function Window:SetIcon(id)
-        Window._parts.logo and Window._parts.logo:FindFirstChildOfClass("ImageLabel")
-        Window.LogoIcon.Set(id)
-        Window.LauncherIcon.Set(id)
+        if Window.LogoIcon then Window.LogoIcon.Set(id) end
+        if Window.LauncherIcon then Window.LauncherIcon.Set(id) end
     end
     function Window:SetTabIcon(name, id)
         for _, t in ipairs(Window.Tabs) do
