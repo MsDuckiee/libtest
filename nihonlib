@@ -1,5 +1,5 @@
 --[[
-    Nihon Lib  |  v5.2  (macOS themed + smooth drag + fixed toggles + launcher top-center + enhanced visuals + polish pass + layout fixes)
+    Nihon Lib  |  v6.0  (Complete Visual Overhaul - macOS Modern)
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -21,7 +21,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "5.2.0",
+    Version = "6.0.0",
     Flags = {},
     Windows = {},
     Folder = "NihonLib",
@@ -71,6 +71,9 @@ local function measure(text, size, font, bounds)
     return result
 end
 
+-- ============================================
+-- THEMES (macOS Centric)
+-- ============================================
 local Themes = {
     MacOS = {
         Bg = Color3.fromRGB(28, 28, 30),
@@ -81,6 +84,8 @@ local Themes = {
         Sub = Color3.fromRGB(152, 152, 160),
         Accent = Color3.fromRGB(10, 132, 255),
         Accent2 = Color3.fromRGB(94, 168, 255),
+        Header = Color3.fromRGB(38, 38, 41),
+        Divider = Color3.fromRGB(50, 50, 54),
     },
     MacOSLight = {
         Bg = Color3.fromRGB(238, 238, 242),
@@ -91,61 +96,74 @@ local Themes = {
         Sub = Color3.fromRGB(124, 124, 132),
         Accent = Color3.fromRGB(0, 122, 255),
         Accent2 = Color3.fromRGB(84, 158, 255),
+        Header = Color3.fromRGB(246, 246, 248),
+        Divider = Color3.fromRGB(220, 220, 225),
     },
     Nihon = {
         Bg = Color3.fromRGB(12, 12, 17), Surface = Color3.fromRGB(24, 24, 32), Elevated = Color3.fromRGB(34, 34, 46),
         Stroke = Color3.fromRGB(48, 48, 66), Text = Color3.fromRGB(243, 241, 248), Sub = Color3.fromRGB(151, 149, 173),
         Accent = Color3.fromRGB(240, 70, 95), Accent2 = Color3.fromRGB(255, 132, 108),
+        Header = Color3.fromRGB(18, 18, 26), Divider = Color3.fromRGB(36, 36, 50),
     },
     Sakura = {
         Bg = Color3.fromRGB(24, 15, 21), Surface = Color3.fromRGB(40, 25, 35), Elevated = Color3.fromRGB(54, 35, 48),
         Stroke = Color3.fromRGB(84, 54, 76), Text = Color3.fromRGB(253, 241, 247), Sub = Color3.fromRGB(183, 150, 172),
         Accent = Color3.fromRGB(255, 133, 178), Accent2 = Color3.fromRGB(255, 186, 206),
+        Header = Color3.fromRGB(30, 19, 27), Divider = Color3.fromRGB(60, 40, 52),
     },
     Midnight = {
         Bg = Color3.fromRGB(9, 10, 18), Surface = Color3.fromRGB(18, 20, 32), Elevated = Color3.fromRGB(28, 31, 48),
         Stroke = Color3.fromRGB(41, 46, 72), Text = Color3.fromRGB(232, 236, 250), Sub = Color3.fromRGB(132, 140, 170),
         Accent = Color3.fromRGB(110, 140, 255), Accent2 = Color3.fromRGB(176, 120, 255),
+        Header = Color3.fromRGB(14, 15, 25), Divider = Color3.fromRGB(30, 34, 55),
     },
     Ocean = {
         Bg = Color3.fromRGB(9, 17, 29), Surface = Color3.fromRGB(18, 32, 50), Elevated = Color3.fromRGB(28, 46, 70),
         Stroke = Color3.fromRGB(43, 70, 103), Text = Color3.fromRGB(228, 241, 252), Sub = Color3.fromRGB(133, 161, 190),
         Accent = Color3.fromRGB(56, 200, 232), Accent2 = Color3.fromRGB(72, 128, 255),
+        Header = Color3.fromRGB(12, 22, 37), Divider = Color3.fromRGB(26, 42, 65),
     },
     Forest = {
         Bg = Color3.fromRGB(10, 19, 14), Surface = Color3.fromRGB(18, 34, 25), Elevated = Color3.fromRGB(28, 50, 38),
         Stroke = Color3.fromRGB(45, 78, 58), Text = Color3.fromRGB(235, 247, 239), Sub = Color3.fromRGB(138, 167, 149),
         Accent = Color3.fromRGB(88, 220, 140), Accent2 = Color3.fromRGB(176, 232, 92),
+        Header = Color3.fromRGB(13, 25, 18), Divider = Color3.fromRGB(25, 46, 34),
     },
     Sunset = {
         Bg = Color3.fromRGB(21, 13, 15), Surface = Color3.fromRGB(38, 23, 26), Elevated = Color3.fromRGB(54, 33, 36),
         Stroke = Color3.fromRGB(85, 53, 55), Text = Color3.fromRGB(252, 242, 238), Sub = Color3.fromRGB(180, 152, 148),
         Accent = Color3.fromRGB(255, 128, 78), Accent2 = Color3.fromRGB(255, 202, 84),
+        Header = Color3.fromRGB(26, 16, 18), Divider = Color3.fromRGB(50, 30, 33),
     },
     Amoled = {
         Bg = Color3.fromRGB(0, 0, 0), Surface = Color3.fromRGB(12, 12, 14), Elevated = Color3.fromRGB(22, 22, 26),
         Stroke = Color3.fromRGB(38, 38, 46), Text = Color3.fromRGB(245, 245, 248), Sub = Color3.fromRGB(140, 140, 152),
         Accent = Color3.fromRGB(110, 200, 255), Accent2 = Color3.fromRGB(170, 140, 255),
+        Header = Color3.fromRGB(0, 0, 0), Divider = Color3.fromRGB(20, 20, 24),
     },
     Light = {
         Bg = Color3.fromRGB(243, 244, 249), Surface = Color3.fromRGB(255, 255, 255), Elevated = Color3.fromRGB(235, 237, 245),
         Stroke = Color3.fromRGB(203, 206, 222), Text = Color3.fromRGB(26, 28, 42), Sub = Color3.fromRGB(108, 112, 138),
         Accent = Color3.fromRGB(224, 52, 84), Accent2 = Color3.fromRGB(255, 120, 90),
+        Header = Color3.fromRGB(250, 250, 252), Divider = Color3.fromRGB(220, 222, 230),
     },
     Dracula = {
         Bg = Color3.fromRGB(30, 30, 46), Surface = Color3.fromRGB(40, 40, 58), Elevated = Color3.fromRGB(54, 54, 76),
         Stroke = Color3.fromRGB(68, 68, 96), Text = Color3.fromRGB(248, 248, 242), Sub = Color3.fromRGB(168, 168, 190),
         Accent = Color3.fromRGB(189, 147, 249), Accent2 = Color3.fromRGB(255, 121, 198),
+        Header = Color3.fromRGB(34, 34, 52), Divider = Color3.fromRGB(50, 50, 70),
     },
     Nord = {
         Bg = Color3.fromRGB(36, 41, 51), Surface = Color3.fromRGB(46, 52, 64), Elevated = Color3.fromRGB(59, 66, 82),
         Stroke = Color3.fromRGB(76, 86, 106), Text = Color3.fromRGB(236, 239, 244), Sub = Color3.fromRGB(143, 154, 175),
         Accent = Color3.fromRGB(136, 192, 208), Accent2 = Color3.fromRGB(163, 190, 140),
+        Header = Color3.fromRGB(40, 46, 58), Divider = Color3.fromRGB(55, 62, 78),
     },
     Gruvbox = {
         Bg = Color3.fromRGB(40, 40, 40), Surface = Color3.fromRGB(60, 56, 54), Elevated = Color3.fromRGB(80, 73, 69),
         Stroke = Color3.fromRGB(102, 92, 84), Text = Color3.fromRGB(235, 219, 178), Sub = Color3.fromRGB(168, 153, 132),
         Accent = Color3.fromRGB(215, 153, 33), Accent2 = Color3.fromRGB(184, 187, 38),
+        Header = Color3.fromRGB(45, 42, 40), Divider = Color3.fromRGB(70, 65, 60),
     },
 }
 local ThemeOrder = {"MacOS", "MacOSLight", "Nihon", "Sakura", "Midnight", "Ocean", "Forest", "Sunset", "Amoled", "Light", "Dracula", "Nord", "Gruvbox"}
@@ -192,6 +210,9 @@ local currentFont = "Modern"
 local animSpeed = 1
 local currentScale = 1
 
+-- ============================================
+-- ROOT GUI SETUP
+-- ============================================
 local Root = Instance.new("ScreenGui")
 Root.Name = "NihonLib"
 Root.ResetOnSpawn = false
@@ -484,7 +505,7 @@ end
 local function v2(input) return Vector2.new(input.Position.X, input.Position.Y) end
 
 -- ============================================
--- SMOOTH DRAG
+-- SMOOTH DRAG (unchanged logic, polished feel)
 -- ============================================
 local function makeDraggable(handles, target, opts)
     opts = opts or {}
@@ -691,7 +712,7 @@ do
 end
 
 -- ============================================
--- TOOLTIP
+-- TOOLTIP (polished)
 -- ============================================
 local tipBox
 local tipToken = 0
@@ -773,7 +794,7 @@ local function attachTip(gui, getText)
 end
 
 -- ============================================
--- POPUP
+-- POPUP (macOS Context Menu Style)
 -- ============================================
 local Popup = {}
 local catcher = mk("TextButton", {
@@ -912,7 +933,7 @@ function Nihon:SetAutosave(on, delay)
 end
 
 -- ============================================
--- NOTIFICATIONS
+-- NOTIFICATIONS (MacOS Stacked Overhaul)
 -- ============================================
 local Notes = {active = {}, queue = {}, byKey = {}, queuedKey = {}, max = 5, duration = 4, position = "TopRight"}
 local noteLayer = mk("Frame", {Name = "Notifications", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 100, Parent = Root})
@@ -922,7 +943,7 @@ local corners = {
 }
 local noteLoop
 
-local function noteWidth() return math.clamp(math.floor(viewport().X - 28), 240, 340) end
+local function noteWidth() return math.clamp(math.floor(viewport().X - 28), 280, 360) end
 
 local function notePos(slot, dx)
     local c = corners[Notes.position] or corners.TopRight
@@ -1014,56 +1035,68 @@ spawnNote = function(entry)
     local color = Status[entry.kind]
     local w = noteWidth()
     local n = {
-        key = entry.key, count = entry.count, handle = handle, height = 64, slot = 0,
+        key = entry.key, count = entry.count, handle = handle, height = 68, slot = 0,
         time = math.max(1, tonumber(cfg.Time) or Notes.duration), sticky = cfg.Sticky == true,
     }
     n.expires = os.clock() + n.time
     local content = tostring(cfg.Content or "")
 
+    -- macOS Notification Frame
     local frame = mk("CanvasGroup", {
         Name = "Note", Size = UDim2.fromOffset(w, 0),
         GroupTransparency = 1, BackgroundColor3 = Pal.Surface, Parent = noteLayer,
     })
-    round(frame, 12)
-    mk("UIStroke", {Color = Pal.Stroke, Thickness = 1, Transparency = 0.35, Parent = frame}):SetAttribute("_baseTrans", 0.35)
-    mk("UISizeConstraint", {MinSize = Vector2.new(0, 56), Parent = frame})
+    round(frame, 16)
+    mk("UIStroke", {Color = Pal.Stroke, Thickness = 1, Transparency = 0.2, Parent = frame}):SetAttribute("_baseTrans", 0.2)
+    
+    -- Soft shadow effect via a slightly larger background frame
+    local shadow = mk("Frame", {
+        Size = UDim2.new(1, 6, 1, 6), Position = UDim2.fromOffset(-3, -3),
+        BackgroundColor3 = Color3.new(0,0,0), BackgroundTransparency = 0.8, ZIndex = 99, Parent = frame,
+    })
+    round(shadow, 18)
 
     local frameScale = mk("UIScale", {Scale = 0.92, Parent = frame})
     n.pop = frameScale
 
-    local topRow = mk("Frame", {Size = UDim2.new(1, 0, 0, 24), BackgroundTransparency = 1, Parent = frame})
-    inset(topRow, 12, 12, 0, 12)
-
-    local bellHolder = mk("Frame", {
-        Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 4), Parent = topRow,
+    -- Icon Container (Left side, macOS style)
+    local iconBox = mk("Frame", {
+        Size = UDim2.fromOffset(40, 40), Position = UDim2.fromOffset(14, 14),
+        BackgroundColor3 = color, BackgroundTransparency = 0.9, ZIndex = 100, Parent = frame,
     })
-    local bellIcon = makeIcon(bellHolder, cfg.Icon or firstIcon(StatusIcons[entry.kind]) or "bell", 18, false, {
-        AnchorPoint = Vector2.new(0, 0), Position = UDim2.fromScale(0, 0), ZIndex = 3,
+    round(iconBox, 20)
+    local icon = makeIcon(iconBox, cfg.Icon or firstIcon(StatusIcons[entry.kind]) or "bell", 20, false, {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 101,
     })
-    bellIcon.Color(color, false)
-    bellIcon.Image.ZIndex = 3
-    bellIcon.Glyph.ZIndex = 3
+    icon.Color(color, false)
 
+    -- Title
     local title = tx("TextLabel", {
         Text = tostring(cfg.Name or cfg.Title or "Notification"),
         TextSize = 14, Font = Fonts[currentFont][3],
-        Position = UDim2.fromOffset(30, 0), Size = UDim2.new(1, -60, 1, 0),
+        Position = UDim2.fromOffset(64, 14), Size = UDim2.new(1, -80, 0, 18),
         TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
-        TextColor3 = Pal.Text, Parent = topRow,
+        TextColor3 = Pal.Text, ZIndex = 101, Parent = frame,
     }, 3)
-    title.TextColor3 = Pal.Text
 
+    -- Description
+    local body = tx("TextLabel", {
+        Text = content, TextSize = 12,
+        Position = UDim2.fromOffset(64, 34), Size = UDim2.new(1, -80, 0, 0),
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
+        Visible = content ~= "", TextColor3 = Pal.Sub, ZIndex = 101, Parent = frame,
+    }, 1)
+
+    -- Close Button (Top Right)
     local closeBtn = mk("TextButton", {
-        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0),
-        Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, ZIndex = 4, Parent = topRow,
+        AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 10),
+        Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, ZIndex = 102, Parent = frame,
     })
     round(closeBtn, 5)
-    local closeIcon = makeIcon(closeBtn, "x", 14, "Sub", {
-        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 5,
+    local closeIcon = makeIcon(closeBtn, "x", 12, "Sub", {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 103,
     })
-    closeIcon.Image.ZIndex = 5
-    closeIcon.Glyph.ZIndex = 5
     closeBtn.MouseEnter:Connect(function()
         play(closeBtn, 0.15, {BackgroundTransparency = 0.9})
         closeIcon.Color(Pal.Text, true)
@@ -1074,24 +1107,16 @@ spawnNote = function(entry)
     end)
     closeBtn.Activated:Connect(function() dismissNote(n) end)
 
-    local body = tx("TextLabel", {
-        Text = content, TextSize = 12,
-        Position = UDim2.fromOffset(12, 30), Size = UDim2.new(1, -24, 0, 0),
-        TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
-        Visible = content ~= "", TextColor3 = Pal.Sub, Parent = frame,
-    }, 1)
-    body.TextColor3 = Pal.Sub
-
+    -- Action Buttons (if any)
     local actionsRow
     if type(cfg.Actions) == "table" and #cfg.Actions > 0 then
         actionsRow = mk("Frame", {
-            Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(0, 0), Parent = frame,
+            Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(14, 0), Parent = frame,
         })
-        inset(actionsRow, 12, 12, 0, 12)
+        inset(actionsRow, 0, 14, 0, 14)
         mk("UIListLayout", {
-            FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6),
+            FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8),
             VerticalAlignment = Enum.VerticalAlignment.Center,
             SortOrder = Enum.SortOrder.LayoutOrder, Parent = actionsRow,
         })
@@ -1099,11 +1124,11 @@ spawnNote = function(entry)
             local lbl = tostring(act.Name or "OK")
             local sz = measure(lbl, 12, Fonts[currentFont][3], Vector2.new(400, 26))
             local b = tx("TextButton", {
-                Text = lbl, TextSize = 12, Size = UDim2.fromOffset(sz.X + 20, 22),
+                Text = lbl, TextSize = 12, Size = UDim2.fromOffset(sz.X + 20, 24),
                 LayoutOrder = i, TextXAlignment = Enum.TextXAlignment.Center,
                 BackgroundTransparency = 0, Parent = actionsRow,
             }, 3)
-            round(b, 6)
+            round(b, 8)
             if i == 1 then
                 b.BackgroundColor3 = color
                 b.TextColor3 = Color3.fromRGB(14, 14, 20)
@@ -1124,20 +1149,19 @@ spawnNote = function(entry)
 
     task.defer(function()
         if n.dying or not frame.Parent then return end
-        local topPad = 12
-        local titleH = 24
+        local topPad = 14
+        local titleH = 20
         local bodyH = 0
         if content ~= "" then
-            local sz = measure(content, 12, Fonts[currentFont][1], Vector2.new(w - 24, 1000))
+            local sz = measure(content, 12, Fonts[currentFont][1], Vector2.new(w - 80, 1000))
             bodyH = math.max(16, math.ceil(sz.Y))
-            body.Size = UDim2.new(1, -24, 0, bodyH)
-            body.Position = UDim2.fromOffset(12, topPad + titleH)
+            body.Size = UDim2.new(1, -80, 0, bodyH)
         end
-        local actionsH = actionsRow and 30 or 0
-        local bottomPad = 12
-        if actionsRow then actionsRow.Position = UDim2.fromOffset(0, topPad + titleH + bodyH) end
+        local actionsH = actionsRow and 40 or 0
+        local bottomPad = 14
+        if actionsRow then actionsRow.Position = UDim2.fromOffset(14, topPad + titleH + bodyH + 8) end
         local total = topPad + titleH + bodyH + actionsH + bottomPad
-        n.height = math.max(64, total)
+        n.height = math.max(68, total)
         frame.Size = UDim2.fromOffset(w, n.height)
         if not n.dying then relayout() end
     end)
@@ -1145,11 +1169,14 @@ spawnNote = function(entry)
     n.title = title
     n.body = body
 
+    -- Progress Bar (Bottom)
     n.bar = mk("Frame", {
         AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1),
-        Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = color,
-        BackgroundTransparency = 0.1, Visible = not n.sticky, ZIndex = 5, Parent = frame,
+        Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = color,
+        BackgroundTransparency = 0.2, Visible = not n.sticky, ZIndex = 100, Parent = frame,
     })
+    round(n.bar, 2)
+    n.bar.ClipsDescendants = true
 
     n.frame = frame
     frame.MouseEnter:Connect(function() n.hover = true end)
@@ -1243,7 +1270,7 @@ function Nihon:MakeNotification(cfg)
         if not n then return end
         n.custom = true
         n.bar.Visible = true
-        play(n.bar, 0.18, {Size = UDim2.new(math.clamp(p, 0, 1), 0, 0, 2)})
+        play(n.bar, 0.18, {Size = UDim2.new(math.clamp(p, 0, 1), 0, 0, 3)})
     end
 
     local entry = {cfg = cfg, kind = kind, key = key, count = 1, handle = handle, dedupe = dedupe}
@@ -1279,7 +1306,7 @@ function Nihon:Dialog(cfg)
         Name = "Dialog", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
         BackgroundTransparency = 1, ZIndex = 200, Parent = Root,
     })
-    local w = math.clamp(viewport().X - 32, 240, 350)
+    local w = math.clamp(viewport().X - 32, 260, 380)
     local box = mk("CanvasGroup", {
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(w, 0),
         AutomaticSize = Enum.AutomaticSize.Y, GroupTransparency = 1, ZIndex = 201, Parent = layer,
@@ -1289,8 +1316,8 @@ function Nihon:Dialog(cfg)
     outline(box, "Stroke", 1, 0.1)
     local sc = mk("UIScale", {Scale = 0.9, Parent = box})
     local col = mk("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = box})
-    inset(col, 18, 18, 16, 18)
-    stack(col, 8)
+    inset(col, 20, 20, 20, 20)
+    stack(col, 10)
     tx("TextLabel", {
         Text = tostring(cfg.Title or "Confirm"), TextSize = 16, Size = UDim2.new(1, 0, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, LayoutOrder = 1, Parent = col,
@@ -1304,7 +1331,7 @@ function Nihon:Dialog(cfg)
     local row = mk("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, LayoutOrder = 3, Parent = col})
     mk("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right,
-        VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 8),
+        VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 10),
         SortOrder = Enum.SortOrder.LayoutOrder, Parent = row,
     })
     local dialog = {}
@@ -1325,7 +1352,7 @@ function Nihon:Dialog(cfg)
             Text = label, Size = UDim2.fromOffset(math.max(80, size.X + 30), 36), LayoutOrder = i,
             TextXAlignment = Enum.TextXAlignment.Center, BackgroundTransparency = 0, ZIndex = 202, Parent = row,
         }, 3)
-        round(btn, 9)
+        round(btn, 10)
         if b.Primary then
             if b.Danger then
                 btn.BackgroundColor3 = Status.Error
@@ -1356,6 +1383,9 @@ function Nihon:Dialog(cfg)
     return dialog
 end
 
+-- ============================================
+-- CONFIG / FLAGS (unchanged logic)
+-- ============================================
 local flagRefs = {}
 local flagOrder = {}
 local initFires = {}
@@ -1496,7 +1526,7 @@ local function queueSave()
 end
 
 -- ============================================
--- HUD
+-- HUD (polished macOS style)
 -- ============================================
 local Hud = {
     enabled = false, style = "Modern", scale = 1, clock24 = true, seconds = true,
@@ -1820,7 +1850,7 @@ local ALWAYS_NAME = "Home - NihonLib"
 local SEARCH_ICON = "118685771787843"
 
 -- ============================================
--- MAIN WINDOW
+-- MAIN WINDOW (macOS Overhaul)
 -- ============================================
 function Nihon:MakeWindow(cfg)
     cfg = cfg or {}
@@ -1858,6 +1888,7 @@ function Nihon:MakeWindow(cfg)
 
     local searchIndex = {}
 
+    -- Main Shell (Glass background)
     local shell = mk("CanvasGroup", {
         Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
         Size = UDim2.fromOffset(baseW, baseH), ClipsDescendants = false, GroupTransparency = 0,
@@ -1865,32 +1896,41 @@ function Nihon:MakeWindow(cfg)
     })
     bind(shell, "BackgroundColor3", "Bg")
     shell.BackgroundTransparency = 0.06
-    round(shell, 12)
+    round(shell, 16)
     outline(shell, "Stroke", 1, 0.35)
     local uiScale = mk("UIScale", {Scale = 0.9, Parent = shell})
     Window.Shell = shell
 
+    -- Soft shadow layer
+    local shadow = mk("Frame", {
+        Name = "Shadow", Size = UDim2.new(1, 20, 1, 20), Position = UDim2.fromOffset(-10, -10),
+        BackgroundColor3 = Color3.new(0,0,0), BackgroundTransparency = 0.85, ZIndex = 9, Parent = shell,
+    })
+    round(shadow, 24)
+
     local clip = mk("Frame", {
         Name = "Clip", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 20, Parent = shell,
     })
-    round(clip, 12)
+    round(clip, 16)
 
+    -- macOS Dragbar (bottom)
     local dragbar = mk("Frame", {
-        Name = "Dragbar", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4),
+        Name = "Dragbar", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6),
         Size = UDim2.fromOffset(60, 4), BackgroundColor3 = Color3.new(1, 1, 1),
         BackgroundTransparency = 0.7, Visible = false, ZIndex = 30, Parent = clip,
     })
     round(dragbar, 2)
     bind(dragbar, "BackgroundColor3", "Sub")
 
+    -- Header (macOS Titlebar)
     local header = mk("Frame", {
         Name = "Header", Size = UDim2.new(1, 0, 0, topH), BackgroundTransparency = 1, ZIndex = 22, Parent = clip,
     })
 
-    -- macOS traffic lights (left)
+    -- macOS Traffic Lights (Left)
     local tlHolder = mk("Frame", {
         Name = "TrafficLights",
-        Position = UDim2.fromOffset(16, 0), Size = UDim2.fromOffset(70, topH),
+        Position = UDim2.fromOffset(18, 0), Size = UDim2.fromOffset(70, topH),
         BackgroundTransparency = 1, ZIndex = 30, Parent = header,
     })
     mk("UIListLayout", {
@@ -1947,6 +1987,7 @@ function Nihon:MakeWindow(cfg)
     searchIco.Glyph.ZIndex = 27
     local minIco = {Image = minGlyph, Glyph = minGlyph}
 
+    -- Logo & Title (Center)
     local logo = mk("TextButton", {
         AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 98, 0.5, 0), Size = UDim2.fromOffset(30, 30),
         BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 23, Parent = header,
@@ -1975,6 +2016,7 @@ function Nihon:MakeWindow(cfg)
     }, 1, "Sub")
     Window.TitleLabel, Window.SubtitleLabel = titleLbl, subLbl
 
+    -- User Card (Right)
     local userCard = mk("Frame", {
         AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(180, 38),
         BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.9, ZIndex = 23, Parent = header,
@@ -2005,15 +2047,17 @@ function Nihon:MakeWindow(cfg)
         TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 24, Parent = userCard,
     }, 1, "Sub")
 
+    -- Body Layout (Separated Sidebar & Content)
     local body = mk("Frame", {
         Name = "Body", Position = UDim2.fromOffset(0, topH), Size = UDim2.new(1, 0, 1, -topH), BackgroundTransparency = 1, ZIndex = 21, Parent = clip,
     })
 
+    -- Sidebar (Separated)
     local side = mk("Frame", {
         Name = "Sidebar", AnchorPoint = Vector2.new(0, 0), Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(0, sideW, 1, 0), ZIndex = 22, Parent = body,
     })
-    bind(side, "BackgroundColor3", "Surface")
-    side.BackgroundTransparency = 0.35
+    bind(side, "BackgroundColor3", "Header")
+    side.BackgroundTransparency = 0.2
     outline(side, "Stroke", 1, 0.85)
 
     local tabScroll = mk("ScrollingFrame", {
@@ -2024,6 +2068,7 @@ function Nihon:MakeWindow(cfg)
     inset(tabScroll, 10, 8, 10, 8)
     stack(tabScroll, 6)
 
+    -- Active Tab Pill Indicator
     local pill = mk("Frame", {
         Name = "Pill", Size = UDim2.new(1, -16, 0, 0), Position = UDim2.fromOffset(8, 8),
         BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.88, Visible = false, ZIndex = 22, Parent = side,
@@ -2094,6 +2139,7 @@ function Nihon:MakeWindow(cfg)
         toggleLbl.Position = UDim2.fromOffset(keyChip.AbsoluteSize.X + 14, 0)
     end
 
+    -- Content Area (Separated)
     local content = mk("Frame", {
         Name = "Content", Position = UDim2.fromOffset(sideW + 10, 10), Size = UDim2.new(1, -(sideW + 20), 1, -20),
         BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 22, Parent = body,
@@ -2212,7 +2258,7 @@ function Nihon:MakeWindow(cfg)
         end))
     end
 
-    -- LAUNCHER (always top-center)
+    -- LAUNCHER (top-center)
     local launcher = mk("TextButton", {
         Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0),
         Position = UDim2.new(0.5, 0, 0, 16),
@@ -2645,6 +2691,9 @@ end
 local ElementFactory
 local TabImpl = {}
 
+-- ============================================
+-- TAB IMPLEMENTATION (macOS Sidebar Style)
+-- ============================================
 function TabImpl.make(Window, tcfg)
     local P = Window._parts
     local mobile = P.mobile
@@ -2656,6 +2705,7 @@ function TabImpl.make(Window, tcfg)
     local index = #Window.Tabs + 1
     Tab.Index = index
 
+    -- Sidebar Tab Button (macOS style)
     local btn = mk("TextButton", {
         Name = "Tab_" .. name, Size = UDim2.new(1, 0, 0, mobile and 44 or 40),
         BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1,
@@ -2664,15 +2714,24 @@ function TabImpl.make(Window, tcfg)
     round(btn, 8)
     Tab.Button = btn
 
+    -- Icon + Label Layout inside Tab Button
     local ico = makeIcon(btn, tcfg.Icon or name, mobile and 22 or 20, "Sub", {
-        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 25,
+        AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.5, 0), ZIndex = 25,
     })
     ico.Image.ZIndex = 25
     ico.Glyph.ZIndex = 25
     Tab.IconObj = ico
 
+    local tabLabel = tx("TextLabel", {
+        Text = name, TextSize = 13, Position = UDim2.new(0, 40, 0, 0),
+        Size = UDim2.new(1, -46, 1, 0), TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 25, Parent = btn,
+    }, 2)
+    Tab.Label = tabLabel
+
     function Tab:SetIcon(id) ico.Set(id) end
 
+    -- Content Page
     local page = mk("CanvasGroup", {
         Name = "Page_" .. name, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, GroupTransparency = 1,
         Visible = false, ZIndex = 23, Parent = P.content,
@@ -2707,10 +2766,12 @@ function TabImpl.make(Window, tcfg)
 
     Window.Tabs[index] = Tab
 
+    -- Hover effects for Tab Button
     btn.MouseEnter:Connect(function()
         if Window.Selected ~= Tab then
             play(btn, 0.15, {BackgroundTransparency = 0.92})
             ico.Color(Pal.Text, true)
+            tabLabel.TextColor3 = Pal.Text
         end
         if not Nihon.IsMobile then
             tipToken = tipToken + 1
@@ -2723,7 +2784,10 @@ function TabImpl.make(Window, tcfg)
     end)
     btn.MouseLeave:Connect(function()
         play(btn, 0.2, {BackgroundTransparency = 1})
-        if Window.Selected ~= Tab then ico.Color(Pal.Sub, true) end
+        if Window.Selected ~= Tab then
+            ico.Color(Pal.Sub, true)
+            tabLabel.TextColor3 = Pal.Sub
+        end
         hideTip()
     end)
     btn.InputBegan:Connect(function(i)
@@ -2827,6 +2891,7 @@ function TabImpl.make(Window, tcfg)
                 play(s.Button, 0.15, {BackgroundTransparency = active and 0.86 or 1})
                 s.Button.BackgroundColor3 = active and Pal.Elevated or Color3.new(1, 1, 1)
                 s.IconObj.Color(active and Pal.Accent or Pal.Sub, true)
+                if s.Label then s.Label.TextColor3 = active and Pal.Text or Pal.Sub end
             end
         end
 
@@ -3035,9 +3100,16 @@ function TabImpl.select(Window, target, instant)
         flipTabs(Window, prev, target, forward)
     end
 
+    -- Highlight selected tab
     for _, t in ipairs(Window.Tabs) do
         local active = t == target
         t.IconObj.Color(active and Pal.Accent or Pal.Sub, not instant)
+        if t.Label then t.Label.TextColor3 = active and Pal.Text or Pal.Sub end
+        if active then
+            play(t.Button, 0.15, {BackgroundTransparency = 0.9})
+        else
+            play(t.Button, 0.15, {BackgroundTransparency = 1})
+        end
     end
 
     if Window.OnTabChanged then task.spawn(Window.OnTabChanged, target) end
@@ -3073,13 +3145,16 @@ local function toneColor(name)
     return Pal.Accent
 end
 
+-- ============================================
+-- ELEMENT FACTORY (macOS Card Polish)
+-- ============================================
 local function extendElements(E, ctx)
     local Window, Tab, P = ctx.Window, ctx.Tab, ctx.P
     local card, nameLabel, decorate, register, fail = ctx.card, ctx.nameLabel, ctx.decorate, ctx.register, ctx.fail
     local mobile, rowH = ctx.mobile, ctx.rowH
 
     -- ============================================
-    -- SLIDER (with shift-snap and glow)
+    -- SLIDER
     -- ============================================
     function E:AddSlider(o)
         o = o or {}
@@ -4642,7 +4717,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
     end
 
     -- ============================================
-    -- TOGGLE (enhanced with spring bounce + glow)
+    -- TOGGLE (macOS Switch Style)
     -- ============================================
     function E:AddToggle(o)
         o = o or {}
@@ -4756,6 +4831,9 @@ function ElementFactory(Window, Tab, parent, sectionName)
     return E
 end
 
+-- ============================================
+-- LOADING SCREEN (macOS Polished)
+-- ============================================
 local function loadingScreen(cfg, title, done)
     if cfg.IntroEnabled == false then done() return end
     local layer = mk("Frame", {
@@ -4822,7 +4900,7 @@ local function loadingScreen(cfg, title, done)
 end
 
 -- ============================================
--- KEY SYSTEM
+-- KEY SYSTEM (unchanged)
 -- ============================================
 function Nihon:SetKeySystem(cfg)
     cfg = cfg or {}
@@ -5199,6 +5277,9 @@ function Nihon:_showKeyGate(onSuccess)
     end)
 end
 
+-- ============================================
+-- DEFAULT TAB POPULATION (cleaned)
+-- ============================================
 local function populateAlwaysTab(tab)
     local Window = tab.Window or Nihon.Windows[1]
 
@@ -5300,7 +5381,7 @@ local function populateAlwaysTab(tab)
     local cta = tab:AddSection({Name = "Community"})
     cta:AddParagraph({
         Title = "Join the Discord",
-        Content = "Get updates, share configs, and get support. Click the button below to copy the invite link. (Also this script was taken from an opensource rayfield script and turned into a NihonLib version.)",
+        Content = "Get updates, share configs, and get support. Click the button below to copy the invite link.",
     })
     cta:AddDivider({})
     cta:AddLinkButton({
@@ -5310,6 +5391,9 @@ local function populateAlwaysTab(tab)
     })
 end
 
+-- ============================================
+-- SETTINGS TAB (unchanged API)
+-- ============================================
 local function attachSettings(Window)
     function Window:AddSettingsTab(opts)
         opts = opts or {}
@@ -5442,6 +5526,9 @@ local function attachSettings(Window)
     end
 end
 
+-- ============================================
+-- SEARCH (macOS Spotlight Style)
+-- ============================================
 local function fuzzy(query, text)
     query, text = query:lower(), text:lower()
     if query == "" then return 1 end
@@ -5617,6 +5704,9 @@ local function attachSearch(Window)
     end)
 end
 
+-- ============================================
+-- STATS PANEL (macOS Card Style)
+-- ============================================
 local function attachStats(Window)
     local P = Window._parts
     local mobile = P.mobile
@@ -5734,6 +5824,9 @@ local function attachStats(Window)
     end
 end
 
+-- ============================================
+-- WINDOW METHODS
+-- ============================================
 local function attachWindowMethods(Window)
     function Window:MakeTab(cfg) return TabImpl.make(Window, cfg) end
     function Window:SelectTab(tab, instant) TabImpl.select(Window, tab, instant) end
@@ -5772,6 +5865,9 @@ if Hooks._pending then
     Hooks._pending = nil
 end
 
+-- ============================================
+-- INIT
+-- ============================================
 function Nihon:Init()
     if Nihon._ready then return end
 
