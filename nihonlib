@@ -1,5 +1,5 @@
 --[[
-    Nihon Lib  |  v7.1  (Exact macOS Modern Redesign - Fixed)
+    Nihon Lib  |  v7.0  (Exact macOS Modern Redesign)
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -21,7 +21,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "7.1.0",
+    Version = "7.0.0",
     Flags = {},
     Windows = {},
     Folder = "NihonLib",
@@ -309,27 +309,23 @@ end
 
 local function refreshTheme(animated, accentOnly)
     for _, hook in ipairs(themeHooks) do pcall(hook, animated) end
-    -- clean up dead refs
-    local dead = nil
-    for obj in pairs(binds) do
+    local toRemove = {}
+    for obj, list in pairs(binds) do
         if not obj or not obj.Parent then
-            dead = dead or {}
-            dead[#dead + 1] = obj
+            toRemove[#toRemove + 1] = obj
         end
     end
-    if dead then for _, obj in ipairs(dead) do binds[obj] = nil end end
+    for _, obj in ipairs(toRemove) do binds[obj] = nil end
     for obj, list in pairs(binds) do
-        if obj.Parent then
-            for _, rec in ipairs(list) do
-                if not accentOnly or rec.key == "Accent" or rec.key == "Accent2" then
-                    local v = Pal[rec.key]
-                    if rec.fn then v = rec.fn(v, Pal) end
-                    if v ~= nil then
-                        if animated and typeof(v) == "Color3" and obj.Parent then
-                            play(obj, 0.35, {[rec.prop] = v})
-                        else
-                            obj[rec.prop] = v
-                        end
+        for _, rec in ipairs(list) do
+            if not accentOnly or rec.key == "Accent" or rec.key == "Accent2" then
+                local v = Pal[rec.key]
+                if rec.fn then v = rec.fn(v, Pal) end
+                if v ~= nil then
+                    if animated and typeof(v) == "Color3" and obj.Parent then
+                        play(obj, 0.35, {[rec.prop] = v})
+                    else
+                        obj[rec.prop] = v
                     end
                 end
             end
@@ -818,7 +814,7 @@ function Nihon:SetAutosave(on, delay)
 end
 
 -- ============================================
--- NOTIFICATIONS  (Newest on top/front, older peek behind with HIDDEN content)
+-- NOTIFICATIONS  (Stack: newest on TOP-front, older peek BEHIND-bottom, smaller)
 -- ============================================
 local Notes = {active = {}, queue = {}, byKey = {}, queuedKey = {}, max = 5, duration = 4, position = "TopRight"}
 local noteLayer = mk("Frame", {Name = "Notifications", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 100, Parent = Root})
@@ -830,6 +826,7 @@ local noteLoop
 
 local function noteWidth() return math.clamp(math.floor(viewport().X - 28), 300, 400) end
 
+-- Position: base y-offset for the FRONT (newest) note.
 local function noteBasePos()
     local c = corners[Notes.position] or corners.TopRight
     local mx = c.ax == 0.5 and 0 or (c.ax == 1 and -14 or 14)
@@ -837,14 +834,17 @@ local function noteBasePos()
     return UDim2.new(c.ax, mx, c.ay, my), c
 end
 
+-- Layout: index 0 = newest (front, full). index N = older (behind, small, peek below).
 local function layoutAll()
     local base, c = noteBasePos()
     for i, n in ipairs(Notes.active) do
         local depth = i - 1
         local front = depth == 0
+        -- Depth scaling: front = 1, back ones smaller
         local sc = math.max(0.86, 1 - depth * 0.05)
         local w = noteWidth() * sc
         local h = n.height * sc
+        -- Y offset pushes older notes DOWN (for top corners) so they peek below the front
         local yOff = 14 + depth * 14
         local yOffBottom = -(14 + depth * 14)
         n.frame.AnchorPoint = Vector2.new(c.ax, c.ay)
@@ -858,11 +858,13 @@ local function layoutAll()
             targPos = UDim2.new(c.ax, (c.ax == 0.5 and 0 or (c.ax == 1 and -14 or 14)), 1, yOffBottom)
         end
         if n.spawned then
+            -- Move + scale the card itself (smooth)
             play(n.frame, 0.42, {Position = targPos, Size = UDim2.fromOffset(w, h)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             play(n.pop, 0.35, {Scale = sc}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            -- Card silhouette (back ones are dimmer so it looks like they're behind)
             local ta = front and 0 or math.min(0.35, depth * 0.10)
             fadeGroup(n.frame, 0.35, ta, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-            -- HIDE content when back (this is the fix)
+            -- CONTENT: hide when back, show when front. This is the key behavior.
             local contentAlpha = front and 0 or 1
             local contentDur = 0.35
             play(n.title, contentDur, {TextTransparency = contentAlpha}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -870,21 +872,21 @@ local function layoutAll()
                 play(n.body, contentDur, {TextTransparency = contentAlpha}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             end
             if n.iconBox then
+                -- Icon container: hide icon inside it when back
                 play(n.iconBox, contentDur, {BackgroundTransparency = front and 0.9 or 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-            end
-            if n.iconImage then
-                play(n.iconImage.Image, contentDur, {ImageTransparency = contentAlpha}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                play(n.iconImage.Glyph, contentDur, {TextTransparency = contentAlpha}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                if n.iconGrad then
+                    -- Fade gradient too
+                end
+                if n.iconImage then
+                    play(n.iconImage.Image, contentDur, {ImageTransparency = contentAlpha}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    play(n.iconImage.Glyph, contentDur, {TextTransparency = contentAlpha}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                end
             end
             if n.closeBtn then
-                play(n.closeBtn, contentDur, {BackgroundTransparency = 1})
+                play(n.closeBtn, contentDur, {BackgroundTransparency = front and 1 or 1})
             end
             if n.bar then
                 play(n.bar, contentDur, {BackgroundTransparency = front and 0.2 or 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-            end
-            if n.closeGlyph then
-                play(n.closeGlyph.Image, contentDur, {ImageTransparency = contentAlpha}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                play(n.closeGlyph.Glyph, contentDur, {TextTransparency = contentAlpha}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             end
         else
             n.frame.Position = targPos
@@ -924,7 +926,7 @@ local function bumpNote(n, extra)
     n.expires = os.clock() + (extra or n.time)
     if n.pop then
         n.pop.Scale = (n.slot and n.slot > 1 and 0.9 or 1) * 1.15
-        play(n.pop, 0.35, {Scale = n.slot and math.max(0.86, 1 - (n.slot - 1) * 0.05) or 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        play(n.pop, 0.35, {Scale = n.slot and math.max(0.86, 1 - (n.slot - 1) * 0.045) or 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     end
 end
 
@@ -973,6 +975,7 @@ spawnNote = function(entry)
     local frameScale = mk("UIScale", {Scale = 1, Parent = frame})
     n.pop = frameScale
 
+    -- Bell/Icon circle (left, macOS big round)
     local iconBox = mk("Frame", {
         Size = UDim2.fromOffset(48, 48), Position = UDim2.fromOffset(14, 12),
         BackgroundColor3 = color, BackgroundTransparency = 0.9, ZIndex = 3, Parent = frame,
@@ -989,6 +992,7 @@ spawnNote = function(entry)
     icon.Glyph.TextColor3 = color:Lerp(Color3.new(1,1,1), 0.15)
     n.iconImage = icon
 
+    -- Title
     local title = tx("TextLabel", {
         Text = tostring(cfg.Name or cfg.Title or "Notification"),
         TextSize = 15, Font = Fonts[currentFont][3],
@@ -997,6 +1001,7 @@ spawnNote = function(entry)
         TextColor3 = Pal.Text, ZIndex = 4, Parent = frame,
     }, 3)
 
+    -- Description
     local body = tx("TextLabel", {
         Text = content, TextSize = 12,
         Position = UDim2.fromOffset(74, 36), Size = UDim2.new(1, -130, 0, 0),
@@ -1005,6 +1010,7 @@ spawnNote = function(entry)
         Visible = content ~= "", TextColor3 = Pal.Sub, ZIndex = 4, Parent = frame,
     }, 1)
 
+    -- Close button
     local closeBtn = mk("TextButton", {
         AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 10),
         Size = UDim2.fromOffset(22, 22), BackgroundTransparency = 1, ZIndex = 5, Parent = frame,
@@ -1023,8 +1029,8 @@ spawnNote = function(entry)
     end)
     closeBtn.Activated:Connect(function() dismissNote(n) end)
     n.closeBtn = closeBtn
-    n.closeGlyph = closeIcon
 
+    -- Progress bar
     n.bar = mk("Frame", {
         AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1),
         Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = color,
@@ -1038,9 +1044,12 @@ spawnNote = function(entry)
     n.frame = frame
     n.title = title
     n.body = body
+    -- Ensure the icon holder doesn't have its own background so we can fade cleanly
+    iconBox.BackgroundTransparency = 0.9
     frame.MouseEnter:Connect(function() n.hover = true end)
     frame.MouseLeave:Connect(function() n.hover = false end)
 
+    -- Swipe to dismiss
     local startX, swiped = 0, false
     frame.InputBegan:Connect(function(input)
         if not isPointer(input) then return end
@@ -1055,6 +1064,7 @@ spawnNote = function(entry)
         if math.abs(dx) > 6 then swiped = true end
         if swiped then
             local c = corners[Notes.position] or corners.TopRight
+            local base = noteBasePos()
             local x = (c.ax == 1 and -14 or (c.ax == 0 and 14 or 0)) + dx
             frame.Position = UDim2.new(c.ax, x, c.ay, c.ay == 0 and (14 + (n.slot - 1) * 14) or -(14 + (n.slot - 1) * 14))
         end
@@ -1067,6 +1077,7 @@ spawnNote = function(entry)
         if math.abs(dx) > 70 then dismissNote(n) else layoutAll() end
     end))
 
+    -- Measure height
     task.defer(function()
         if n.dying or not frame.Parent then return end
         local topPad = 12
@@ -1078,18 +1089,28 @@ spawnNote = function(entry)
         end
         local total = topPad + 20 + bodyH + topPad
         n.height = math.max(72, math.max(total, 72))
+        -- Only update if layout not yet applied
     end)
 
+    -- Insert at front (index 1 = newest on top)
     table.insert(Notes.active, 1, n)
     if entry.dedupe then Notes.byKey[n.key] = n end
     handle.n = n
 
+    -- Initial spawn: start off-screen right, at the FRONT scale
     local c = corners[Notes.position] or corners.TopRight
     local outX = c.ax == 1 and (noteWidth() + 100) or (c.ax == 0 and -(noteWidth() + 100) or 0)
     frame.AnchorPoint = Vector2.new(c.ax, c.ay)
     frame.Position = UDim2.new(c.ax, (c.ax == 1 and -14 or 14) + outX, c.ay, (c.ay == 0 and 14 or -14))
 
-    -- If this note is starting in the back (not index 1), pre-hide its content
+    task.delay(0.02, function()
+        if not n.dying and frame.Parent then
+            n.spawned = true
+            layoutAll()
+        end
+    end)
+
+    -- Make sure brand-new back-notes start with content already hidden
     if Notes.active[1] ~= n then
         title.TextTransparency = 1
         if body then body.TextTransparency = 1 end
@@ -1099,18 +1120,7 @@ spawnNote = function(entry)
         end
         iconBox.BackgroundTransparency = 1
         if n.bar then n.bar.BackgroundTransparency = 1 end
-        if n.closeGlyph then
-            n.closeGlyph.Image.ImageTransparency = 1
-            n.closeGlyph.Glyph.TextTransparency = 1
-        end
     end
-
-    task.delay(0.02, function()
-        if not n.dying and frame.Parent then
-            n.spawned = true
-            layoutAll()
-        end
-    end)
 
     ensureNoteLoop()
     return n
@@ -1175,7 +1185,7 @@ function Nihon:ClearNotifications()
     for i = #Notes.active, 1, -1 do dismissNote(Notes.active[i]) end
 end
 
--- DIALOG
+-- DIALOG (unchanged)
 function Nihon:Dialog(cfg)
     cfg = cfg or {}
     local layer = mk("TextButton", {
@@ -1247,7 +1257,7 @@ function Nihon:Dialog(cfg)
     return dialog
 end
 
--- CONFIG
+-- CONFIG (unchanged)
 local flagRefs = {}
 local flagOrder = {}
 local initFires = {}
@@ -1359,7 +1369,8 @@ local function queueSave()
     task.delay(Nihon.AutosaveDelay, function() if mine == saveToken then Nihon:SaveProfile() end end)
 end
 
--- HUD
+-- HUD, Watermark, keybinds, stats... (kept mostly same as v6, adapted palette)
+
 local Hud = {
     enabled = false, style = "Modern", scale = 1, clock24 = true, seconds = true,
     items = {FPS = true, Ping = true, Clock = true, Memory = false, Name = false},
@@ -1614,7 +1625,7 @@ local ALWAYS_NAME = "Home - NihonLib"
 local SEARCH_ICON = "118685771787843"
 
 -- ============================================
--- MAIN WINDOW
+-- MAIN WINDOW  (Exact macOS Redesign)
 -- ============================================
 function Nihon:MakeWindow(cfg)
     cfg = cfg or {}
@@ -1650,7 +1661,9 @@ function Nihon:MakeWindow(cfg)
     Nihon.Windows[#Nihon.Windows + 1] = Window
     local searchIndex = {}
 
-    -- ROOT SHELL
+    -- =========================================================
+    -- ROOT SHELL  (transparent container holding the whole stack)
+    -- =========================================================
     local shell = mk("CanvasGroup", {
         Name = "Shell",
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1666,7 +1679,8 @@ function Nihon:MakeWindow(cfg)
     Window.Shell = shell
     local uiScale = mk("UIScale", {Scale = 0.9, Parent = shell})
 
-    mk("UIListLayout", {
+    -- Vertical layout for the whole stack
+    local stackLayout = mk("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
         HorizontalAlignment = Enum.HorizontalAlignment.Center,
         VerticalAlignment = Enum.VerticalAlignment.Top,
@@ -1675,7 +1689,9 @@ function Nihon:MakeWindow(cfg)
         Parent = shell,
     })
 
-    -- CARD 1: MAIN WINDOW
+    -- ============================================
+    -- CARD 1: MAIN WINDOW (header + content)
+    -- ============================================
     local winCard = mk("CanvasGroup", {
         Name = "WindowCard",
         Size = UDim2.fromOffset(baseW, baseH),
@@ -1687,12 +1703,14 @@ function Nihon:MakeWindow(cfg)
     round(winCard, 18)
     outline(winCard, "Stroke", 1, 0.4)
 
+    -- soft shadow behind
     local winShadow = mk("Frame", {
         Size = UDim2.new(1, 20, 1, 20), Position = UDim2.fromOffset(-10, -10),
         BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.82,
         ZIndex = winCard.ZIndex - 1, Parent = winCard,
     })
     round(winShadow, 26)
+    -- secondary soft glow
     local winGlow = mk("Frame", {
         Size = UDim2.new(1, 40, 1, 40), Position = UDim2.fromOffset(-20, -20),
         BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.94,
@@ -1706,11 +1724,13 @@ function Nihon:MakeWindow(cfg)
     })
     round(winClip, 18)
 
+    -- HEADER
     local header = mk("Frame", {
         Name = "Header", Size = UDim2.new(1, 0, 0, topH),
         BackgroundTransparency = 1, ZIndex = 22, Parent = winClip,
     })
 
+    -- Logo (LEFT, rounded square w/ gradient)
     local logo = mk("Frame", {
         Name = "Logo",
         AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 16, 0.5, 0),
@@ -1730,6 +1750,7 @@ function Nihon:MakeWindow(cfg)
     logoIcon.Glyph.ZIndex = 24
     Window.LogoIcon = logoIcon
 
+    -- Title & subtitle (center-left, next to logo)
     local titleLbl = tx("TextLabel", {
         Text = title, TextSize = 16, Font = Fonts[currentFont][3],
         Position = UDim2.fromOffset(72, 15), Size = UDim2.new(1, -260, 0, 22),
@@ -1744,7 +1765,7 @@ function Nihon:MakeWindow(cfg)
     }, 1, "Sub")
     Window.TitleLabel, Window.SubtitleLabel = titleLbl, subLbl
 
-    -- TRAFFIC LIGHTS (only yellow min + red close now)
+    -- TRAFFIC LIGHTS on RIGHT: green (search), yellow (min), red (close)
     local tlHolder = mk("Frame", {
         Name = "TrafficLights",
         AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -18, 0.5, 0),
@@ -1788,16 +1809,19 @@ function Nihon:MakeWindow(cfg)
         return dot, lbl
     end
 
+    -- Order left→right: yellow (min), red (close)
     local minBtn, minGlyph = trafficLight(Color3.fromRGB(255, 189, 46), 1, "–")
     local closeBtn, closeGlyph = trafficLight(Color3.fromRGB(255, 95, 87), 2, "×")
-    local minIco = {Image = minGlyph, Glyph = minGlyph}
 
+    -- Drag strip
     local grabStrip = mk("TextButton", {
         Name = "GrabStrip", Size = UDim2.new(1, -260, 1, 0), Position = UDim2.fromOffset(72, 0),
         BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 21, Parent = header,
     })
 
-    -- CONTENT AREA
+    -- ============================================
+    -- CONTENT AREA (big rounded inner card)
+    -- ============================================
     local contentWrap = mk("Frame", {
         Name = "ContentWrap",
         Position = UDim2.fromOffset(14, topH),
@@ -1822,7 +1846,7 @@ function Nihon:MakeWindow(cfg)
     })
     Window.Content = content
 
-    -- Resize grip
+    -- Resize grip bottom-right
     local resizeGrip = mk("TextButton", {
         Name = "ResizeGrip", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10),
         Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, ZIndex = 40, Parent = winClip,
@@ -1856,7 +1880,9 @@ function Nihon:MakeWindow(cfg)
         resizing = false
     end))
 
-    -- CARD 2: MINIMIZE BUTTON
+    -- ============================================
+    -- CARD 2: MINIMIZE BUTTON  (small centered)
+    -- ============================================
     local minBtnBox = mk("TextButton", {
         Name = "MinimizeButton",
         Size = UDim2.fromOffset(42, 42), LayoutOrder = 2, BackgroundColor3 = Color3.new(1,1,1),
@@ -1875,7 +1901,9 @@ function Nihon:MakeWindow(cfg)
     minBtnBox.MouseLeave:Connect(function() play(minBtnBox, 0.2, {BackgroundTransparency = 0.02}) end)
     Window.MinButton = minBtnBox
 
-    -- CARD 3: PLAYER INFO (macOS user chip)
+    -- ============================================
+    -- CARD 3: PLAYER INFO PILL
+    -- ============================================
     local playerPill = mk("TextButton", {
         Name = "PlayerInfo",
         Size = UDim2.fromOffset(230, 54), LayoutOrder = 3,
@@ -1887,6 +1915,7 @@ function Nihon:MakeWindow(cfg)
     round(playerPill, 27)
     outline(playerPill, "Stroke", 1, 0.5)
 
+    -- Avatar (rounded square w/ online dot)
     local pillAvatar = mk("ImageLabel", {
         AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0),
         Size = UDim2.fromOffset(38, 38), BackgroundColor3 = Color3.new(1,1,1),
@@ -1900,6 +1929,8 @@ function Nihon:MakeWindow(cfg)
         end)
         if ok and img and pillAvatar.Parent then pillAvatar.Image = img end
     end)
+
+    -- Online dot (bottom right)
     local onlineDot = mk("Frame", {
         AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 2, 1, 2),
         Size = UDim2.fromOffset(12, 12), BackgroundColor3 = Color3.fromRGB(52, 199, 89),
@@ -1908,6 +1939,7 @@ function Nihon:MakeWindow(cfg)
     round(onlineDot, 6)
     outline(onlineDot, "Surface", 2, 0)
 
+    -- Name (bold)
     local pillName = tx("TextLabel", {
         Text = "Hello, " .. LocalPlayer.DisplayName, TextSize = 13,
         Font = Fonts[currentFont][3],
@@ -1915,6 +1947,7 @@ function Nihon:MakeWindow(cfg)
         TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
         ZIndex = 16, Parent = playerPill,
     }, 3)
+    -- Handle (sub)
     local pillHandle = tx("TextLabel", {
         Text = "@" .. LocalPlayer.Name, TextSize = 11,
         Position = UDim2.fromOffset(56, 27), Size = UDim2.new(1, -64, 0, 14),
@@ -1925,7 +1958,9 @@ function Nihon:MakeWindow(cfg)
     playerPill.MouseEnter:Connect(function() play(playerPill, 0.15, {BackgroundTransparency = 0.88}) end)
     playerPill.MouseLeave:Connect(function() play(playerPill, 0.2, {BackgroundTransparency = 0.02}) end)
 
-    -- CARD 4: TAB BAR
+    -- ============================================
+    -- CARD 4: TAB BAR  (horizontal, scrollable)
+    -- ============================================
     local tabBar = mk("Frame", {
         Name = "TabBar",
         Size = UDim2.fromOffset(baseW, 54), LayoutOrder = 4,
@@ -1937,6 +1972,7 @@ function Nihon:MakeWindow(cfg)
     outline(tabBar, "Stroke", 1, 0.55)
     Window.TabBar = tabBar
 
+    -- Left arrow
     local leftArrow = mk("TextButton", {
         Name = "LeftArrow", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0),
         Size = UDim2.fromOffset(36, 36), BackgroundTransparency = 1, ZIndex = 16, Parent = tabBar,
@@ -1948,6 +1984,7 @@ function Nihon:MakeWindow(cfg)
     leftArrow.MouseEnter:Connect(function() play(leftArrow, 0.15, {BackgroundTransparency = 0.9}) leftIco.Color(Pal.Text, true) end)
     leftArrow.MouseLeave:Connect(function() play(leftArrow, 0.2, {BackgroundTransparency = 1}) leftIco.Color(Pal.Sub, true) end)
 
+    -- Right arrow
     local rightArrow = mk("TextButton", {
         Name = "RightArrow", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0),
         Size = UDim2.fromOffset(36, 36), BackgroundTransparency = 1, ZIndex = 16, Parent = tabBar,
@@ -1959,6 +1996,7 @@ function Nihon:MakeWindow(cfg)
     rightArrow.MouseEnter:Connect(function() play(rightArrow, 0.15, {BackgroundTransparency = 0.9}) rightIco.Color(Pal.Text, true) end)
     rightArrow.MouseLeave:Connect(function() play(rightArrow, 0.2, {BackgroundTransparency = 1}) rightIco.Color(Pal.Sub, true) end)
 
+    -- Horizontal scroll for tabs
     local tabScroll = mk("ScrollingFrame", {
         Name = "TabScroll",
         Position = UDim2.fromOffset(50, 8),
@@ -1980,6 +2018,7 @@ function Nihon:MakeWindow(cfg)
     Window.TabScroll = tabScroll
     Window.TabLayout = tabLayout
 
+    -- Arrow scrolling
     local function scrollBy(dx)
         local canvas = tabScroll.AbsoluteCanvasSize.X
         local visible = tabScroll.AbsoluteSize.X
@@ -1991,7 +2030,9 @@ function Nihon:MakeWindow(cfg)
     leftArrow.Activated:Connect(function() scrollBy(-140) end)
     rightArrow.Activated:Connect(function() scrollBy(140) end)
 
-    -- LAUNCHER
+    -- ============================================
+    -- LAUNCHER (floating reopen button)
+    -- ============================================
     local launcher = mk("TextButton", {
         Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 16),
         Size = UDim2.fromOffset(210, 50), BackgroundColor3 = Pal.Surface, Visible = false,
@@ -2026,6 +2067,9 @@ function Nihon:MakeWindow(cfg)
     Window.LauncherSub = launcherSub
     Window.Launcher = launcher
 
+    -- ============================================
+    -- DRAGGING
+    -- ============================================
     local dragHandles = {grabStrip}
     local function resetLauncherPosition()
         launcher.AnchorPoint = Vector2.new(0.5, 0)
@@ -2043,7 +2087,7 @@ function Nihon:MakeWindow(cfg)
                 math.clamp(topLeft.Y, 4, math.max(4, v.Y - math.min(s.Y, topH + 4) - 4))
             )
         end,
-        canDrag = function() return not Window.Hidden and not Window.Morphing and not Window.Minimized end,
+        canDrag = function() return not Window.Hidden and not Window.Morphing end,
         onBump = function(axis, dir, strength)
             strength = math.clamp(strength or 1, 0.3, 1.6)
             local base = currentScale
@@ -2104,13 +2148,16 @@ function Nihon:MakeWindow(cfg)
         launcherMoved = false
     end)
 
+    -- ============================================
     -- SHOW / HIDE
+    -- ============================================
     local closeToken = 0
     local placed = false
 
     local function fitScale()
         local v = viewport()
-        local estH = baseH + 42 + 54 + 40
+        -- shell auto-sizes so use a reasonable estimate for total height:
+        local estH = baseH + 42 + 38 + 54 + 40
         local estW = baseW
         local fit = math.min((v.X - 20) / estW, (v.Y - 20) / estH, 1)
         return math.max(fit, 0.5) * Window.Scale
@@ -2227,7 +2274,11 @@ function Nihon:MakeWindow(cfg)
     Window.Hide = function() hide(true) end
     function Window:Toggle() if Window.Hidden then show(true) else hide(true) end end
 
-    -- MINIMIZE (docks tab bar to bottom of screen)
+    -- ============================================
+    -- MINIMIZE / SEARCH / CLOSE
+    -- ============================================
+    -- Minimize = collapse everything except the tab bar, and dock the tab bar
+    -- to the bottom of the screen. Un-minimize brings the whole stack back up.
     local normalAnchor = Vector2.new(0.5, 0.5)
     local normalPos = nil
 
@@ -2238,9 +2289,10 @@ function Nihon:MakeWindow(cfg)
         Popup.close(true)
 
         if state then
+            -- Remember where we were (as an absolute-relative position)
             normalPos = shell.Position
 
-            -- Fade top cards out
+            -- Fade the top cards out
             fadeGroup(winCard, 0.22, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
             fadeGroup(minBtnBox, 0.22, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
             fadeGroup(playerPill, 0.22, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
@@ -2251,13 +2303,16 @@ function Nihon:MakeWindow(cfg)
                 minBtnBox.Visible = false
                 playerPill.Visible = false
 
+                -- Snap anchor to bottom and animate down
                 shell.AnchorPoint = Vector2.new(0.5, 1)
                 local targetPos = UDim2.new(0.5, 0, 1, -14)
                 play(shell, 0.45, {Position = targetPos}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                -- Fade the tab bar in fresh
                 tabBar.BackgroundTransparency = 0.02
                 play(tabBar, 0.3, {Size = UDim2.fromOffset(baseW, 54)}, Enum.EasingStyle.Quart)
             end)
         else
+            -- Bring the shell back to center
             shell.AnchorPoint = normalAnchor
             play(shell, 0.5, {Position = normalPos or UDim2.fromScale(0.5, 0.5)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
@@ -2376,7 +2431,9 @@ end
 local ElementFactory
 local TabImpl = {}
 
--- TAB IMPLEMENTATION
+-- ============================================
+-- TAB IMPLEMENTATION  (horizontal bottom bar)
+-- ============================================
 function TabImpl.make(Window, tcfg)
     local P = Window._parts
     local mobile = P.mobile
@@ -2388,8 +2445,10 @@ function TabImpl.make(Window, tcfg)
     local index = #Window.Tabs + 1
     Tab.Index = index
 
+    -- Tab pill inside the horizontal tab scroll
+    -- Measure text to size the pill
     local measureW = measure(name, 13, Fonts[currentFont][2], Vector2.new(400, 100))
-    local pillW = math.max(72, math.ceil(measureW.X) + 32 + 16)
+    local pillW = math.max(72, math.ceil(measureW.X) + 32 + 16)  -- icon offset + text + right pad
     local btn = mk("TextButton", {
         Name = "Tab_" .. name,
         Size = UDim2.fromOffset(pillW, 38),
@@ -2415,6 +2474,7 @@ function TabImpl.make(Window, tcfg)
 
     function Tab:SetIcon(id) ico.Set(id) end
 
+    -- Content page inside the main content area
     local page = mk("CanvasGroup", {
         Name = "Page_" .. name, Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = 1, GroupTransparency = 1, Visible = false,
@@ -2442,6 +2502,7 @@ function TabImpl.make(Window, tcfg)
 
     Window.Tabs[index] = Tab
 
+    -- Hover / click
     btn.MouseEnter:Connect(function()
         if Window.Selected ~= Tab then
             play(btn, 0.15, {BackgroundTransparency = 0.9})
@@ -2469,6 +2530,7 @@ function TabImpl.make(Window, tcfg)
     btn.InputBegan:Connect(function(i)
         if isPointer(i) then
             Window:SelectTab(Tab)
+            -- auto-scroll to show this tab
             local target = btn.AbsolutePosition.X - P.tabScroll.AbsolutePosition.X + P.tabScroll.CanvasPosition.X - 60
             play(P.tabScroll, 0.3, {CanvasPosition = Vector2.new(math.max(0, target), 0)}, Enum.EasingStyle.Quart)
         end
@@ -2489,6 +2551,7 @@ function TabImpl.make(Window, tcfg)
     end
 
     function tabApi:AddSubTab(subName)
+        -- Kept as no-op fallback in new layout: use sections.
         local sec = tabApi:AddSection({Name = tostring(subName or "Tab")})
         return sec
     end
@@ -2645,6 +2708,7 @@ function TabImpl.select(Window, target, instant)
     else
         flipTabs(Window, prev, target, forward)
     end
+    -- Visual selected state on the pill
     for _, t in ipairs(Window.Tabs) do
         local active = t == target
         t.IconObj.Color(active and onAccent() or Pal.Sub, not instant)
@@ -2660,7 +2724,9 @@ function TabImpl.select(Window, target, instant)
     if Window.OnTabChanged then task.spawn(Window.OnTabChanged, target) end
 end
 
--- ELEMENT FACTORY
+-- ============================================
+-- ELEMENT FACTORY  (kept intact from v6)
+-- ============================================
 local function numFormat(v, step, suffix)
     local s
     if step < 1 then
@@ -3929,7 +3995,7 @@ local function loadingScreen(cfg, title, done)
     end)
 end
 
--- KEY SYSTEM
+-- KEY SYSTEM (kept same as v6)
 function Nihon:SetKeySystem(cfg)
     cfg = cfg or {}
     cfg.Title = cfg.Title or "Key System"
@@ -4236,7 +4302,7 @@ local function attachSettings(Window)
     end
 end
 
--- SEARCH (Ctrl+K still works, but no UI button by default)
+-- SEARCH
 local function fuzzy(query, text)
     query, text = query:lower(), text:lower()
     if query == "" then return 1 end
