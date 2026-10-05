@@ -1618,7 +1618,7 @@ function Nihon:MakeWindow(cfg)
     -- =========================================================
     -- ROOT SHELL  (transparent container holding the whole stack)
     -- =========================================================
-    local shell = mk("Frame", {
+    local shell = mk("CanvasGroup", {
         Name = "Shell",
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
