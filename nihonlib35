@@ -1,4 +1,4 @@
---[[ Nihon Lib | v7.4 ]]
+--[[ Nihon Lib | v7.5 ]]
 
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -17,7 +17,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "7.4.0", Flags = {}, Windows = {}, Folder = "NihonLib", Profile = "default",
+    Version = "7.5.0", Flags = {}, Windows = {}, Folder = "NihonLib", Profile = "default",
     SaveConfig = false, Autosave = false, AutosaveDelay = 1.5,
     IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
     ShowLauncher = true, ShowResize = true, ShowSearch = true, ShowMinimize = true, ShowClose = true,
@@ -41,7 +41,6 @@ local function measure(text, size, font, bounds)
     return result
 end
 
--- THEMES
 local Themes = {
     MacOS = {Bg=Color3.fromRGB(242,243,248), Surface=Color3.fromRGB(255,255,255), Elevated=Color3.fromRGB(245,246,250), Stroke=Color3.fromRGB(210,214,222), Text=Color3.fromRGB(24,26,34), Sub=Color3.fromRGB(120,124,138), Accent=Color3.fromRGB(94,132,245), Accent2=Color3.fromRGB(140,170,255), Header=Color3.fromRGB(250,250,253), Divider=Color3.fromRGB(226,229,236), WindowBg=Color3.fromRGB(247,248,252), ContentBg=Color3.fromRGB(232,236,248)},
     MacOSDark = {Bg=Color3.fromRGB(28,28,30), Surface=Color3.fromRGB(42,42,45), Elevated=Color3.fromRGB(58,58,61), Stroke=Color3.fromRGB(72,72,76), Text=Color3.fromRGB(242,242,247), Sub=Color3.fromRGB(152,152,160), Accent=Color3.fromRGB(10,132,255), Accent2=Color3.fromRGB(94,168,255), Header=Color3.fromRGB(38,38,41), Divider=Color3.fromRGB(50,50,54), WindowBg=Color3.fromRGB(32,32,35), ContentBg=Color3.fromRGB(22,22,25)},
@@ -99,7 +98,6 @@ local function viewport()
     return v
 end
 
--- BINDS: STRONG KEYS (fix for theme not adapting)
 local binds = {}
 local fontObjs = setmetatable({}, {__mode = "k"})
 local themeHooks, tweens = {}, setmetatable({}, {__mode = "k"})
@@ -207,7 +205,6 @@ local function refreshTheme(animated, accentOnly)
 end
 
 local function onTheme(fn) themeHooks[#themeHooks + 1] = fn end
-
 local function round(parent, r) return mk("UICorner", {CornerRadius = UDim.new(0, r), Parent = parent}) end
 local function outline(parent, key, thick, trans)
     local s = mk("UIStroke", {Thickness = thick or 1, Transparency = trans or 0, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = parent})
@@ -272,12 +269,10 @@ local function resolveIcon(name)
     if tonumber(s) then return "rbxassetid://" .. s end
     return nil
 end
-
 local function firstIcon(list)
     for _, n in ipairs(list) do if IconMap[n] then return n end end
     return list[1]
 end
-
 local function makeIcon(parent, name, size, tone, props)
     local holder = mk("Frame", {BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size)})
     if props then for k, v in pairs(props) do holder[k] = v end end
@@ -306,7 +301,6 @@ local function makeIcon(parent, name, size, tone, props)
     api.Set(name)
     return api
 end
-
 local function isPointer(i)
     return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
 end
@@ -471,7 +465,6 @@ do
     end))
 end
 
--- TOOLTIP
 local tipBox, tipToken = nil, 0
 local tipDelay = 0.25
 local tipFollowConn
@@ -527,11 +520,9 @@ local function attachTip(gui, getText)
     gui.InputBegan:Connect(function(i) if isPointer(i) then hideTip() end end)
 end
 
--- POPUP
 local Popup = {}
 local catcher = mk("TextButton", {Name = "PopupCatcher", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 60, Parent = Root})
 catcher.Activated:Connect(function() Popup.close() end)
-
 function Popup.close(instant)
     local cur = Popup.current
     if not cur then return end
@@ -546,7 +537,6 @@ function Popup.close(instant)
     end
     task.delay(0.32, function() if cur.frame.Parent then cur.frame:Destroy() end end)
 end
-
 function Popup.open(anchor, o)
     Popup.close(true)
     local sc = currentScale
@@ -590,7 +580,6 @@ function Popup.open(anchor, o)
 end
 
 local themeListeners, customAccent, rainbowConn = {}, nil, nil
-
 local function setTheme(name, animated)
     if not Themes[name] then return end
     themeName = name
@@ -601,7 +590,6 @@ local function setTheme(name, animated)
     task.delay(0.05, function() refreshTheme(false) end)
     for _, fn in ipairs(themeListeners) do pcall(fn, name) end
 end
-
 local function setAccent(c1, c2)
     customAccent = {c1, c2 or c1:Lerp(Color3.new(1, 1, 1), 0.25)}
     Pal.Accent = customAccent[1]
@@ -609,7 +597,6 @@ local function setAccent(c1, c2)
     refreshTheme(true, true)
     task.defer(function() refreshTheme(false, true) end)
 end
-
 local function setRainbow(on)
     if on and not rainbowConn then
         local acc = 0
@@ -643,7 +630,6 @@ function Nihon:SetAutosave(on, delay)
     if delay then Nihon.AutosaveDelay = math.clamp(tonumber(delay) or 1.5, 0.2, 20) end
 end
 
--- NOTIFICATIONS
 local Notes = {active={}, queue={}, byKey={}, queuedKey={}, max=5, duration=4, position="TopRight"}
 local noteLayer = mk("Frame", {Name="Notifications", BackgroundTransparency=1, Size=UDim2.fromScale(1,1), ZIndex=100, Parent=Root})
 local corners = {
@@ -687,7 +673,6 @@ local function layoutAll()
         end
     end
 end
-
 local promoteQueue, spawnNote
 promoteQueue = function()
     while #Notes.active < Notes.max and #Notes.queue > 0 do
@@ -696,7 +681,6 @@ promoteQueue = function()
         spawnNote(entry)
     end
 end
-
 local function dismissNote(n)
     if not n or n.dying then return end
     n.dying = true
@@ -713,7 +697,6 @@ local function dismissNote(n)
     layoutAll()
     promoteQueue()
 end
-
 local function bumpNote(n, extra)
     if not n then return end
     n.count = (n.count or 0) + 1
@@ -724,7 +707,6 @@ local function bumpNote(n, extra)
         play(n.pop, 0.4, {Scale = baseSc}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     end
 end
-
 local function ensureNoteLoop()
     if noteLoop then return end
     noteLoop = RunService.Heartbeat:Connect(function(dt)
@@ -741,7 +723,6 @@ local function ensureNoteLoop()
         if #Notes.active == 0 and noteLoop then noteLoop:Disconnect() noteLoop = nil end
     end)
 end
-
 spawnNote = function(entry)
     local cfg, handle = entry.cfg, entry.handle
     local color = Status[entry.kind]
@@ -774,7 +755,6 @@ spawnNote = function(entry)
     n.iconImage = icon
 
     local title = tx("TextLabel", {Text=tostring(cfg.Name or cfg.Title or "Notification"), TextSize=15, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(78,15), Size=UDim2.new(1,-134,0,20), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=4, Parent=frame}, 3)
-
     local body = tx("TextLabel", {Text=content, TextSize=12, Position=UDim2.fromOffset(78,38), Size=UDim2.new(1,-134,0,0), TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, TextYAlignment=Enum.TextYAlignment.Top, Visible=content ~= "", ZIndex=4, Parent=frame}, 1, "Sub")
 
     local closeBtn = mk("TextButton", {AnchorPoint=Vector2.new(1,0), Position=UDim2.new(1,-12,0,12), Size=UDim2.fromOffset(24,24), BackgroundTransparency=1, ZIndex=5, Parent=frame})
@@ -854,7 +834,6 @@ spawnNote = function(entry)
     ensureNoteLoop()
     return n
 end
-
 function Nihon:MakeNotification(cfg)
     if type(cfg) ~= "table" then cfg = {Content = tostring(cfg)} end
     local kind = Status[cfg.Type] and cfg.Type or "Info"
@@ -889,7 +868,6 @@ function Nihon:MakeNotification(cfg)
     end
     return handle
 end
-
 function Nihon:Notify(cfg) return Nihon:MakeNotification(cfg) end
 function Nihon:SetNotificationLimit(n) Notes.max = math.clamp(math.floor(tonumber(n) or 5), 1, 10) end
 function Nihon:SetNotificationTime(s) Notes.duration = math.clamp(tonumber(s) or 4, 1, 30) end
@@ -906,7 +884,6 @@ function Nihon:ClearNotifications()
     for i = #Notes.active, 1, -1 do dismissNote(Notes.active[i]) end
 end
 
--- DIALOG
 function Nihon:Dialog(cfg)
     cfg = cfg or {}
     local layer = mk("TextButton", {Name="Dialog", Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=1, ZIndex=200, Parent=Root})
@@ -959,9 +936,7 @@ function Nihon:Dialog(cfg)
     return dialog
 end
 
--- CONFIG
 local flagRefs, flagOrder, initFires, saveToken = {}, {}, {}, 0
-
 local function encode(v)
     local t = typeof(v)
     if t == "Color3" then return {t="c", r=v.R, g=v.G, b=v.B}
@@ -1067,7 +1042,6 @@ local function queueSave()
     task.delay(Nihon.AutosaveDelay, function() if mine == saveToken then Nihon:SaveProfile() end end)
 end
 
--- HUD
 local Hud = {enabled=false, style="Modern", scale=1, clock24=true, seconds=true, items={FPS=true, Ping=true, Clock=true, Memory=false, Name=false}, title="Nihon Lib", chips={}, elapsed=0}
 local hudOrder = {"Name","FPS","Ping","Memory","Clock"}
 local hudFrame = mk("Frame", {Name="HUD", BackgroundTransparency=1, AutomaticSize=Enum.AutomaticSize.XY, Size=UDim2.new(), Position=UDim2.fromOffset(120,10), Visible=false, ZIndex=90, Parent=Root})
@@ -1079,7 +1053,6 @@ local HudStyles = {
     Neon = {bg=function() return Color3.fromRGB(8,8,14) end, bgT=0.1, radius=8, stroke=function() return Pal.Accent end, strokeW=1.5, text=function() return Pal.Accent end, font=Enum.Font.GothamBold, size=12, dot=false, padX=10, padY=6},
 }
 local HudStyleOrder = {"Modern","Minimal","Neon"}
-
 local function hudStyleChip(item, c)
     local st = HudStyles[Hud.style] or HudStyles.Modern
     c.frame.BackgroundColor3 = st.bg and st.bg(item) or Color3.new(0,0,0)
@@ -1100,7 +1073,6 @@ local function hudStyleChip(item, c)
     c.label.TextStrokeColor3 = Color3.new(0,0,0)
     c.dot.Visible = st.dot
 end
-
 local function hudText(item)
     local st = HudStyles[Hud.style] or HudStyles.Modern
     local pre = st.prefix or ""
@@ -1111,21 +1083,18 @@ local function hudText(item)
     local fmt = Hud.clock24 and (Hud.seconds and "%H:%M:%S" or "%H:%M") or (Hud.seconds and "%I:%M:%S %p" or "%I:%M %p")
     return pre .. os.date(fmt)
 end
-
 local function hudDotColor(item)
     if item == "FPS" then return Metrics.fps >= 50 and Status.Success or (Metrics.fps >= 30 and Status.Warning or Status.Error)
     elseif item == "Ping" then return Metrics.ping <= 90 and Status.Success or (Metrics.ping <= 170 and Status.Warning or Status.Error)
     elseif item == "Memory" then return Pal.Accent2 end
     return Pal.Accent
 end
-
 local function hudUpdate()
     for item, c in pairs(Hud.chips) do
         c.label.Text = hudText(item)
         if c.dot.Visible then c.dot.BackgroundColor3 = hudDotColor(item) end
     end
 end
-
 local function hudBuild()
     for _, c in pairs(Hud.chips) do c.frame:Destroy() end
     Hud.chips = {}
@@ -1146,7 +1115,6 @@ local function hudBuild()
     end
     hudUpdate()
 end
-
 local function hudRestyle() for item, c in pairs(Hud.chips) do hudStyleChip(item, c) end hudUpdate() end
 function Hud.set(on)
     Hud.enabled = on and true or false
@@ -1207,13 +1175,11 @@ inset(kbFrame, 10, 12, 12, 12)
 stack(kbFrame, 5)
 mk("UIScale", {Scale=1, Parent=kbFrame})
 local kbVisible = false
-
 local function keyText(k)
     if not k then return "None" end
     local map = {LeftShift="LShift", RightShift="RShift", LeftControl="LCtrl", RightControl="RCtrl", LeftAlt="LAlt", RightAlt="RAlt", Backquote="`", Return="Enter"}
     return map[k.Name] or k.Name
 end
-
 local function kbRebuild()
     for _, c in ipairs(kbFrame:GetChildren()) do if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end end
     tx("TextLabel", {Text="KEYBINDS", TextSize=11, Size=UDim2.new(1,0,0,16), LayoutOrder=0, Parent=kbFrame}, 3, "Accent")
@@ -1231,7 +1197,6 @@ local function kbRebuild()
         tx("TextLabel", {Text="Nothing bound yet", TextSize=12, Size=UDim2.new(1,0,0,18), LayoutOrder=1, Parent=kbFrame}, 1, "Sub")
     end
 end
-
 makeDraggable({kbFrame}, kbFrame, {clamp=function(p)
     local v, s = viewport(), kbFrame.AbsoluteSize
     return Vector2.new(math.clamp(p.X, 0, math.max(0, v.X - s.X)), math.clamp(p.Y, 0, math.max(0, v.Y - s.Y)))
@@ -1286,9 +1251,6 @@ local ALWAYS_ICON = "11454816998"
 local ALWAYS_NAME = "Home - NihonLib"
 local SEARCH_ICON = "118685771787843"
 
--- ============================================
--- MAIN WINDOW
--- ============================================
 function Nihon:MakeWindow(cfg)
     cfg = cfg or {}
     local title = tostring(cfg.Name or "Nihon Lib")
@@ -1320,7 +1282,6 @@ function Nihon:MakeWindow(cfg)
     Nihon.Windows[#Nihon.Windows + 1] = Window
     local searchIndex = {}
 
-    -- DRAGGABLE SHELL (window only)
     local shell = mk("CanvasGroup", {
         Name="Shell", AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5),
         Size=UDim2.new(), AutomaticSize=Enum.AutomaticSize.XY, BackgroundTransparency=1,
@@ -1330,7 +1291,6 @@ function Nihon:MakeWindow(cfg)
     local uiScale = mk("UIScale", {Scale=0.9, Parent=shell})
     mk("UIListLayout", {FillDirection=Enum.FillDirection.Vertical, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Top, Padding=UDim.new(0,10), SortOrder=Enum.SortOrder.LayoutOrder, Parent=shell})
 
-    -- WINDOW CARD
     local winCard = mk("CanvasGroup", {Name="WindowCard", Size=UDim2.fromOffset(baseW, baseH), LayoutOrder=1, BackgroundTransparency=0, Parent=shell})
     bind(winCard, "BackgroundColor3", "WindowBg")
     round(winCard, 18)
@@ -1376,7 +1336,6 @@ function Nihon:MakeWindow(cfg)
 
     local grabStrip = mk("TextButton", {Name="GrabStrip", Size=UDim2.new(1,-260,1,0), Position=UDim2.fromOffset(72,0), BackgroundTransparency=1, Text="", AutoButtonColor=false, ZIndex=21, Parent=header})
 
-    -- CONTENT
     local contentWrap = mk("Frame", {Name="ContentWrap", Position=UDim2.fromOffset(14,topH), Size=UDim2.new(1,-28,1,-(topH+14)), BackgroundTransparency=1, ClipsDescendants=true, ZIndex=21, Parent=winClip})
     local contentBg = mk("Frame", {Name="ContentBg", Size=UDim2.fromScale(1,1), ZIndex=21, Parent=contentWrap})
     bind(contentBg, "BackgroundColor3", "ContentBg")
@@ -1387,13 +1346,11 @@ function Nihon:MakeWindow(cfg)
     local content = mk("Frame", {Name="Content", Size=UDim2.fromScale(1,1), BackgroundTransparency=1, ClipsDescendants=true, ZIndex=22, Parent=contentWrap})
     Window.Content = content
 
-    -- Force these key elements to update on theme change no matter what
     onTheme(function()
         winCard.BackgroundColor3 = Pal.WindowBg
         contentBg.BackgroundColor3 = Pal.ContentBg
     end)
 
-    -- Resize grip
     local resizeGrip = mk("TextButton", {Name="ResizeGrip", AnchorPoint=Vector2.new(1,1), Position=UDim2.new(1,-10,1,-10), Size=UDim2.fromOffset(20,20), BackgroundTransparency=1, ZIndex=40, Parent=winClip})
     local resizeGlyph = makeIcon(resizeGrip, "chevron-right", 12, "Sub", {AnchorPoint=Vector2.new(1,1), Position=UDim2.new(1,-2,1,-2), Rotation=45, ZIndex=41})
     resizeGlyph.Image.ZIndex = 41 resizeGlyph.Glyph.ZIndex = 41
@@ -1422,7 +1379,6 @@ function Nihon:MakeWindow(cfg)
         resizing = false
     end))
 
-    -- BOTTOM DOCK (fixed, not draggable, contains min button + player pill + tab bar)
     local bottomDock = mk("Frame", {
         Name="BottomDock", AnchorPoint=Vector2.new(0.5, 1), Position=UDim2.new(0.5, 0, 1, -14),
         Size=UDim2.fromOffset(baseW, 0), AutomaticSize=Enum.AutomaticSize.Y,
@@ -1433,11 +1389,7 @@ function Nihon:MakeWindow(cfg)
     Window.BottomDock = bottomDock
     Window.DockScale = dockScale
 
-    -- MINIMIZE BUTTON (inside bottom dock, layout order 0 = topmost)
-    local minBtnBox = mk("TextButton", {
-        Name="MinimizeButton", Size=UDim2.fromOffset(42,42), LayoutOrder=0,
-        Parent=bottomDock, ZIndex=15,
-    })
+    local minBtnBox = mk("TextButton", {Name="MinimizeButton", Size=UDim2.fromOffset(42,42), LayoutOrder=0, Parent=bottomDock, ZIndex=15})
     bind(minBtnBox, "BackgroundColor3", "Surface")
     minBtnBox.BackgroundTransparency = 0.02
     round(minBtnBox, 12)
@@ -1448,7 +1400,6 @@ function Nihon:MakeWindow(cfg)
     minBtnBox.MouseLeave:Connect(function() play(minBtnBox, 0.2, {BackgroundTransparency = 0.02}) end)
     Window.MinButton = minBtnBox
 
-    -- PLAYER PILL
     local playerPill = mk("TextButton", {Name="PlayerInfo", Size=UDim2.fromOffset(240,52), LayoutOrder=1, Parent=bottomDock, ZIndex=15})
     bind(playerPill, "BackgroundColor3", "Surface")
     playerPill.BackgroundTransparency = 0.02
@@ -1471,7 +1422,6 @@ function Nihon:MakeWindow(cfg)
     playerPill.MouseEnter:Connect(function() play(playerPill, 0.15, {BackgroundTransparency = 0.88}) end)
     playerPill.MouseLeave:Connect(function() play(playerPill, 0.2, {BackgroundTransparency = 0.02}) end)
 
-    -- TAB BAR
     local tabBar = mk("Frame", {Name="TabBar", Size=UDim2.fromOffset(baseW,54), LayoutOrder=2, Parent=bottomDock, ZIndex=15})
     bind(tabBar, "BackgroundColor3", "Surface")
     tabBar.BackgroundTransparency = 0.02
@@ -1505,7 +1455,6 @@ function Nihon:MakeWindow(cfg)
     leftArrow.Activated:Connect(function() scrollBy(-140) end)
     rightArrow.Activated:Connect(function() scrollBy(140) end)
 
-    -- LAUNCHER
     local launcher = mk("TextButton", {Name="Launcher", AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,16), Size=UDim2.fromOffset(210,50), BackgroundColor3=Pal.Surface, Visible=false, ZIndex=250, Parent=Root})
     round(launcher, 12)
     local launcherStroke = outline(launcher, "Stroke", 1, 0.55)
@@ -1609,6 +1558,11 @@ function Nihon:MakeWindow(cfg)
         closeToken = closeToken + 1
         local mine = closeToken
         bottomDock.Position = UDim2.new(0.5, 0, 1, -14)
+        Window.Minimized = false
+        winCard.Visible = true
+        restoreGroup(winCard)
+        play(minIconHolder.Image, 0.3, {Rotation = 0})
+        play(minIconHolder.Glyph, 0.3, {Rotation = 0})
 
         if fromMorph and launcher.Visible then
             Window.Morphing = true
@@ -1689,19 +1643,47 @@ function Nihon:MakeWindow(cfg)
     Window.Hide = function() hide(true) end
     function Window:Toggle() if Window.Hidden then show(true) else hide(true) end end
 
-    -- MINIMIZE: hides window card, keeps bottom dock fully visible
+    -- =========================================================
+    -- MINIMIZE: hides window card, slides the WHOLE bottom dock down
+    -- so only the minimize button peeks at the bottom edge. Tabs go off-screen.
+    -- =========================================================
     local function setMinimized(state)
         state = state and true or false
         if Window.Minimized == state then return end
         Window.Minimized = state
         Popup.close(true)
+
         if state then
-            winCard.Visible = false
-            -- Orient min icon to point up so user knows they can expand
+            -- Fade and hide the window card
+            fadeGroup(winCard, 0.25, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            task.delay(0.27, function()
+                if not Window.Minimized then return end
+                winCard.Visible = false
+
+                -- Slide bottom dock DOWN so only the min button remains visible
+                -- minBtnBox is the FIRST child of bottomDock (top), tabs are at the bottom.
+                -- So we push the dock down by (dock height - min button height).
+                local dockH = bottomDock.AbsoluteSize.Y / math.max(dockScale.Scale, 0.01)
+                local minH = minBtnBox.AbsoluteSize.Y / math.max(dockScale.Scale, 0.01)
+                local slideDown = math.max(0, dockH - minH - 2)
+                play(bottomDock, 0.5, {
+                    Position = UDim2.new(0.5, 0, 1, -14 + slideDown)
+                }, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
+            end)
         else
+            -- Slide dock back up
+            play(bottomDock, 0.5, {
+                Position = UDim2.new(0.5, 0, 1, -14)
+            }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
             winCard.Visible = true
-            winCard.GroupTransparency = 0
+            winCard.GroupTransparency = 1
+            task.delay(0.15, function()
+                if Window.Minimized then return end
+                fadeGroup(winCard, 0.3, 0, Enum.EasingStyle.Quart)
+            end)
         end
+
         play(minIconHolder.Image, 0.3, {Rotation = state and 180 or 0})
         play(minIconHolder.Glyph, 0.3, {Rotation = state and 180 or 0})
     end
@@ -1760,14 +1742,12 @@ local function registerFlag(flag, ref)
     if not flagRefs[flag] then flagOrder[#flagOrder + 1] = flag end
     flagRefs[flag] = ref
 end
-
 local function errorText(err)
     local s = tostring(err or "unknown error")
     s = s:gsub("^[%w_%.%-%/:]+:%d+:%s*", "")
     if #s > 90 then s = s:sub(1, 87) .. "..." end
     return s
 end
-
 local function flashCard(card, color, seconds)
     if not card or not card.Parent then return end
     local sheet = mk("Frame", {Size=UDim2.fromScale(1,1), BackgroundColor3=color, BackgroundTransparency=0.55, ZIndex=44, Parent=card})
@@ -1783,7 +1763,6 @@ local function flashCard(card, color, seconds)
         if sheet.Parent then sheet:Destroy() end
     end)
 end
-
 local function shake(card)
     if not card or not card.Parent then return end
     local base = card.Position
@@ -2019,7 +1998,6 @@ function TabImpl.select(Window, target, instant)
     if Window.OnTabChanged then task.spawn(Window.OnTabChanged, target) end
 end
 
--- ELEMENTS (abbreviated to essential pieces - all elements use binds which work now)
 local function numFormat(v, step, suffix)
     local s
     if step < 1 then
@@ -3137,7 +3115,6 @@ function ElementFactory(Window, Tab, parent, sectionName)
     return E
 end
 
--- LOADING SCREEN
 local function loadingScreen(cfg, title, done)
     if cfg.IntroEnabled == false then done() return end
     local layer = mk("Frame", {Name="Loading", Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=1, ZIndex=400, Parent=Root})
@@ -3183,7 +3160,6 @@ local function loadingScreen(cfg, title, done)
     end)
 end
 
--- KEY SYSTEM
 function Nihon:SetKeySystem(cfg)
     cfg = cfg or {}
     cfg.Title = cfg.Title or "Key System"
@@ -3224,7 +3200,6 @@ function Nihon:_validateKey(key)
     end
     return true
 end
-
 function Nihon:_showKeyGate(onSuccess)
     local cfg = Nihon._keyCfg or {}
     local prefill = Nihon:LoadKeyFromFile()
@@ -3300,7 +3275,6 @@ function Nihon:_showKeyGate(onSuccess)
     input.FocusLost:Connect(function(enter) if enter then doVerify() end end)
 end
 
--- DEFAULT TAB
 local function populateAlwaysTab(tab)
     local Window = tab.Window or Nihon.Windows[1]
     local hero = tab:AddSection({Name="Profile", Collapsible=false})
@@ -3364,7 +3338,6 @@ local function populateAlwaysTab(tab)
     end})
 end
 
--- SETTINGS
 local function attachSettings(Window)
     function Window:AddSettingsTab(opts)
         opts = opts or {}
@@ -3430,7 +3403,6 @@ local function attachSettings(Window)
     end
 end
 
--- SEARCH
 local function fuzzy(query, text)
     query, text = query:lower(), text:lower()
     if query == "" then return 1 end
@@ -3539,7 +3511,6 @@ local function attachSearch(Window)
     end))
 end
 
--- WINDOW METHODS
 local function attachWindowMethods(Window)
     function Window:MakeTab(cfg) return TabImpl.make(Window, cfg) end
     function Window:SelectTab(tab, instant) TabImpl.select(Window, tab, instant) end
@@ -3572,7 +3543,6 @@ if Hooks._pending then
     Hooks._pending = nil
 end
 
--- INIT
 function Nihon:Init()
     if Nihon._ready then return end
     if Nihon._keyCfg and not Nihon._keyVerified then
@@ -3617,7 +3587,6 @@ function Nihon:Init()
             local auto = Nihon:GetAutoload()
             Nihon:LoadProfile(auto or "default")
         end
-        -- FORCE THEME REAPPLY MULTIPLE TIMES
         refreshTheme(false)
         task.defer(function() refreshTheme(false) end)
         task.delay(0.1, function() refreshTheme(false) end)
