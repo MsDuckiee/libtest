@@ -3598,6 +3598,7 @@ end
 
 local function attachWindowMethods(Window)
 function Window:AddTab(cfg) return TabImpl.make(Window, cfg) end
+function Window:MakeTab(cfg) return self:AddTab(cfg) end
 function Window:SelectTab(tab, instant) TabImpl.select(Window, tab, instant) end
 function Window:Confirm(cfg) return Nihon.Confirm(cfg) end
 function Window:SetScale(s)
@@ -3620,6 +3621,7 @@ if Window.LauncherIcon then Window.LauncherIcon.Set(id) end
 end
 setmetatable(Window, {__call = function(self, a, b) if b ~= nil then return self:SelectTab(a, b) end return self:AddTab(a) end})
 attachSearch(Window)
+attachSettings(Window)
 Window.OpenSettings = function() return Window:AddSettingsTab() end
 end
 
@@ -3628,6 +3630,12 @@ if Hooks._pending then
 for _, w in ipairs(Hooks._pending) do attachWindowMethods(w) end
 Hooks._pending = nil
 end
+
+function Nihon.MakeWindow(cfg) return Nihon.CreateWindow(cfg) end
+function Nihon.Init() return Nihon.Initialize() end
+
+function Nihon.MakeWindow(cfg) return Nihon.CreateWindow(cfg) end
+function Nihon:Init() return Nihon.Initialize() end
 
 function Nihon.Initialize()
 if Nihon._ready then return end
