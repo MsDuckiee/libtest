@@ -17,7 +17,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "7.5.0", Flags = {}, Windows = {}, Folder = "NihonLib", Profile = "default",
+    Version = "7.6.0", Flags = {}, Windows = {}, Folder = "NihonLib", Profile = "default",
     SaveConfig = false, Autosave = false, AutosaveDelay = 1.5,
     IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
     ShowLauncher = true, ShowResize = true, ShowSearch = true, ShowMinimize = true, ShowClose = true,
@@ -116,6 +116,27 @@ local function play(obj, dur, props, style, dir)
     slot[key] = tw
     tw:Play()
     return tw
+end
+
+-- Glass / backdrop blur -----------------------------------------------------
+local Lighting = game:GetService("Lighting")
+local uiBlur = Instance.new("BlurEffect")
+uiBlur.Name = "NihonUIBlur"
+uiBlur.Size = 0
+uiBlur.Enabled = false
+uiBlur.Parent = Lighting
+local function setUIBlur(on, instant)
+    local target = on and 8 or 0
+    uiBlur.Enabled = true
+    if instant then
+        uiBlur.Size = target
+        if target == 0 then uiBlur.Enabled = false end
+    else
+        play(uiBlur, 0.24, {Size = target}, Enum.EasingStyle.Quart)
+        if target == 0 then
+            task.delay(0.26, function() if uiBlur and uiBlur.Parent then uiBlur.Enabled = false end end)
+        end
+    end
 end
 
 local function after(tw, fn)
@@ -1291,7 +1312,7 @@ function Nihon:MakeWindow(cfg)
     local uiScale = mk("UIScale", {Scale=0.9, Parent=shell})
     mk("UIListLayout", {FillDirection=Enum.FillDirection.Vertical, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Top, Padding=UDim.new(0,10), SortOrder=Enum.SortOrder.LayoutOrder, Parent=shell})
 
-    local winCard = mk("CanvasGroup", {Name="WindowCard", Size=UDim2.fromOffset(baseW, baseH), LayoutOrder=1, BackgroundTransparency=0, Parent=shell})
+    local winCard = mk("CanvasGroup", {Name="WindowCard", Size=UDim2.fromOffset(baseW, baseH), LayoutOrder=1, BackgroundTransparency=0.16, Parent=shell})
     bind(winCard, "BackgroundColor3", "WindowBg")
     round(winCard, 18)
     outline(winCard, "Stroke", 1, 0.4)
@@ -1302,44 +1323,51 @@ function Nihon:MakeWindow(cfg)
     round(winClip, 18)
     local header = mk("Frame", {Name="Header", Size=UDim2.new(1,0,0,topH), BackgroundTransparency=1, ZIndex=22, Parent=winClip})
 
-    local logo = mk("Frame", {Name="Logo", AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,16,0.5,0), Size=UDim2.fromOffset(44,44), BackgroundColor3=Color3.new(1,1,1), ZIndex=23, Parent=header})
-    round(logo, 11)
-    accentGradient(logo, 45)
-    local logoIcon = makeIcon(logo, cfg.Icon or "sparkles", 22, false, {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=24})
-    logoIcon.Color(Color3.new(1,1,1))
-    logoIcon.Image.ImageColor3 = Color3.new(1,1,1)
-    logoIcon.Glyph.TextColor3 = Color3.new(1,1,1)
-    logoIcon.Holder.ZIndex = 24 logoIcon.Image.ZIndex = 24 logoIcon.Glyph.ZIndex = 24
+    -- Minimal glass header: the brand icon is intentionally background-free.
+    local logo = mk("Frame", {Name="Logo", AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,18,0.5,0), Size=UDim2.fromOffset(34,34), BackgroundTransparency=1, ZIndex=23, Parent=header})
+    local logoIcon = makeIcon(logo, cfg.Icon or "sparkles", 26, "Accent", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=24})
     Window.LogoIcon = logoIcon
 
-    local titleLbl = tx("TextLabel", {Text=title, TextSize=16, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(72,15), Size=UDim2.new(1,-260,0,22), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=23, Parent=header}, 3)
-    local subLbl = tx("TextLabel", {Text=subtitle, TextSize=12, Position=UDim2.fromOffset(72,38), Size=UDim2.new(1,-260,0,16), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Visible=subtitle ~= "", ZIndex=23, Parent=header}, 1, "Sub")
+    local titleLbl = tx("TextLabel", {Text=title, TextSize=16, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(62,12), Size=UDim2.new(1,-250,0,22), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=23, Parent=header}, 3)
+    local subLbl = tx("TextLabel", {Text=subtitle, TextSize=11, Position=UDim2.fromOffset(62,35), Size=UDim2.new(1,-250,0,15), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Visible=subtitle ~= "", ZIndex=23, Parent=header}, 1, "Sub")
     Window.TitleLabel, Window.SubtitleLabel = titleLbl, subLbl
 
-    local tlHolder = mk("Frame", {Name="TrafficLights", AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,-18,0.5,0), Size=UDim2.fromOffset(70,16), BackgroundTransparency=1, ZIndex=30, Parent=header})
-    mk("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, VerticalAlignment=Enum.VerticalAlignment.Center, HorizontalAlignment=Enum.HorizontalAlignment.Right, Padding=UDim.new(0,8), SortOrder=Enum.SortOrder.LayoutOrder, Parent=tlHolder})
+    local headerLine = mk("Frame", {AnchorPoint=Vector2.new(0.5,1), Position=UDim2.new(0.5,0,1,0), Size=UDim2.new(1,-36,0,1), BackgroundTransparency=0.25, ZIndex=24, Parent=header})
+    accentGradient(headerLine, 0)
 
-    local function trafficLight(color, order, glyph)
-        local dot = mk("TextButton", {Size=UDim2.fromOffset(14,14), BackgroundColor3=color, BackgroundTransparency=0, LayoutOrder=order, ZIndex=31, Parent=tlHolder})
-        round(dot, 7)
-        mk("UIStroke", {Thickness=1, Color=Color3.new(0,0,0), Transparency=0.85, ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Parent=dot})
-        local lbl = tx("TextLabel", {Size=UDim2.fromScale(1,1), Text=glyph or "", TextSize=10, TextXAlignment=Enum.TextXAlignment.Center, TextYAlignment=Enum.TextYAlignment.Center, TextColor3=Color3.fromRGB(60,20,20), TextTransparency=1, ZIndex=32, Parent=dot}, 3)
-        dot.MouseEnter:Connect(function() lbl.TextTransparency = 0.1 play(dot, 0.12, {BackgroundTransparency=0}) end)
-        dot.MouseLeave:Connect(function() lbl.TextTransparency = 1 play(dot, 0.18, {BackgroundTransparency=0.05}) end)
-        dot.InputBegan:Connect(function(input) if isPointer(input) then play(dot, 0.08, {BackgroundTransparency=0.3}) end end)
-        return dot, lbl
+    local controlHolder = mk("Frame", {Name="HeaderControls", AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,-14,0.5,0), Size=UDim2.fromOffset(116,34), BackgroundTransparency=1, ZIndex=30, Parent=header})
+    mk("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, VerticalAlignment=Enum.VerticalAlignment.Center, HorizontalAlignment=Enum.HorizontalAlignment.Right, Padding=UDim.new(0,6), SortOrder=Enum.SortOrder.LayoutOrder, Parent=controlHolder})
+
+    local function headerButton(iconName, order)
+        local b = mk("TextButton", {Name="HeaderButton", Size=UDim2.fromOffset(34,30), BackgroundColor3=Pal.Elevated, BackgroundTransparency=0.18, LayoutOrder=order, ZIndex=31, Parent=controlHolder})
+        round(b, 9)
+        outline(b, "Stroke", 1, 0.72)
+        local ic = makeIcon(b, iconName, 15, "Sub", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=32})
+        ic.Image.ZIndex = 32 ic.Glyph.ZIndex = 32
+        b.MouseEnter:Connect(function()
+            play(b, 0.14, {BackgroundTransparency=0.02})
+            ic.Color(Pal.Text, true)
+        end)
+        b.MouseLeave:Connect(function()
+            play(b, 0.18, {BackgroundTransparency=0.18})
+            ic.Color(Pal.Sub, true)
+        end)
+        b.InputBegan:Connect(function(i) if isPointer(i) then play(b, 0.08, {Size=UDim2.fromOffset(31,28)}) end end)
+        b.InputEnded:Connect(function(i) if isPointer(i) then play(b, 0.12, {Size=UDim2.fromOffset(34,30)}) end end)
+        return b, ic
     end
 
-    local searchBtn = trafficLight(Color3.fromRGB(39,201,63), 1, "")
-    local minBtn, minGlyph = trafficLight(Color3.fromRGB(255,189,46), 2, "–")
-    local closeBtn, closeGlyph = trafficLight(Color3.fromRGB(255,95,87), 3, "×")
+    local searchBtn, searchIcon = headerButton("search", 1)
+    local minBtn, minIcon = headerButton("minus", 2)
+    local closeBtn, closeIcon = headerButton("x", 3)
+    Window.HeaderControls = controlHolder
 
     local grabStrip = mk("TextButton", {Name="GrabStrip", Size=UDim2.new(1,-260,1,0), Position=UDim2.fromOffset(72,0), BackgroundTransparency=1, Text="", AutoButtonColor=false, ZIndex=21, Parent=header})
 
     local contentWrap = mk("Frame", {Name="ContentWrap", Position=UDim2.fromOffset(14,topH), Size=UDim2.new(1,-28,1,-(topH+14)), BackgroundTransparency=1, ClipsDescendants=true, ZIndex=21, Parent=winClip})
     local contentBg = mk("Frame", {Name="ContentBg", Size=UDim2.fromScale(1,1), ZIndex=21, Parent=contentWrap})
     bind(contentBg, "BackgroundColor3", "ContentBg")
-    contentBg.BackgroundTransparency = 0.05
+    contentBg.BackgroundTransparency = 0.28
     round(contentBg, 14)
     outline(contentBg, "Stroke", 1, 0.7)
 
@@ -1382,7 +1410,7 @@ function Nihon:MakeWindow(cfg)
     local bottomDock = mk("Frame", {
         Name="BottomDock", AnchorPoint=Vector2.new(0.5, 1), Position=UDim2.new(0.5, 0, 1, -14),
         Size=UDim2.fromOffset(baseW, 0), AutomaticSize=Enum.AutomaticSize.Y,
-        BackgroundTransparency=1, ZIndex=12, Parent=Root,
+        BackgroundTransparency=1, Visible=false, ZIndex=12, Parent=Root,
     })
     local dockScale = mk("UIScale", {Scale=1, Parent=bottomDock})
     mk("UIListLayout", {FillDirection=Enum.FillDirection.Vertical, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Bottom, Padding=UDim.new(0,8), SortOrder=Enum.SortOrder.LayoutOrder, Parent=bottomDock})
@@ -1391,7 +1419,7 @@ function Nihon:MakeWindow(cfg)
 
     local minBtnBox = mk("TextButton", {Name="MinimizeButton", Size=UDim2.fromOffset(42,42), LayoutOrder=0, Parent=bottomDock, ZIndex=15})
     bind(minBtnBox, "BackgroundColor3", "Surface")
-    minBtnBox.BackgroundTransparency = 0.02
+    minBtnBox.BackgroundTransparency = 0.18
     round(minBtnBox, 12)
     outline(minBtnBox, "Stroke", 1, 0.5)
     local minIconHolder = makeIcon(minBtnBox, "chevron-down", 20, "Text", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=16})
@@ -1402,7 +1430,7 @@ function Nihon:MakeWindow(cfg)
 
     local playerPill = mk("TextButton", {Name="PlayerInfo", Size=UDim2.fromOffset(240,52), LayoutOrder=1, Parent=bottomDock, ZIndex=15})
     bind(playerPill, "BackgroundColor3", "Surface")
-    playerPill.BackgroundTransparency = 0.02
+    playerPill.BackgroundTransparency = 0.18
     round(playerPill, 26)
     outline(playerPill, "Stroke", 1, 0.5)
 
@@ -1422,9 +1450,9 @@ function Nihon:MakeWindow(cfg)
     playerPill.MouseEnter:Connect(function() play(playerPill, 0.15, {BackgroundTransparency = 0.88}) end)
     playerPill.MouseLeave:Connect(function() play(playerPill, 0.2, {BackgroundTransparency = 0.02}) end)
 
-    local tabBar = mk("Frame", {Name="TabBar", Size=UDim2.fromOffset(baseW,54), LayoutOrder=2, Parent=bottomDock, ZIndex=15})
+    local tabBar = mk("Frame", {Name="TabBar", Size=UDim2.fromOffset(baseW,54), LayoutOrder=2, Parent=bottomDock, ZIndex=15, Visible=false})
     bind(tabBar, "BackgroundColor3", "Surface")
-    tabBar.BackgroundTransparency = 0.02
+    tabBar.BackgroundTransparency = 0.18
     round(tabBar, 27)
     outline(tabBar, "Stroke", 1, 0.55)
     Window.TabBar = tabBar
@@ -1454,6 +1482,15 @@ function Nihon:MakeWindow(cfg)
     end
     leftArrow.Activated:Connect(function() scrollBy(-140) end)
     rightArrow.Activated:Connect(function() scrollBy(140) end)
+
+    local function revealDock()
+        if bottomDock.Visible then return end
+        bottomDock.Visible = true
+        tabBar.Visible = true
+        dockScale.Scale = 0.86
+        play(dockScale, 0.42, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        play(tabBar, 0.28, {BackgroundTransparency = 0.04}, Enum.EasingStyle.Quart)
+    end
 
     local launcher = mk("TextButton", {Name="Launcher", AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,16), Size=UDim2.fromOffset(210,50), BackgroundColor3=Pal.Surface, Visible=false, ZIndex=250, Parent=Root})
     round(launcher, 12)
@@ -1547,6 +1584,7 @@ function Nihon:MakeWindow(cfg)
     end
 
     local function show(fromMorph)
+        setUIBlur(true)
         Window.Morphing = false
         if tweens[shell] then for _, tw in pairs(tweens[shell]) do pcall(function() tw:Cancel() end) end end
         Window.Hidden = false
@@ -1596,6 +1634,7 @@ function Nihon:MakeWindow(cfg)
     end
 
     local function hide(toMorph)
+        setUIBlur(false)
         Window.Morphing = false
         Window.Hidden = true
         Popup.close(true)
@@ -1718,7 +1757,7 @@ function Nihon:MakeWindow(cfg)
         setFullH=function(h) fullH = h end,
         closeBtn=closeBtn, minBtn=minBtn, searchBtn=searchBtn,
         resizeGrip=resizeGrip, minBtnBox=minBtnBox, playerPill=playerPill,
-        titleLbl=titleLbl, subLbl=subLbl, logo=logo, bottomDock=bottomDock,
+        titleLbl=titleLbl, subLbl=subLbl, logo=logo, bottomDock=bottomDock, revealDock=revealDock,
     }
 
     if not Nihon.ShowLauncher then launcher.Visible = false end
@@ -1989,7 +2028,7 @@ function TabImpl.select(Window, target, instant)
         if t.Label then t.Label.TextColor3 = active and onAccent() or Pal.Sub end
         if active then
             t.Button.BackgroundColor3 = Pal.Accent
-            play(t.Button, 0.22, {BackgroundTransparency = 0}, Enum.EasingStyle.Quart)
+            play(t.Button, 0.22, {BackgroundTransparency = 0.12}, Enum.EasingStyle.Quart)
         else
             t.Button.BackgroundColor3 = Pal.Surface
             play(t.Button, 0.22, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart)
@@ -3201,6 +3240,7 @@ function Nihon:_validateKey(key)
     return true
 end
 function Nihon:_showKeyGate(onSuccess)
+    setUIBlur(true)
     local cfg = Nihon._keyCfg or {}
     local prefill = Nihon:LoadKeyFromFile()
     local layer = mk("TextButton", {Name="KeyGate", Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=0.35, ZIndex=300, Parent=Root})
@@ -3245,6 +3285,7 @@ function Nihon:_showKeyGate(onSuccess)
     fadeGroup(box, 0.3, 0, Enum.EasingStyle.Quart)
     play(boxScale, 0.45, {Scale = 1}, Enum.EasingStyle.Back)
     local function closeGate()
+        setUIBlur(false)
         play(layer, 0.25, {BackgroundTransparency = 1})
         fadeGroup(box, 0.26, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         play(boxScale, 0.28, {Scale = 0.94})
@@ -3588,6 +3629,10 @@ function Nihon:Init()
             Nihon:LoadProfile(auto or "default")
         end
         refreshTheme(false)
+        if window then
+            local parts = window._parts
+            if parts and parts.revealDock then parts.revealDock() end
+        end
         task.defer(function() refreshTheme(false) end)
         task.delay(0.1, function() refreshTheme(false) end)
         task.delay(0.3, function() refreshTheme(false) end)
@@ -3605,6 +3650,7 @@ end
 
 function Nihon:Destroy()
     Nihon._ready = false
+    if uiBlur then pcall(function() uiBlur:Destroy() end) end
     Popup.close(true)
     hideTip()
     if rainbowConn then rainbowConn:Disconnect() rainbowConn = nil end
