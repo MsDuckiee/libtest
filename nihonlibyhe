@@ -90,7 +90,7 @@ if not mounted then Root.Parent = LocalPlayer("PlayerGui") end
 end
 
 -- =========================================================
--- GLOBAL UI BLUR (attached to Lighting)
+-- GLOBAL UI BLUR
 -- =========================================================
 local nihonBlur = Instance.new("BlurEffect")
 nihonBlur.Name = "NihonLib_Blur"
@@ -136,7 +136,6 @@ if state == Enum.PlaybackState.Completed then fn() end
 end)
 end
 
--- Blur helper
 local function setBlur(target, dur)
 if not nihonBlur or not nihonBlur.Parent then return end
 pcall(function()
@@ -1342,7 +1341,6 @@ local titleLbl = tx("TextLabel", {Text=title, TextSize=17, Font=Fonts[currentFon
 local subLbl = tx("TextLabel", {Text=subtitle, TextSize=12, Position=UDim2.fromOffset(78, topH/2 + 1), Size=UDim2.new(1,-280,0,16), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Visible=subtitle ~= "", ZIndex=23, Parent=header}, 1, "Sub")
 Window.TitleLabel, Window.SubtitleLabel = titleLbl, subLbl
 
--- accent divider at bottom of header
 local headerDivider = mk("Frame", {Name="HeaderDivider", AnchorPoint=Vector2.new(0,1), Position=UDim2.new(0,0,1,0), Size=UDim2.new(1,0,0,1), BackgroundColor3=Pal.Accent, ZIndex=23, Parent=header})
 local hdGrad = mk("UIGradient", {
     Rotation = 0,
@@ -1518,7 +1516,6 @@ Window.LauncherTitle = launcherTitle
 Window.LauncherSub = launcherSub
 Window.Launcher = launcher
 
-local launcherMoved = false
 makeDraggable({grabStrip}, shell, {
     smoothing = 28,
     clamp = function(topLeft)
@@ -1528,6 +1525,8 @@ makeDraggable({grabStrip}, shell, {
     end,
     canDrag = function() return not Window.Hidden and not Window.Morphing and not Window.Minimized end,
 })
+
+-- Launcher drag + click (fixed: click uses makeDraggable's onClick, no separate handler)
 makeDraggable({launcher}, launcher, {
     smoothing = 30,
     clamp = function(p)
@@ -1536,7 +1535,12 @@ makeDraggable({launcher}, launcher, {
         return Vector2.new(math.clamp(p.X, 0, math.max(0, v.X - s.X)), math.clamp(p.Y, 0, math.max(0, v.Y - s.Y)))
     end,
     onBegin = function() launcher.AnchorPoint = Vector2.new(0, 0) play(launcherScale, 0.12, {Scale = 0.94}) end,
-    onEnd = function(moved) launcherMoved = moved play(launcherScale, 0.35, {Scale = 1}, Enum.EasingStyle.Back) end,
+    onEnd = function(moved) play(launcherScale, 0.35, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end,
+    onClick = function()
+        if Window.Hidden then
+            Window.Show()
+        end
+    end,
 })
 
 local function showLauncher(on)
@@ -1558,11 +1562,6 @@ local function showLauncher(on)
         after(tw, function() launcher.Visible = false end)
     end
 end
-
-launcher.InputEnded:Connect(function(input)
-    if isPointer(input) and not launcherMoved then show(true) end
-    launcherMoved = false
-end)
 
 local closeToken = 0
 local placed = false
@@ -1592,6 +1591,38 @@ if cam then
     end))
 end
 
+-- Overlay hide/show helpers (used by show/hide so toggling hides HUD, watermark, keybinds)
+local function hideOverlays()
+    if hudFrame and hudFrame.Visible then
+        hudFrame:SetAttribute("_wasVisible", true)
+        hudFrame.Visible = false
+    end
+    if Watermark.frame and Watermark.frame.Visible then
+        Watermark.frame:SetAttribute("_wasVisible", true)
+        Watermark.frame.Visible = false
+    end
+    if kbFrame and kbFrame.Visible then
+        kbFrame:SetAttribute("_wasVisible", true)
+        kbFrame.Visible = false
+    end
+end
+local function restoreOverlays()
+    if hudFrame and hudFrame:GetAttribute("_wasVisible") then
+        hudFrame:SetAttribute("_wasVisible", false)
+        hudFrame.Visible = true
+        hudBuild()
+    end
+    if Watermark.frame and Watermark.frame:GetAttribute("_wasVisible") then
+        Watermark.frame:SetAttribute("_wasVisible", false)
+        Watermark.frame.Visible = true
+    end
+    if kbFrame and kbFrame:GetAttribute("_wasVisible") then
+        kbFrame:SetAttribute("_wasVisible", false)
+        kbFrame.Visible = true
+        kbRebuild()
+    end
+end
+
 local function show(fromMorph)
     setBlur(14, 0.5)
     Window.Morphing = false
@@ -1610,6 +1641,9 @@ local function show(fromMorph)
     restoreGroup(winCard)
     play(minIconHolder.Image, 0.3, {Rotation = 0})
     play(minIconHolder.Glyph, 0.3, {Rotation = 0})
+
+    -- restore overlays
+    restoreOverlays()
 
     if fromMorph and launcher.Visible then
         Window.Morphing = true
@@ -1685,6 +1719,9 @@ local function hide(toMorph)
             if mine == closeToken and Window.Hidden then restoreGroup(shell) end
         end)
     end
+
+    -- Hide overlays too
+    hideOverlays()
 end
 
 Window.Show = function() show(false) end
@@ -1732,7 +1769,7 @@ minBtnBox.Activated:Connect(function() setMinimized(not Window.Minimized) end)
 
 closeBtn.Activated:Connect(function()
     hide(true)
-    Nihon:MakeNotification({Name="Menu hidden", Content=mobile and "Tap the floating button to bring it back." or ("Press "..Window.ToggleKey.Name.." or tap the floating button."), Type="Info", Time=3})
+    Nihon:MakeNotification({Name="Menu hidden", Content=mobile and "Tap the floating button to bring it back." or ("Press "..tostring(Window.ToggleKey and Window.ToggleKey.Name or "RightShift").." or tap the floating button."), Type="Info", Time=3})
 end)
 
 searchBtn.Activated:Connect(function()
@@ -1742,7 +1779,7 @@ end)
 
 keep(UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
-    if input.KeyCode == Window.ToggleKey then Window:Toggle() end
+    if Window.ToggleKey and input.KeyCode == Window.ToggleKey then Window:Toggle() end
 end))
 
 Window.RequestOpen = function() if Window.Hidden then show(false) end end
@@ -1834,15 +1871,24 @@ local pillW = math.max(72, math.ceil(measureW.X) + 32 + 16)
 local btn = mk("TextButton", {Name="Tab_"..name, Size=UDim2.fromOffset(pillW,38), BackgroundColor3=Color3.new(1,1,1), BackgroundTransparency=1, LayoutOrder=index, ZIndex=17, Parent=P.tabScroll})
 round(btn, 19)
 Tab.Button = btn
--- Tab entrance scale (used for stagger)
-local tabEntranceScale = mk("UIScale", {Scale = 0, Parent = btn})
+
+-- Entrance scale (fixed: always 1 so layout math never breaks; hidden via transparency)
+local tabEntranceScale = mk("UIScale", {Scale = 1, Parent = btn})
 Tab.EntranceScale = tabEntranceScale
+Tab._entranceDone = false
+
 local ico = makeIcon(btn, tcfg.Icon or name, 14, "Sub", {AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,14,0.5,0), ZIndex=18})
 ico.Image.ZIndex = 18 ico.Glyph.ZIndex = 18
 Tab.IconObj = ico
 local tabLabel = tx("TextLabel", {Text=name, TextSize=13, Position=UDim2.new(0,32,0,0), Size=UDim2.new(0,0,1,0), AutomaticSize=Enum.AutomaticSize.X, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=18, Parent=btn}, 2)
 Tab.Label = tabLabel
 inset(btn, 0, 14, 0, 0)
+
+-- Start hidden for stagger entrance (label/icon transparent)
+tabLabel.TextTransparency = 1
+ico.Image.ImageTransparency = 1
+ico.Glyph.TextTransparency = 1
+
 function Tab:SetIcon(id) ico.Set(id) end
 
 local page = mk("CanvasGroup", {Name="Page_"..name, Size=UDim2.fromScale(1,1), BackgroundTransparency=1, GroupTransparency=1, Visible=false, ZIndex=23, Parent=P.content})
@@ -3248,9 +3294,6 @@ end
 return true
 end
 
--- =========================================================
--- KEY GATE — borderless key icon top-left, blur behind
--- =========================================================
 function Nihon:_showKeyGate(onSuccess)
     local cfg = Nihon._keyCfg or {}
     local prefill = Nihon()
@@ -3259,7 +3302,6 @@ function Nihon:_showKeyGate(onSuccess)
 
     local layer = mk("Frame", {Name="KeyGate", Size=UDim2.fromScale(1,1), BackgroundTransparency=1, ZIndex=300, Parent=Root})
 
-    -- Borderless key icon (top-left) with gentle pulse
     local iconBtn = mk("TextButton", {
         Name="KeyIcon",
         Position=UDim2.fromOffset(22,22),
@@ -3272,7 +3314,6 @@ function Nihon:_showKeyGate(onSuccess)
     })
     keyIco.Image.ZIndex = 303 keyIco.Glyph.ZIndex = 303
 
-    -- soft glow ring behind the icon
     local glow = mk("Frame", {
         AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5),
         Size=UDim2.fromOffset(46,46),
@@ -3281,7 +3322,6 @@ function Nihon:_showKeyGate(onSuccess)
     })
     round(glow, 23)
 
-    -- pulse loop
     task.spawn(function()
         while iconBtn.Parent do
             play(glow, 1.1, {Size = UDim2.fromOffset(64,64), BackgroundTransparency = 0.92}, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
@@ -3292,7 +3332,6 @@ function Nihon:_showKeyGate(onSuccess)
         end
     end)
 
-    -- Panel that slides in from the right of the icon
     local w = math.clamp(viewport().X - 110, 280, 400)
     local box = mk("CanvasGroup", {
         AnchorPoint=Vector2.new(0,0),
@@ -3349,7 +3388,6 @@ function Nihon:_showKeyGate(onSuccess)
     bind(verifyBtn, "BackgroundColor3", "Accent") verifyBtn.BackgroundTransparency = 0 round(verifyBtn, 10)
     verifyBtn.TextColor3 = onAccent()
 
-    -- entrance
     fadeGroup(box, 0.35, 0, Enum.EasingStyle.Quart)
     play(boxScale, 0.45, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
@@ -3394,7 +3432,6 @@ function Nihon:_showKeyGate(onSuccess)
 
     task.delay(0.4, function() if input.Parent then input:CaptureFocus() end end)
 end
--- =========================================================
 
 local function populateAlwaysTab(tab)
 local Window = tab.Window or Nihon.Windows[1]
@@ -3500,7 +3537,19 @@ Nihon({Name="Loaded", Content=n, Type="Success"})
 end})
 cfgSec({Name="Autosave", Default=Nihon.Autosave, Flag="_autosave", Save=true, Callback=function(v) Nihon(v) end})
 local ui = tab({Name="Interface"})
-ui({Name="Toggle menu", Default=Window.ToggleKey, Flag="_toggleKey", Save=true, Callback=function() end})
+
+-- Toggle menu keybind — live updates Window.ToggleKey
+local toggleBind = ui({Name="Toggle menu", Default=Window.ToggleKey, Flag="_toggleKey", Save=true})
+if toggleBind and type(toggleBind.Set) == "function" then
+    local origSet = toggleBind.Set
+    toggleBind.Set = function(self, k, silent)
+        if typeof(k) == "EnumItem" then
+            Window.ToggleKey = k
+        end
+        return origSet(self, k, silent)
+    end
+end
+
 ui({Name="Reset position", Icon="refresh-cw", Callback=function()
 local shell = Window._parts.shell
 shell.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -3512,14 +3561,6 @@ Nihon({Title="Destroy menu", Content="This removes everything.", Buttons={
 {Name="Destroy", Primary=true, Danger=true, Callback=function() Nihon() end},
 }})
 end})
-local toggleRef = flagRefs._toggleKey
-if toggleRef then
-local orig = toggleRef.set
-toggleRef.set = function(k)
-if typeof(k) == "EnumItem" then Window.ToggleKey = k end
-orig(k)
-end
-end
 return tab
 end
 end
@@ -3704,17 +3745,28 @@ window(alwaysTab, true)
 end
 end
 
--- === TAB STAGGER ENTRANCE (after loading screen) ===
+-- === TAB STAGGER ENTRANCE (after loading) — fade only, no size scaling ===
 task.spawn(function()
-    task.wait(0.18)
+    task.wait(0.22)
     for i, t in ipairs(window.Tabs) do
-        if t.EntranceScale then
-            play(t.EntranceScale, 0.45, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        if not t or not t.Button or not t.Button.Parent then continue end
+        local isSelected = (window.Selected == t)
+        if t.Label then
+            t.Label.TextTransparency = 1
+            play(t.Label, 0.32, {TextTransparency = 0}, Enum.EasingStyle.Quart)
         end
-        if t.Button then
-            play(t.Button, 0.35, {BackgroundTransparency = (window.Selected == t) and 0 or 1}, Enum.EasingStyle.Quart)
+        if t.IconObj then
+            t.IconObj.Image.ImageTransparency = 1
+            t.IconObj.Glyph.TextTransparency = 1
+            play(t.IconObj.Image, 0.32, {ImageTransparency = 0}, Enum.EasingStyle.Quart)
+            play(t.IconObj.Glyph, 0.32, {TextTransparency = 0}, Enum.EasingStyle.Quart)
         end
-        task.wait(0.07)
+        if isSelected then
+            t.Button.BackgroundColor3 = Pal.Accent
+            t.Button.BackgroundTransparency = 0
+        end
+        t._entranceDone = true
+        task.wait(0.06)
     end
 end)
 end
