@@ -1,4 +1,4 @@
---[[ Nihon Lib | v7.5 ]]
+--[[ Nihon Lib | v7.6 ]]
 
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -1492,24 +1492,29 @@ function Nihon:MakeWindow(cfg)
         play(tabBar, 0.28, {BackgroundTransparency = 0.04}, Enum.EasingStyle.Quart)
     end
 
-    local launcher = mk("TextButton", {Name="Launcher", AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,16), Size=UDim2.fromOffset(210,50), BackgroundColor3=Pal.Surface, Visible=false, ZIndex=250, Parent=Root})
-    round(launcher, 12)
-    local launcherStroke = outline(launcher, "Stroke", 1, 0.55)
-    local launcherIconBox = mk("Frame", {AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,10,0.5,0), Size=UDim2.fromOffset(30,30), BackgroundColor3=Pal.Elevated, ZIndex=251, Parent=launcher})
-    round(launcherIconBox, 8)
-    local launcherIcon = makeIcon(launcherIconBox, cfg.Icon or "sparkles", 18, false, {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=252})
+    -- Compact floating UI toggle. It is the only UI left on-screen while the menu is hidden.
+    local launcher = mk("TextButton", {Name="Launcher", AnchorPoint=Vector2.new(1,1), Position=UDim2.new(1,-22,1,-22), Size=UDim2.fromOffset(56,56), BackgroundColor3=Pal.Surface, BackgroundTransparency=0.08, AutoButtonColor=false, Text="", Visible=false, ZIndex=250, Parent=Root})
+    round(launcher, 28)
+    local launcherStroke = outline(launcher, "Stroke", 1, 0.35)
+    local launcherIconBox = mk("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), Size=UDim2.fromOffset(38,38), BackgroundColor3=Pal.Elevated, BackgroundTransparency=0.15, ZIndex=251, Parent=launcher})
+    round(launcherIconBox, 19)
+    accentGradient(launcherIconBox, 252)
+    local launcherIcon = makeIcon(launcherIconBox, cfg.Icon or "sparkles", 20, false, {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=253})
     launcherIcon.Color(Color3.new(1,1,1))
     launcherIcon.Image.ImageColor3 = Color3.new(1,1,1)
     launcherIcon.Glyph.TextColor3 = Color3.new(1,1,1)
-    local launcherTitle = tx("TextLabel", {Text=title, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(50,8), Size=UDim2.new(1,-58,0,18), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 3)
-    local launcherSub = tx("TextLabel", {Text="Tap to show", TextSize=10, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(50,26), Size=UDim2.new(1,-58,0,14), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 1, "Sub")
+    local launcherTitle = tx("TextLabel", {Text="", Visible=false, Parent=launcher}, 3)
+    local launcherSub = tx("TextLabel", {Text="", Visible=false, Parent=launcher}, 1, "Sub")
     local launcherScale = mk("UIScale", {Scale=0, Parent=launcher})
+    Window.ToggleButton = launcher
     Window.LauncherIcon = launcherIcon
     Window.LauncherTitle = launcherTitle
     Window.LauncherSub = launcherSub
     Window.Launcher = launcher
 
     local launcherMoved = false
+    -- Forward declaration: the launcher can be clicked before the show function is assigned.
+    local show
     makeDraggable({grabStrip}, shell, {
         smoothing = 28,
         clamp = function(topLeft)
@@ -1532,9 +1537,9 @@ function Nihon:MakeWindow(cfg)
 
     local function showLauncher(on)
         if on then
-            launcher.AnchorPoint = Vector2.new(0.5, 0)
-            launcher.Position = UDim2.new(0.5, 0, 0, 16)
-            launcher.BackgroundTransparency = 0
+            launcher.AnchorPoint = Vector2.new(1, 1)
+            launcher.Position = UDim2.new(1, -22, 1, -22)
+            launcher.BackgroundTransparency = 0.08
             launcherStroke.Transparency = 0.55
             launcherTitle.TextTransparency = 0
             launcherSub.TextTransparency = 0
@@ -1550,8 +1555,26 @@ function Nihon:MakeWindow(cfg)
         end
     end
 
+    launcher.MouseEnter:Connect(function()
+        play(launcher, 0.16, {BackgroundTransparency=0})
+        play(launcherIconBox, 0.16, {BackgroundTransparency=0})
+        play(launcherScale, 0.16, {Scale=1.08}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    end)
+    launcher.MouseLeave:Connect(function()
+        play(launcher, 0.18, {BackgroundTransparency=0.08})
+        play(launcherIconBox, 0.18, {BackgroundTransparency=0.15})
+        play(launcherScale, 0.18, {Scale=1}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    end)
+    launcher.InputBegan:Connect(function(input)
+        if isPointer(input) then
+            play(launcherScale, 0.08, {Scale=0.92}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        end
+    end)
     launcher.InputEnded:Connect(function(input)
-        if isPointer(input) and not launcherMoved then show(true) end
+        if isPointer(input) then
+            play(launcherScale, 0.2, {Scale=1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            if not launcherMoved then show(true) end
+        end
         launcherMoved = false
     end)
 
@@ -1583,7 +1606,7 @@ function Nihon:MakeWindow(cfg)
         end))
     end
 
-    local function show(fromMorph)
+    show = function(fromMorph)
         setUIBlur(true)
         Window.Morphing = false
         if tweens[shell] then for _, tw in pairs(tweens[shell]) do pcall(function() tw:Cancel() end) end end
@@ -1651,6 +1674,8 @@ function Nihon:MakeWindow(cfg)
                 if mine ~= closeToken then return end
                 shell.Visible = false
                 restoreGroup(shell)
+                bottomDock.Visible = false
+                tabBar.Visible = false
                 Window.Morphing = false
                 launcher.BackgroundTransparency = 1
                 launcherStroke.Transparency = 1
@@ -1742,8 +1767,11 @@ function Nihon:MakeWindow(cfg)
     end)
 
     keep(UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        if input.KeyCode == Window.ToggleKey then Window:Toggle() end
+        local bound = Window.ToggleKey
+        local matches = bound and (input.KeyCode == bound or input.UserInputType == bound)
+        if matches then
+            Window:Toggle()
+        end
     end))
 
     Window.RequestOpen = function() if Window.Hidden then show(false) end end
@@ -1753,7 +1781,7 @@ function Nihon:MakeWindow(cfg)
         contentWrap=contentWrap, content=content, tabBar=tabBar, tabScroll=tabScroll,
         uiScale=uiScale, applyScale=applyScale, topH=topH, mobile=mobile,
         searchIndex=searchIndex, baseW=baseW, baseH=baseH,
-        launcher=launcher, fullH=function() return fullH end,
+        launcher=launcher, toggleButton=launcher, fullH=function() return fullH end,
         setFullH=function(h) fullH = h end,
         closeBtn=closeBtn, minBtn=minBtn, searchBtn=searchBtn,
         resizeGrip=resizeGrip, minBtnBox=minBtnBox, playerPill=playerPill,
@@ -3420,7 +3448,7 @@ local function attachSettings(Window)
         end})
         cfgSec:AddToggle({Name="Autosave", Default=Nihon.Autosave, Flag="_autosave", Save=true, Callback=function(v) Nihon:SetAutosave(v) end})
         local ui = tab:AddSection({Name="Interface"})
-        ui:AddBind({Name="Toggle menu", Default=Window.ToggleKey, Flag="_toggleKey", Save=true, Callback=function() end})
+        ui:AddBind({Name="UI Toggle", Default=Window.ToggleKey, Flag="_toggleKey", Save=true, Callback=function() end})
         ui:AddButton({Name="Reset position", Icon="refresh-cw", Callback=function()
             local shell = Window._parts.shell
             shell.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -3436,7 +3464,12 @@ local function attachSettings(Window)
         if toggleRef then
             local orig = toggleRef.set
             toggleRef.set = function(k)
-                if typeof(k) == "EnumItem" then Window.ToggleKey = k end
+                if typeof(k) == "EnumItem" then
+                    Window.ToggleKey = k
+                elseif type(k) == "string" then
+                    local parsed = Enum.KeyCode[k] or Enum.UserInputType[k]
+                    if parsed then Window.ToggleKey = parsed end
+                end
                 orig(k)
             end
         end
