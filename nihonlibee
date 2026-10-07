@@ -1499,6 +1499,26 @@ function Nihon:MakeWindow(cfg)
     Window.LauncherSub = launcherSub
     Window.Launcher = launcher
 
+    local function toggleText(k)
+        if typeof(k) ~= "EnumItem" then return "None" end
+        return keyText(k)
+    end
+    local function syncToggleUI(k)
+        Window.ToggleKey = k
+        local t = toggleText(k)
+        launcherSub.Text = t == "None" and "Tap to show" or ("Press " .. t .. " or tap to show")
+    end
+    Window.SetToggleKey = function(k)
+        if typeof(k) == "string" then
+            k = Enum.KeyCode[k] or Enum.UserInputType[k]
+        end
+        if k ~= nil and (typeof(k) ~= "EnumItem" or (k.EnumType ~= Enum.KeyCode and k.EnumType ~= Enum.UserInputType)) then return false end
+        syncToggleUI(k)
+        return true
+    end
+    Window.GetToggleKey = function() return Window.ToggleKey end
+    syncToggleUI(Window.ToggleKey)
+
     local launcherMoved = false
     makeDraggable({grabStrip}, shell, {
         smoothing = 28,
@@ -1682,7 +1702,10 @@ function Nihon:MakeWindow(cfg)
 
     Window.Show = function() show(false) end
     Window.Hide = function() hide(true) end
-    function Window:Toggle() if Window.Hidden then show(true) else hide(true) end end
+    function Window:Toggle()
+        if Window.Morphing then return end
+        if Window.Hidden then show(true) else hide(true) end
+    end
 
     -- MINIMIZE (blur fades out + button loses bg)
     local function setMinimized(state)
@@ -1736,7 +1759,9 @@ function Nihon:MakeWindow(cfg)
 
     closeBtn.Activated:Connect(function()
         hide(true)
-        Nihon:MakeNotification({Name="Menu hidden", Content=mobile and "Tap the floating button to bring it back." or ("Press "..Window.ToggleKey.Name.." or tap the floating button."), Type="Info", Time=3})
+        local k = Window.GetToggleKey()
+        local n = typeof(k) == "EnumItem" and keyText(k) or "None"
+        Nihon:MakeNotification({Name="Menu hidden", Content=mobile and "Tap the floating button to bring it back." or ("Press "..n.." or tap the floating button."), Type="Info", Time=3})
     end)
 
     searchBtn.Activated:Connect(function()
@@ -1745,9 +1770,11 @@ function Nihon:MakeWindow(cfg)
     end)
 
     keep(UserInputService.InputBegan:Connect(function(input, gpe)
-        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-        if Window.ToggleKey == nil then return end
-        if input.KeyCode ~= Window.ToggleKey then return end
+        local k = Window.ToggleKey
+        if not k then return end
+        local hit = input.KeyCode == k or input.UserInputType == k
+        if not hit then return end
+        if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.Unknown then return end
         Window:Toggle()
     end))
 
@@ -3441,9 +3468,7 @@ local function attachSettings(Window)
             Save = true,
             Callback = function() end,
             OnChange = function(k)
-                if typeof(k) == "EnumItem" and k.EnumType == Enum.KeyCode then
-                    Window.ToggleKey = k
-                end
+                Window.SetToggleKey(k)
             end,
         })
         ui:AddButton({Name="Reset position", Icon="refresh-cw", Callback=function()
