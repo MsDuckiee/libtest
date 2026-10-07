@@ -748,9 +748,10 @@ spawnNote = function(entry)
     n.expires = os.clock() + n.time
     local content = tostring(cfg.Content or "")
 
-    local frame = mk("CanvasGroup", {Name="Note", Size=UDim2.fromOffset(w, n.height), GroupTransparency=1, BackgroundColor3=Pal.Surface, BackgroundTransparency=0.14, Parent=noteLayer})
+    local frame = mk("CanvasGroup", {Name="Note", Size=UDim2.fromOffset(w, n.height), GroupTransparency=1, BackgroundColor3=Pal.Surface, BackgroundTransparency=0.04, Parent=noteLayer})
     round(frame, 18)
-    local frameStroke = mk("UIStroke", {Thickness=1, Transparency=0.4, Parent=frame})
+    bind(frame, "BackgroundColor3", "Surface")
+    local frameStroke = mk("UIStroke", {Thickness=1, Transparency=0.28, Parent=frame})
     bind(frameStroke, "Color", "Stroke")
     frameStroke:SetAttribute("_baseTrans", 0.4)
 
@@ -763,14 +764,18 @@ spawnNote = function(entry)
     local accent = mk("Frame", {Size=UDim2.fromOffset(4,50), Position=UDim2.fromOffset(0,13), BackgroundColor3=color, ZIndex=4, Parent=frame})
     round(accent, 2)
     n.iconBox = accent
-    local icon = makeIcon(frame, cfg.Icon or firstIcon(StatusIcons[entry.kind]) or "bell", 26, false, {AnchorPoint=Vector2.new(0,0), Position=UDim2.fromOffset(18,25), ZIndex=5})
-    icon.Color(color:Lerp(Color3.new(1,1,1), 0.08), false)
+    local icon = makeIcon(frame, cfg.Icon or firstIcon(StatusIcons[entry.kind]) or "bell", 22, false, {AnchorPoint=Vector2.new(0,0), Position=UDim2.fromOffset(19,27), ZIndex=5})
     n.iconImage = icon
 
-    local title = tx("TextLabel", {Text=tostring(cfg.Name or cfg.Title or "Notification"), TextSize=15, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(58,13), Size=UDim2.new(1,-110,0,20), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=5, Parent=frame}, 3)
-    local body = tx("TextLabel", {Text=content, TextSize=12, Position=UDim2.fromOffset(58,36), Size=UDim2.new(1,-92,0,0), TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, TextYAlignment=Enum.TextYAlignment.Top, Visible=content ~= "", ZIndex=5, Parent=frame}, 1, "Sub")
+    local title = tx("TextLabel", {Text=tostring(cfg.Name or cfg.Title or "Notification"), TextSize=14, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(58,12), Size=UDim2.new(1,-104,0,20), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=5, Parent=frame}, 3)
+    local body = tx("TextLabel", {Text=content, TextSize=12, Position=UDim2.fromOffset(58,35), Size=UDim2.new(1,-86,0,0), TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, TextYAlignment=Enum.TextYAlignment.Top, Visible=content ~= "", ZIndex=5, Parent=frame}, 1, "Sub")
+    bind(title, "TextColor3", "Text")
+    bind(body, "TextColor3", "Sub")
+    onTheme(function()
+        icon.Color(color:Lerp(Pal.Text, 0.08), false)
+    end)
 
-    local closeBtn = mk("TextButton", {AnchorPoint=Vector2.new(1,0), Position=UDim2.new(1,-12,0,12), Size=UDim2.fromOffset(24,24), BackgroundTransparency=1, ZIndex=5, Parent=frame})
+    local closeBtn = mk("TextButton", {AnchorPoint=Vector2.new(1,0), Position=UDim2.new(1,-10,0,10), Size=UDim2.fromOffset(26,26), BackgroundTransparency=1, ZIndex=5, Parent=frame})
     round(closeBtn, 6)
     local closeIcon = makeIcon(closeBtn, "x", 12, "Sub", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=6})
     closeBtn.MouseEnter:Connect(function() play(closeBtn, 0.15, {BackgroundTransparency = 0.88}) closeIcon.Color(Pal.Text, true) end)
@@ -779,7 +784,7 @@ spawnNote = function(entry)
     n.closeBtn = closeBtn
     n.closeGlyph = closeIcon
 
-    n.bar = mk("Frame", {AnchorPoint=Vector2.new(0,1), Position=UDim2.fromScale(0,1), Size=UDim2.new(1,0,0,3), BackgroundColor3=color, BackgroundTransparency=0.15, Visible=not n.sticky, ZIndex=3, Parent=frame})
+    n.bar = mk("Frame", {AnchorPoint=Vector2.new(0,1), Position=UDim2.fromScale(0,1), Size=UDim2.new(1,0,0,3), BackgroundColor3=color, BackgroundTransparency=0.08, Visible=not n.sticky, ZIndex=3, Parent=frame})
     round(n.bar, 2)
     local barGrad = mk("UIGradient", {Parent=n.bar})
     barGrad.Color = ColorSequence.new(color, color:Lerp(Color3.new(1,1,1), 0.5))
@@ -1482,17 +1487,25 @@ function Nihon:MakeWindow(cfg)
     rightArrow.Activated:Connect(function() scrollBy(140) end)
 
     -- LAUNCHER
-    local launcher = mk("TextButton", {Name="Launcher", AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,16), Size=UDim2.fromOffset(210,50), BackgroundColor3=Pal.Surface, Visible=false, ZIndex=250, Parent=Root})
-    round(launcher, 12)
-    local launcherStroke = outline(launcher, "Stroke", 1, 0.55)
-    local launcherIconBox = mk("Frame", {AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,10,0.5,0), Size=UDim2.fromOffset(30,30), BackgroundColor3=Pal.Elevated, ZIndex=251, Parent=launcher})
-    round(launcherIconBox, 8)
+    local launcher = mk("TextButton", {Name="Launcher", AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,16), Size=UDim2.fromOffset(224,56), BackgroundColor3=Pal.Surface, BackgroundTransparency=0.04, Visible=false, ZIndex=250, Parent=Root})
+    round(launcher, 15)
+    local launcherStroke = outline(launcher, "Stroke", 1, 0.28)
+    local launcherIconBox = mk("Frame", {AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,10,0.5,0), Size=UDim2.fromOffset(36,36), BackgroundColor3=Pal.Elevated, ZIndex=251, Parent=launcher})
+    round(launcherIconBox, 10)
     local launcherIcon = makeIcon(launcherIconBox, cfg.Icon or "sparkles", 18, false, {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=252})
-    launcherIcon.Color(Color3.new(1,1,1))
-    launcherIcon.Image.ImageColor3 = Color3.new(1,1,1)
-    launcherIcon.Glyph.TextColor3 = Color3.new(1,1,1)
-    local launcherTitle = tx("TextLabel", {Text=title, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(50,8), Size=UDim2.new(1,-58,0,18), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 3)
-    local launcherSub = tx("TextLabel", {Text="Tap to show", TextSize=10, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(50,26), Size=UDim2.new(1,-58,0,14), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 1, "Sub")
+    local launcherTitle = tx("TextLabel", {Text=title, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(56,9), Size=UDim2.new(1,-68,0,18), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 3)
+    local launcherSub = tx("TextLabel", {Text="Tap to show", TextSize=10, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(56,28), Size=UDim2.new(1,-68,0,14), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 1, "Sub")
+    bind(launcher, "BackgroundColor3", "Surface")
+    bind(launcherIconBox, "BackgroundColor3", "Elevated")
+    bind(launcherIcon.Image, "ImageColor3", "Accent")
+    bind(launcherIcon.Glyph, "TextColor3", "Accent")
+    bind(launcherTitle, "TextColor3", "Text")
+    bind(launcherSub, "TextColor3", "Sub")
+    onTheme(function()
+        launcher.BackgroundColor3 = Pal.Surface
+        launcherIconBox.BackgroundColor3 = Pal.Elevated
+        launcherIcon.Color(Pal.Accent, false)
+    end)
     local launcherScale = mk("UIScale", {Scale=0, Parent=launcher})
     Window.LauncherIcon = launcherIcon
     Window.LauncherTitle = launcherTitle
@@ -1561,7 +1574,8 @@ function Nihon:MakeWindow(cfg)
     end
 
     launcher.InputEnded:Connect(function(input)
-        if isPointer(input) and not launcherMoved then show(true) end
+        local pointer = input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
+        if pointer and not launcherMoved then show(true) end
         launcherMoved = false
     end)
 
