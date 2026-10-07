@@ -1,4 +1,4 @@
---[[ Nihon Lib | v7.6 ]]
+--[[ Nihon Lib | v7.7 ]]
 
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -23,7 +23,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "7.6.0", Flags = {}, Windows = {}, Folder = "NihonLib", Profile = "default",
+    Version = "7.7.0", Flags = {}, Windows = {}, Folder = "NihonLib", Profile = "default",
     SaveConfig = false, Autosave = false, AutosaveDelay = 1.5,
     IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
     ShowLauncher = true, ShowResize = true, ShowSearch = true, ShowMinimize = true, ShowClose = true,
@@ -713,22 +713,32 @@ local function bumpNote(n, extra)
         play(n.pop, 0.4, {Scale = baseSc}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     end
 end
+
+-- FIX: guarded notification loop (kills line 1550 error spam)
 local function ensureNoteLoop()
     if noteLoop then return end
     noteLoop = RunService.Heartbeat:Connect(function(dt)
         local now = os.clock()
-        for i = #Notes.active, 1, -1 do
-            local n = Notes.active[i]
-            if n and not n.dying and not n.sticky then
-                if n.hover or n.dragging then n.expires = n.expires + dt end
-                local left = n.expires - now
-                if not n.custom and n.bar and n.bar.Parent then n.bar.Size = UDim2.new(math.clamp(left / n.time, 0, 1), 0, 0, 3) end
-                if left <= 0 then dismissNote(n) end
+        pcall(function()
+            for i = #Notes.active, 1, -1 do
+                local n = Notes.active[i]
+                if n and not n.dying and not n.sticky then
+                    if n.hover or n.dragging then n.expires = (n.expires or now) + dt end
+                    local left = (n.expires or now) - now
+                    if not n.custom and n.bar and n.bar.Parent and n.time and n.time > 0 then
+                        n.bar.Size = UDim2.new(math.clamp(left / n.time, 0, 1), 0, 0, 3)
+                    end
+                    if left <= 0 then dismissNote(n) end
+                end
             end
+        end)
+        if #Notes.active == 0 and noteLoop then
+            noteLoop:Disconnect()
+            noteLoop = nil
         end
-        if #Notes.active == 0 and noteLoop then noteLoop:Disconnect() noteLoop = nil end
     end)
 end
+
 spawnNote = function(entry)
     local cfg, handle = entry.cfg, entry.handle
     local color = Status[entry.kind]
@@ -1298,22 +1308,18 @@ function Nihon:MakeWindow(cfg)
     local uiScale = mk("UIScale", {Scale=0.9, Parent=shell})
     mk("UIListLayout", {FillDirection=Enum.FillDirection.Vertical, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Top, Padding=UDim.new(0,10), SortOrder=Enum.SortOrder.LayoutOrder, Parent=shell})
 
-    -- =========================================================
-    -- WINDOW CARD
-    -- =========================================================
-    local winCard = mk("CanvasGroup", {Name="WindowCard", Size=UDim2.fromOffset(baseW, baseH), LayoutOrder=1, BackgroundTransparency=0.14, Parent=shell})
+    -- WINDOW CARD (slightly more transparent + bigger radius)
+    local winCard = mk("CanvasGroup", {Name="WindowCard", Size=UDim2.fromOffset(baseW, baseH), LayoutOrder=1, BackgroundTransparency=0.18, Parent=shell})
     bind(winCard, "BackgroundColor3", "WindowBg")
-    round(winCard, 18)
-    outline(winCard, "Stroke", 1, 0.35)
+    round(winCard, 20)
+    outline(winCard, "Stroke", 1, 0.28)
     local winShadow = mk("Frame", {Size=UDim2.new(1,20,1,20), Position=UDim2.fromOffset(-10,-10), BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=0.82, ZIndex=-1, Parent=winCard})
-    round(winShadow, 26)
+    round(winShadow, 28)
 
     local winClip = mk("Frame", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, ClipsDescendants=true, ZIndex=20, Parent=winCard})
-    round(winClip, 18)
+    round(winClip, 20)
 
-    -- =========================================================
     -- HEADER
-    -- =========================================================
     local header = mk("Frame", {Name="Header", Size=UDim2.new(1,0,0,topH), BackgroundTransparency=1, ZIndex=22, Parent=winClip})
 
     local headerDiv = mk("Frame", {Name="HeaderDivider", Position=UDim2.new(0,22,1,-1), Size=UDim2.new(1,-44,0,1), BackgroundTransparency=0.6, ZIndex=23, Parent=header})
@@ -1354,14 +1360,12 @@ function Nihon:MakeWindow(cfg)
 
     local grabStrip = mk("TextButton", {Name="GrabStrip", Size=UDim2.new(1,-260,1,0), Position=UDim2.fromOffset(72,0), BackgroundTransparency=1, Text="", AutoButtonColor=false, ZIndex=21, Parent=header})
 
-    -- =========================================================
     -- CONTENT
-    -- =========================================================
     local contentWrap = mk("Frame", {Name="ContentWrap", Position=UDim2.fromOffset(14,topH), Size=UDim2.new(1,-28,1,-(topH+14)), BackgroundTransparency=1, ClipsDescendants=true, ZIndex=21, Parent=winClip})
     local contentBg = mk("Frame", {Name="ContentBg", Size=UDim2.fromScale(1,1), ZIndex=21, Parent=contentWrap})
     bind(contentBg, "BackgroundColor3", "ContentBg")
     contentBg.BackgroundTransparency = 0.15
-    round(contentBg, 14)
+    round(contentBg, 15)
     outline(contentBg, "Stroke", 1, 0.7)
 
     local content = mk("Frame", {Name="Content", Size=UDim2.fromScale(1,1), BackgroundTransparency=1, ClipsDescendants=true, ZIndex=22, Parent=contentWrap})
@@ -1400,9 +1404,7 @@ function Nihon:MakeWindow(cfg)
         resizing = false
     end))
 
-    -- =========================================================
-    -- BOTTOM DOCK (fixed): min button + player pill + tab bar
-    -- =========================================================
+    -- BOTTOM DOCK
     local bottomDock = mk("Frame", {
         Name="BottomDock", AnchorPoint=Vector2.new(0.5, 1), Position=UDim2.new(0.5, 0, 1, -14),
         Size=UDim2.fromOffset(baseW, 0), AutomaticSize=Enum.AutomaticSize.Y,
@@ -1485,9 +1487,7 @@ function Nihon:MakeWindow(cfg)
     leftArrow.Activated:Connect(function() scrollBy(-140) end)
     rightArrow.Activated:Connect(function() scrollBy(140) end)
 
-    -- =========================================================
     -- LAUNCHER
-    -- =========================================================
     local launcher = mk("TextButton", {Name="Launcher", AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,16), Size=UDim2.fromOffset(210,50), BackgroundColor3=Pal.Surface, Visible=false, ZIndex=250, Parent=Root})
     round(launcher, 12)
     local launcherStroke = outline(launcher, "Stroke", 1, 0.55)
@@ -1551,9 +1551,7 @@ function Nihon:MakeWindow(cfg)
         launcherMoved = false
     end)
 
-    -- =========================================================
     -- SHOW / HIDE
-    -- =========================================================
     local closeToken = 0
     local placed = false
     local function fitScale()
@@ -1601,7 +1599,6 @@ function Nihon:MakeWindow(cfg)
         winCard.GroupTransparency = 0
         play(minIconHolder.Image, 0.3, {Rotation = 0})
         play(minIconHolder.Glyph, 0.3, {Rotation = 0})
-        -- restore min button bg
         play(minBtnBox, 0.3, {BackgroundTransparency = 0.02})
         if minBtnStroke then
             local base = minBtnStroke:GetAttribute("_baseTrans") or 0.5
@@ -1637,7 +1634,6 @@ function Nihon:MakeWindow(cfg)
             fadeGroup(shell, 0.3, 0)
             if Nihon.ShowLauncher then showLauncher(false) end
         end
-        -- blur on
         play(NihonBlur, 0.4, {Size = 14}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     end
 
@@ -1683,7 +1679,6 @@ function Nihon:MakeWindow(cfg)
                 if mine == closeToken and Window.Hidden then restoreGroup(shell) end
             end)
         end
-        -- hide bottom dock + kill blur
         fadeGroup(bottomDock, 0.3, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         task.delay(0.35, function()
             if Window.Hidden then bottomDock.Visible = false end
@@ -1695,9 +1690,7 @@ function Nihon:MakeWindow(cfg)
     Window.Hide = function() hide(true) end
     function Window:Toggle() if Window.Hidden then show(true) else hide(true) end end
 
-    -- =========================================================
-    -- MINIMIZE
-    -- =========================================================
+    -- MINIMIZE (blur fades out + button loses bg)
     local function setMinimized(state)
         state = state and true or false
         if Window.Minimized == state then return end
@@ -1706,6 +1699,7 @@ function Nihon:MakeWindow(cfg)
 
         if state then
             fadeGroup(winCard, 0.25, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(NihonBlur, 0.35, {Size = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             task.delay(0.27, function()
                 if not Window.Minimized then return end
                 winCard.Visible = false
@@ -1731,6 +1725,7 @@ function Nihon:MakeWindow(cfg)
             end
             winCard.Visible = true
             winCard.GroupTransparency = 1
+            play(NihonBlur, 0.35, {Size = 14}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             task.delay(0.15, function()
                 if Window.Minimized then return end
                 fadeGroup(winCard, 0.3, 0, Enum.EasingStyle.Quart)
@@ -2189,6 +2184,7 @@ local function extendElements(E, ctx)
         return decorate(obj, c, o, "Textbox")
     end
 
+    -- FIXED Bind: supports OnChange callback
     function E:AddBind(o)
         o = o or {}
         local label = tostring(o.Name or "Keybind")
@@ -2209,8 +2205,14 @@ local function extendElements(E, ctx)
         end
         function obj:Set(k, silent)
             if typeof(k) == "string" then k = Enum.KeyCode[k] or Enum.UserInputType[k] or nil end
-            obj.Value = k obj.Binding = false refresh()
+            local old = obj.Value
+            obj.Value = k
+            obj.Binding = false
+            refresh()
             if not silent then queueSave() end
+            if old ~= k and type(o.OnChange) == "function" then
+                pcall(o.OnChange, k)
+            end
         end
         function obj:Get() return obj.Value end
         chip.InputBegan:Connect(function(input)
@@ -2967,10 +2969,10 @@ function ElementFactory(Window, Tab, parent, sectionName)
     local rowH = mobile and 44 or 40
 
     local function card(height, hover)
-        local c = mk("TextButton", {Size=UDim2.new(1,0,0,height or rowH), BackgroundTransparency=0.38, ZIndex=24, LayoutOrder=E._count + 1, Parent=parent})
+        local c = mk("TextButton", {Size=UDim2.new(1,0,0,height or rowH), BackgroundTransparency=0.42, ZIndex=24, LayoutOrder=E._count + 1, Parent=parent})
         bind(c, "BackgroundColor3", "Surface")
-        round(c, 12)
-        local st = outline(c, "Stroke", 1, 0.45)
+        round(c, 13)
+        local st = outline(c, "Stroke", 1, 0.55)
         c:SetAttribute("NihonCard", true)
         return c, st
     end
@@ -3113,6 +3115,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
         return decorate(obj, c, o, "Button")
     end
 
+    -- FIXED Toggle: single click handler, no double-fire
     function E:AddToggle(o)
         o = o or {}
         local label = tostring(o.Name or "Toggle")
@@ -3150,28 +3153,8 @@ function ElementFactory(Window, Tab, parent, sectionName)
         end
         function obj:Get() return state.value end
         function obj:Toggle() obj:Set(not state.value) end
-        -- Hitbox covering the whole card
-        local hitbox = mk("TextButton", {
-            Name="ToggleHitbox", Size=UDim2.fromScale(1,1), Position=UDim2.fromScale(0,0),
-            BackgroundTransparency=1, Text="", AutoButtonColor=false,
-            Active=true, ZIndex=30, Parent=c,
-        })
-        hitbox.Activated:Connect(function()
-            if obj:IsLocked() then return end
-            obj:Set(not state.value)
-        end)
-        -- Fallback: press+release on the card itself
-        local pressStart
-        c.InputBegan:Connect(function(input)
-            if not isPointer(input) then return end
-            pressStart = Vector2.new(input.Position.X, input.Position.Y)
-        end)
-        c.InputEnded:Connect(function(input)
-            if not isPointer(input) or not pressStart then return end
-            local endPos = Vector2.new(input.Position.X, input.Position.Y)
-            local dist = (endPos - pressStart).Magnitude
-            pressStart = nil
-            if dist > 8 then return end
+        -- Single source of truth for clicks
+        c.Activated:Connect(function()
             if obj:IsLocked() then return end
             obj:Set(not state.value)
         end)
@@ -3452,15 +3435,19 @@ local function attachSettings(Window)
         end})
         cfgSec:AddToggle({Name="Autosave", Default=Nihon.Autosave, Flag="_autosave", Save=true, Callback=function(v) Nihon:SetAutosave(v) end})
         local ui = tab:AddSection({Name="Interface"})
-        local bindObj = ui:AddBind({Name="Toggle menu", Default=Window.ToggleKey, Flag="_toggleKey", Save=true, Callback=function() end})
-        if bindObj then
-            local _origSet = bindObj.Set
-            bindObj.Set = function(self, k, silent)
-                if typeof(k) == "EnumItem" then Window.ToggleKey = k end
-                return _origSet(self, k, silent)
-            end
-            if typeof(bindObj.Value) == "EnumItem" then Window.ToggleKey = bindObj.Value end
-        end
+        -- FIXED: OnChange callback updates Window.ToggleKey immediately
+        ui:AddBind({
+            Name = "Toggle menu",
+            Default = Window.ToggleKey,
+            Flag = "_toggleKey",
+            Save = true,
+            Callback = function() end,
+            OnChange = function(k)
+                if typeof(k) == "EnumItem" then
+                    Window.ToggleKey = k
+                end
+            end,
+        })
         ui:AddButton({Name="Reset position", Icon="refresh-cw", Callback=function()
             local shell = Window._parts.shell
             shell.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -3472,14 +3459,6 @@ local function attachSettings(Window)
                 {Name="Destroy", Primary=true, Danger=true, Callback=function() Nihon:Destroy() end},
             }})
         end})
-        local toggleRef = flagRefs._toggleKey
-        if toggleRef then
-            local orig = toggleRef.set
-            toggleRef.set = function(k)
-                if typeof(k) == "EnumItem" then Window.ToggleKey = k end
-                orig(k)
-            end
-        end
         return tab
     end
 end
