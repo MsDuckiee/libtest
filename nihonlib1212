@@ -1,4 +1,4 @@
---[[ Nihon Lib | v7.5 ]]
+--[[ Nihon Lib | v7.6 ]]
 
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -9,6 +9,12 @@ local Stats = game:GetService("Stats")
 local MarketplaceService = game:GetService("MarketplaceService")
 local TextService = game:GetService("TextService")
 local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+
+local NihonBlur = Instance.new("BlurEffect")
+NihonBlur.Name = "NihonLibBlur"
+NihonBlur.Size = 0
+NihonBlur.Parent = Lighting
 
 local LocalPlayer = Players.LocalPlayer
 local env = (getgenv and getgenv()) or _G
@@ -17,7 +23,7 @@ if type(env.NihonLibInstance) == "table" and type(env.NihonLibInstance.Destroy) 
 end
 
 local Nihon = {
-    Version = "7.5.0", Flags = {}, Windows = {}, Folder = "NihonLib", Profile = "default",
+    Version = "7.6.0", Flags = {}, Windows = {}, Folder = "NihonLib", Profile = "default",
     SaveConfig = false, Autosave = false, AutosaveDelay = 1.5,
     IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
     ShowLauncher = true, ShowResize = true, ShowSearch = true, ShowMinimize = true, ShowClose = true,
@@ -732,7 +738,7 @@ spawnNote = function(entry)
     n.expires = os.clock() + n.time
     local content = tostring(cfg.Content or "")
 
-    local frame = mk("CanvasGroup", {Name="Note", Size=UDim2.fromOffset(w, n.height), GroupTransparency=1, BackgroundColor3=Pal.Surface, BackgroundTransparency=0, Parent=noteLayer})
+    local frame = mk("CanvasGroup", {Name="Note", Size=UDim2.fromOffset(w, n.height), GroupTransparency=1, BackgroundColor3=Pal.Surface, BackgroundTransparency=0.14, Parent=noteLayer})
     round(frame, 18)
     local frameStroke = mk("UIStroke", {Thickness=1, Transparency=0.4, Parent=frame})
     bind(frameStroke, "Color", "Stroke")
@@ -890,6 +896,7 @@ function Nihon:Dialog(cfg)
     local w = math.clamp(viewport().X - 32, 260, 380)
     local box = mk("CanvasGroup", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), Size=UDim2.fromOffset(w,0), AutomaticSize=Enum.AutomaticSize.Y, GroupTransparency=1, ZIndex=201, Parent=layer})
     bind(box, "BackgroundColor3", "Surface")
+    box.BackgroundTransparency = 0.14
     round(box, 16)
     outline(box, "Stroke", 1, 0.1)
     local sc = mk("UIScale", {Scale=0.9, Parent=box})
@@ -1291,29 +1298,40 @@ function Nihon:MakeWindow(cfg)
     local uiScale = mk("UIScale", {Scale=0.9, Parent=shell})
     mk("UIListLayout", {FillDirection=Enum.FillDirection.Vertical, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Top, Padding=UDim.new(0,10), SortOrder=Enum.SortOrder.LayoutOrder, Parent=shell})
 
-    local winCard = mk("CanvasGroup", {Name="WindowCard", Size=UDim2.fromOffset(baseW, baseH), LayoutOrder=1, BackgroundTransparency=0, Parent=shell})
+    -- =========================================================
+    -- WINDOW CARD
+    -- =========================================================
+    local winCard = mk("CanvasGroup", {Name="WindowCard", Size=UDim2.fromOffset(baseW, baseH), LayoutOrder=1, BackgroundTransparency=0.14, Parent=shell})
     bind(winCard, "BackgroundColor3", "WindowBg")
     round(winCard, 18)
-    outline(winCard, "Stroke", 1, 0.4)
+    outline(winCard, "Stroke", 1, 0.35)
     local winShadow = mk("Frame", {Size=UDim2.new(1,20,1,20), Position=UDim2.fromOffset(-10,-10), BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=0.82, ZIndex=-1, Parent=winCard})
     round(winShadow, 26)
 
     local winClip = mk("Frame", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, ClipsDescendants=true, ZIndex=20, Parent=winCard})
     round(winClip, 18)
+
+    -- =========================================================
+    -- HEADER
+    -- =========================================================
     local header = mk("Frame", {Name="Header", Size=UDim2.new(1,0,0,topH), BackgroundTransparency=1, ZIndex=22, Parent=winClip})
 
-    local logo = mk("Frame", {Name="Logo", AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,16,0.5,0), Size=UDim2.fromOffset(44,44), BackgroundColor3=Color3.new(1,1,1), ZIndex=23, Parent=header})
-    round(logo, 11)
-    accentGradient(logo, 45)
-    local logoIcon = makeIcon(logo, cfg.Icon or "sparkles", 22, false, {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=24})
+    local headerDiv = mk("Frame", {Name="HeaderDivider", Position=UDim2.new(0,22,1,-1), Size=UDim2.new(1,-44,0,1), BackgroundTransparency=0.6, ZIndex=23, Parent=header})
+    bind(headerDiv, "BackgroundColor3", "Divider")
+
+    local logo = mk("Frame", {Name="Logo", AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,20,0.5,0), Size=UDim2.fromOffset(46,46), BackgroundColor3=Color3.new(1,1,1), ZIndex=23, Parent=header})
+    round(logo, 13)
+    accentGradient(logo, 135)
+    mk("UIStroke", {Thickness=1, Color=Color3.new(1,1,1), Transparency=0.78, ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Parent=logo})
+    local logoIcon = makeIcon(logo, cfg.Icon or "sparkles", 24, false, {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=24})
     logoIcon.Color(Color3.new(1,1,1))
     logoIcon.Image.ImageColor3 = Color3.new(1,1,1)
     logoIcon.Glyph.TextColor3 = Color3.new(1,1,1)
     logoIcon.Holder.ZIndex = 24 logoIcon.Image.ZIndex = 24 logoIcon.Glyph.ZIndex = 24
     Window.LogoIcon = logoIcon
 
-    local titleLbl = tx("TextLabel", {Text=title, TextSize=16, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(72,15), Size=UDim2.new(1,-260,0,22), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=23, Parent=header}, 3)
-    local subLbl = tx("TextLabel", {Text=subtitle, TextSize=12, Position=UDim2.fromOffset(72,38), Size=UDim2.new(1,-260,0,16), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Visible=subtitle ~= "", ZIndex=23, Parent=header}, 1, "Sub")
+    local titleLbl = tx("TextLabel", {Text=title, TextSize=17, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(80,12), Size=UDim2.new(1,-280,0,22), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=23, Parent=header}, 3)
+    local subLbl = tx("TextLabel", {Text=subtitle, TextSize=11, Position=UDim2.fromOffset(80,34), Size=UDim2.new(1,-280,0,16), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Visible=subtitle ~= "", ZIndex=23, Parent=header}, 1, "Sub")
     Window.TitleLabel, Window.SubtitleLabel = titleLbl, subLbl
 
     local tlHolder = mk("Frame", {Name="TrafficLights", AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,-18,0.5,0), Size=UDim2.fromOffset(70,16), BackgroundTransparency=1, ZIndex=30, Parent=header})
@@ -1336,10 +1354,13 @@ function Nihon:MakeWindow(cfg)
 
     local grabStrip = mk("TextButton", {Name="GrabStrip", Size=UDim2.new(1,-260,1,0), Position=UDim2.fromOffset(72,0), BackgroundTransparency=1, Text="", AutoButtonColor=false, ZIndex=21, Parent=header})
 
+    -- =========================================================
+    -- CONTENT
+    -- =========================================================
     local contentWrap = mk("Frame", {Name="ContentWrap", Position=UDim2.fromOffset(14,topH), Size=UDim2.new(1,-28,1,-(topH+14)), BackgroundTransparency=1, ClipsDescendants=true, ZIndex=21, Parent=winClip})
     local contentBg = mk("Frame", {Name="ContentBg", Size=UDim2.fromScale(1,1), ZIndex=21, Parent=contentWrap})
     bind(contentBg, "BackgroundColor3", "ContentBg")
-    contentBg.BackgroundTransparency = 0.05
+    contentBg.BackgroundTransparency = 0.15
     round(contentBg, 14)
     outline(contentBg, "Stroke", 1, 0.7)
 
@@ -1379,6 +1400,9 @@ function Nihon:MakeWindow(cfg)
         resizing = false
     end))
 
+    -- =========================================================
+    -- BOTTOM DOCK (fixed): min button + player pill + tab bar
+    -- =========================================================
     local bottomDock = mk("Frame", {
         Name="BottomDock", AnchorPoint=Vector2.new(0.5, 1), Position=UDim2.new(0.5, 0, 1, -14),
         Size=UDim2.fromOffset(baseW, 0), AutomaticSize=Enum.AutomaticSize.Y,
@@ -1393,16 +1417,22 @@ function Nihon:MakeWindow(cfg)
     bind(minBtnBox, "BackgroundColor3", "Surface")
     minBtnBox.BackgroundTransparency = 0.02
     round(minBtnBox, 12)
-    outline(minBtnBox, "Stroke", 1, 0.5)
+    local minBtnStroke = outline(minBtnBox, "Stroke", 1, 0.5)
     local minIconHolder = makeIcon(minBtnBox, "chevron-down", 20, "Text", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=16})
     minIconHolder.Image.ZIndex = 16 minIconHolder.Glyph.ZIndex = 16
-    minBtnBox.MouseEnter:Connect(function() play(minBtnBox, 0.15, {BackgroundTransparency = 0.88}) end)
-    minBtnBox.MouseLeave:Connect(function() play(minBtnBox, 0.2, {BackgroundTransparency = 0.02}) end)
+    minBtnBox.MouseEnter:Connect(function()
+        if Window.Minimized then return end
+        play(minBtnBox, 0.15, {BackgroundTransparency = 0.88})
+    end)
+    minBtnBox.MouseLeave:Connect(function()
+        if Window.Minimized then return end
+        play(minBtnBox, 0.2, {BackgroundTransparency = 0.02})
+    end)
     Window.MinButton = minBtnBox
 
     local playerPill = mk("TextButton", {Name="PlayerInfo", Size=UDim2.fromOffset(240,52), LayoutOrder=1, Parent=bottomDock, ZIndex=15})
     bind(playerPill, "BackgroundColor3", "Surface")
-    playerPill.BackgroundTransparency = 0.02
+    playerPill.BackgroundTransparency = 0.14
     round(playerPill, 26)
     outline(playerPill, "Stroke", 1, 0.5)
 
@@ -1420,11 +1450,11 @@ function Nihon:MakeWindow(cfg)
     tx("TextLabel", {Text="Hello, "..LocalPlayer.DisplayName, TextSize=13, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(54,9), Size=UDim2.new(1,-62,0,16), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=16, Parent=playerPill}, 3)
     tx("TextLabel", {Text="@"..LocalPlayer.Name, TextSize=11, Position=UDim2.fromOffset(54,27), Size=UDim2.new(1,-62,0,14), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=16, Parent=playerPill}, 1, "Sub")
     playerPill.MouseEnter:Connect(function() play(playerPill, 0.15, {BackgroundTransparency = 0.88}) end)
-    playerPill.MouseLeave:Connect(function() play(playerPill, 0.2, {BackgroundTransparency = 0.02}) end)
+    playerPill.MouseLeave:Connect(function() play(playerPill, 0.2, {BackgroundTransparency = 0.14}) end)
 
     local tabBar = mk("Frame", {Name="TabBar", Size=UDim2.fromOffset(baseW,54), LayoutOrder=2, Parent=bottomDock, ZIndex=15})
     bind(tabBar, "BackgroundColor3", "Surface")
-    tabBar.BackgroundTransparency = 0.02
+    tabBar.BackgroundTransparency = 0.14
     round(tabBar, 27)
     outline(tabBar, "Stroke", 1, 0.55)
     Window.TabBar = tabBar
@@ -1455,6 +1485,9 @@ function Nihon:MakeWindow(cfg)
     leftArrow.Activated:Connect(function() scrollBy(-140) end)
     rightArrow.Activated:Connect(function() scrollBy(140) end)
 
+    -- =========================================================
+    -- LAUNCHER
+    -- =========================================================
     local launcher = mk("TextButton", {Name="Launcher", AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,16), Size=UDim2.fromOffset(210,50), BackgroundColor3=Pal.Surface, Visible=false, ZIndex=250, Parent=Root})
     round(launcher, 12)
     local launcherStroke = outline(launcher, "Stroke", 1, 0.55)
@@ -1518,6 +1551,9 @@ function Nihon:MakeWindow(cfg)
         launcherMoved = false
     end)
 
+    -- =========================================================
+    -- SHOW / HIDE
+    -- =========================================================
     local closeToken = 0
     local placed = false
     local function fitScale()
@@ -1550,6 +1586,7 @@ function Nihon:MakeWindow(cfg)
         Window.Morphing = false
         if tweens[shell] then for _, tw in pairs(tweens[shell]) do pcall(function() tw:Cancel() end) end end
         Window.Hidden = false
+        Window.Minimized = false
         applyScale(false)
         uiScale.Scale = activeScale
         dockScale.Scale = activeScale
@@ -1558,11 +1595,18 @@ function Nihon:MakeWindow(cfg)
         closeToken = closeToken + 1
         local mine = closeToken
         bottomDock.Position = UDim2.new(0.5, 0, 1, -14)
-        Window.Minimized = false
+        bottomDock.Visible = true
+        restoreGroup(bottomDock)
         winCard.Visible = true
-        restoreGroup(winCard)
+        winCard.GroupTransparency = 0
         play(minIconHolder.Image, 0.3, {Rotation = 0})
         play(minIconHolder.Glyph, 0.3, {Rotation = 0})
+        -- restore min button bg
+        play(minBtnBox, 0.3, {BackgroundTransparency = 0.02})
+        if minBtnStroke then
+            local base = minBtnStroke:GetAttribute("_baseTrans") or 0.5
+            play(minBtnStroke, 0.3, {Transparency = base})
+        end
 
         if fromMorph and launcher.Visible then
             Window.Morphing = true
@@ -1593,6 +1637,8 @@ function Nihon:MakeWindow(cfg)
             fadeGroup(shell, 0.3, 0)
             if Nihon.ShowLauncher then showLauncher(false) end
         end
+        -- blur on
+        play(NihonBlur, 0.4, {Size = 14}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     end
 
     local function hide(toMorph)
@@ -1637,6 +1683,12 @@ function Nihon:MakeWindow(cfg)
                 if mine == closeToken and Window.Hidden then restoreGroup(shell) end
             end)
         end
+        -- hide bottom dock + kill blur
+        fadeGroup(bottomDock, 0.3, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        task.delay(0.35, function()
+            if Window.Hidden then bottomDock.Visible = false end
+        end)
+        play(NihonBlur, 0.35, {Size = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     end
 
     Window.Show = function() show(false) end
@@ -1644,8 +1696,7 @@ function Nihon:MakeWindow(cfg)
     function Window:Toggle() if Window.Hidden then show(true) else hide(true) end end
 
     -- =========================================================
-    -- MINIMIZE: hides window card, slides the WHOLE bottom dock down
-    -- so only the minimize button peeks at the bottom edge. Tabs go off-screen.
+    -- MINIMIZE
     -- =========================================================
     local function setMinimized(state)
         state = state and true or false
@@ -1654,15 +1705,14 @@ function Nihon:MakeWindow(cfg)
         Popup.close(true)
 
         if state then
-            -- Fade and hide the window card
             fadeGroup(winCard, 0.25, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
             task.delay(0.27, function()
                 if not Window.Minimized then return end
                 winCard.Visible = false
-
-                -- Slide bottom dock DOWN so only the min button remains visible
-                -- minBtnBox is the FIRST child of bottomDock (top), tabs are at the bottom.
-                -- So we push the dock down by (dock height - min button height).
+                play(minBtnBox, 0.35, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart)
+                if minBtnStroke then
+                    play(minBtnStroke, 0.35, {Transparency = 1}, Enum.EasingStyle.Quart)
+                end
                 local dockH = bottomDock.AbsoluteSize.Y / math.max(dockScale.Scale, 0.01)
                 local minH = minBtnBox.AbsoluteSize.Y / math.max(dockScale.Scale, 0.01)
                 local slideDown = math.max(0, dockH - minH - 2)
@@ -1671,11 +1721,14 @@ function Nihon:MakeWindow(cfg)
                 }, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
             end)
         else
-            -- Slide dock back up
             play(bottomDock, 0.5, {
                 Position = UDim2.new(0.5, 0, 1, -14)
             }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-
+            play(minBtnBox, 0.35, {BackgroundTransparency = 0.02}, Enum.EasingStyle.Quart)
+            if minBtnStroke then
+                local base = minBtnStroke:GetAttribute("_baseTrans") or 0.5
+                play(minBtnStroke, 0.35, {Transparency = base}, Enum.EasingStyle.Quart)
+            end
             winCard.Visible = true
             winCard.GroupTransparency = 1
             task.delay(0.15, function()
@@ -2914,7 +2967,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
     local rowH = mobile and 44 or 40
 
     local function card(height, hover)
-        local c = mk("TextButton", {Size=UDim2.new(1,0,0,height or rowH), BackgroundTransparency=0.25, ZIndex=24, LayoutOrder=E._count + 1, Parent=parent})
+        local c = mk("TextButton", {Size=UDim2.new(1,0,0,height or rowH), BackgroundTransparency=0.38, ZIndex=24, LayoutOrder=E._count + 1, Parent=parent})
         bind(c, "BackgroundColor3", "Surface")
         round(c, 12)
         local st = outline(c, "Stroke", 1, 0.45)
@@ -3097,8 +3150,28 @@ function ElementFactory(Window, Tab, parent, sectionName)
         end
         function obj:Get() return state.value end
         function obj:Toggle() obj:Set(not state.value) end
-        local rowClick = mk("TextButton", {Name="ToggleHitbox", Size=UDim2.fromScale(1,1), Position=UDim2.fromScale(0,0), BackgroundTransparency=1, Text="", AutoButtonColor=false, ZIndex=30, Parent=c})
-        rowClick.Activated:Connect(function()
+        -- Hitbox covering the whole card
+        local hitbox = mk("TextButton", {
+            Name="ToggleHitbox", Size=UDim2.fromScale(1,1), Position=UDim2.fromScale(0,0),
+            BackgroundTransparency=1, Text="", AutoButtonColor=false,
+            Active=true, ZIndex=30, Parent=c,
+        })
+        hitbox.Activated:Connect(function()
+            if obj:IsLocked() then return end
+            obj:Set(not state.value)
+        end)
+        -- Fallback: press+release on the card itself
+        local pressStart
+        c.InputBegan:Connect(function(input)
+            if not isPointer(input) then return end
+            pressStart = Vector2.new(input.Position.X, input.Position.Y)
+        end)
+        c.InputEnded:Connect(function(input)
+            if not isPointer(input) or not pressStart then return end
+            local endPos = Vector2.new(input.Position.X, input.Position.Y)
+            local dist = (endPos - pressStart).Magnitude
+            pressStart = nil
+            if dist > 8 then return end
             if obj:IsLocked() then return end
             obj:Set(not state.value)
         end)
@@ -3207,7 +3280,7 @@ function Nihon:_showKeyGate(onSuccess)
     local w = math.clamp(viewport().X - 32, 300, 420)
     local box = mk("CanvasGroup", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), Size=UDim2.fromOffset(w,0), AutomaticSize=Enum.AutomaticSize.Y, GroupTransparency=1, ZIndex=301, Parent=layer})
     bind(box, "BackgroundColor3", "Bg")
-    box.BackgroundTransparency = 0.02
+    box.BackgroundTransparency = 0.14
     round(box, 18)
     outline(box, "Stroke", 1, 0.12)
     local boxScale = mk("UIScale", {Scale=0.9, Parent=box})
@@ -3379,7 +3452,15 @@ local function attachSettings(Window)
         end})
         cfgSec:AddToggle({Name="Autosave", Default=Nihon.Autosave, Flag="_autosave", Save=true, Callback=function(v) Nihon:SetAutosave(v) end})
         local ui = tab:AddSection({Name="Interface"})
-        ui:AddBind({Name="Toggle menu", Default=Window.ToggleKey, Flag="_toggleKey", Save=true, Callback=function() end})
+        local bindObj = ui:AddBind({Name="Toggle menu", Default=Window.ToggleKey, Flag="_toggleKey", Save=true, Callback=function() end})
+        if bindObj then
+            local _origSet = bindObj.Set
+            bindObj.Set = function(self, k, silent)
+                if typeof(k) == "EnumItem" then Window.ToggleKey = k end
+                return _origSet(self, k, silent)
+            end
+            if typeof(bindObj.Value) == "EnumItem" then Window.ToggleKey = bindObj.Value end
+        end
         ui:AddButton({Name="Reset position", Icon="refresh-cw", Callback=function()
             local shell = Window._parts.shell
             shell.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -3426,6 +3507,7 @@ local function attachSearch(Window)
     local w = math.clamp(viewport().X - 32, 260, 440)
     local box = mk("CanvasGroup", {Name="Box", AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,mobile and 16 or 70), Size=UDim2.fromOffset(w,0), AutomaticSize=Enum.AutomaticSize.Y, GroupTransparency=1, ZIndex=181, Parent=layer})
     bind(box, "BackgroundColor3", "Surface")
+    box.BackgroundTransparency = 0.14
     round(box, 14)
     outline(box, "Stroke", 1, 0.1)
     local boxScale = mk("UIScale", {Scale=0.94, Parent=box})
@@ -3613,6 +3695,7 @@ function Nihon:Destroy()
     conns = {}
     for _, w in ipairs(Nihon.Windows) do pcall(function() w._parts.launcher:Destroy() end) end
     Nihon.Windows = {}
+    if NihonBlur then NihonBlur:Destroy() NihonBlur = nil end
     pcall(function() Root:Destroy() end)
     if env.NihonLibInstance == Nihon then env.NihonLibInstance = nil end
 end
