@@ -106,6 +106,7 @@ local function viewport()
 end
 
 local binds = {}
+local activeBindCapture = nil
 local fontObjs = setmetatable({}, {__mode = "k"})
 local themeHooks, tweens = {}, setmetatable({}, {__mode = "k"})
 
@@ -1677,14 +1678,11 @@ function Nihon:MakeWindow(cfg)
     local launcher = mk("TextButton", {Name="Launcher", AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,16), Size=UDim2.fromOffset(224,58), BackgroundColor3=Pal.Surface, BackgroundTransparency=0.04, Visible=false, ZIndex=250, Parent=Root})
     round(launcher, 17)
     local launcherStroke = outline(launcher, "Stroke", 1.2, 0.28)
-    local launcherIconBox = mk("Frame", {AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,10,0.5,0), Size=UDim2.fromOffset(38,38), BackgroundColor3=Pal.Elevated, ZIndex=251, Parent=launcher})
-    round(launcherIconBox, 12)
-    local launcherIconGrad = mk("UIGradient", {Rotation=45, Parent=launcherIconBox})
-    bind(launcherIconGrad, "Color", "Accent", function(_, p) return ColorSequence.new(p.Accent, p.Accent2) end)
-    local launcherIcon = makeIcon(launcherIconBox, cfg.Icon or "sparkles", 20, false, {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=252})
+    local launcherIconBox = mk("Frame", {AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,12,0.5,0), Size=UDim2.fromOffset(32,32), BackgroundTransparency=1, ZIndex=251, Parent=launcher})
+    local launcherIcon = makeIcon(launcherIconBox, cfg.Icon or "sparkles", 20, "Text", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=252})
     launcherIcon.Color(Color3.new(1,1,1))
-    local launcherTitle = tx("TextLabel", {Text=title, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(58,10), Size=UDim2.new(1,-70,0,18), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 3)
-    local launcherSub = tx("TextLabel", {Text="Tap to show", TextSize=10, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(58,29), Size=UDim2.new(1,-70,0,14), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 1, "Sub")
+    local launcherTitle = tx("TextLabel", {Text=title, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(52,10), Size=UDim2.new(1,-64,0,18), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 3)
+    local launcherSub = tx("TextLabel", {Text="Tap to show", TextSize=10, TextXAlignment=Enum.TextXAlignment.Left, Position=UDim2.fromOffset(52,29), Size=UDim2.new(1,-64,0,14), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=251, Parent=launcher}, 1, "Sub")
     bind(launcher, "BackgroundColor3", "Surface")
     bind(launcherTitle, "TextColor3", "Text")
     bind(launcherSub, "TextColor3", "Sub")
@@ -1758,7 +1756,7 @@ function Nihon:MakeWindow(cfg)
             launcherSub.TextTransparency = 0
             launcherIcon.Image.ImageTransparency = 0
             launcherIcon.Glyph.TextTransparency = 0
-            launcherIconBox.BackgroundTransparency = 0
+            launcherIconBox.BackgroundTransparency = 1
             launcher.Visible = true
             launcherScale.Scale = 0.2
             play(launcherScale, 0.5, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -1835,7 +1833,6 @@ function Nihon:MakeWindow(cfg)
             play(launcherStroke, 0.32, {Transparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
             play(launcherTitle, 0.22, {TextTransparency = 1})
             play(launcherSub, 0.22, {TextTransparency = 1})
-            play(launcherIconBox, 0.28, {BackgroundTransparency = 1})
             play(launcherIcon.Image, 0.28, {ImageTransparency = 1})
             play(launcherIcon.Glyph, 0.28, {TextTransparency = 1})
             play(launcherScale, 0.36, {Scale = 0.15}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
@@ -1858,7 +1855,7 @@ function Nihon:MakeWindow(cfg)
             fadeGroup(shell, 0.3, 0)
             if Nihon.ShowLauncher then showLauncher(false) end
         end
-        play(NihonBlur, 0.4, {Size = 14}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        play(NihonBlur, 0.5, {Size = 18}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     end
 
     hide = function(toMorph)
@@ -1891,7 +1888,6 @@ function Nihon:MakeWindow(cfg)
                 play(launcherStroke, 0.4, {Transparency = 0.55}, Enum.EasingStyle.Quart)
                 play(launcherTitle, 0.35, {TextTransparency = 0}, Enum.EasingStyle.Quart)
                 play(launcherSub, 0.35, {TextTransparency = 0}, Enum.EasingStyle.Quart)
-                play(launcherIconBox, 0.35, {BackgroundTransparency = 0}, Enum.EasingStyle.Quart)
                 play(launcherIcon.Image, 0.35, {ImageTransparency = 0}, Enum.EasingStyle.Quart)
                 play(launcherIcon.Glyph, 0.35, {TextTransparency = 0}, Enum.EasingStyle.Quart)
             end)
@@ -1951,7 +1947,7 @@ function Nihon:MakeWindow(cfg)
             end
             winCard.Visible = true
             winCard.GroupTransparency = 1
-            play(NihonBlur, 0.35, {Size = 14}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            play(NihonBlur, 0.45, {Size = 18}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             task.delay(0.15, function()
                 if Window.Minimized then return end
                 fadeGroup(winCard, 0.3, 0, Enum.EasingStyle.Quart)
@@ -1979,7 +1975,7 @@ function Nihon:MakeWindow(cfg)
     end)
 
     keep(UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
+        if gpe or activeBindCapture then return end
         local k = Window.GetToggleKey and Window.GetToggleKey() or Window.ToggleKey
         if not k then return end
         local hit = (k.EnumType == Enum.KeyCode and input.KeyCode == k) or (k.EnumType == Enum.UserInputType and input.UserInputType == k)
@@ -2489,15 +2485,27 @@ local function extendElements(E, ctx)
         chip.InputBegan:Connect(function(input)
             if not isPointer(input) then return end
             if obj:IsLocked() then return end
-            obj.Binding = true refresh()
+            if activeBindCapture and activeBindCapture ~= obj then
+                activeBindCapture.Binding = false
+                activeBindCapture = nil
+            end
+            activeBindCapture = obj
+            obj.Binding = true
+            refresh()
         end)
         keep(UserInputService.InputBegan:Connect(function(input, gpe)
             if obj.Binding then
                 if input.UserInputType == Enum.UserInputType.Keyboard then
-                    if input.KeyCode == Enum.KeyCode.Escape then obj:Set(nil)
-                    elseif not banned[input.KeyCode] then obj:Set(input.KeyCode) end
+                    if input.KeyCode == Enum.KeyCode.Escape then
+                        obj:Set(nil)
+                        activeBindCapture = nil
+                    elseif not banned[input.KeyCode] then
+                        obj:Set(input.KeyCode)
+                        activeBindCapture = nil
+                    end
                 elseif input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
                     obj:Set(input.UserInputType)
+                    activeBindCapture = nil
                 end
                 return
             end
