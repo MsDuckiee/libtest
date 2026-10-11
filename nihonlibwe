@@ -740,7 +740,7 @@ local corners = {
 }
 local noteLoop
 
-local function noteWidth() return math.clamp(math.floor(viewport().X - 28), 320, 420) end
+local function noteWidth() return math.clamp(math.floor(viewport().X - 32), 260, 420) end
 local function baseOrigin()
     local c = corners[Notes.position] or corners.TopRight
     local xOff = c.ax == 0.5 and 0 or (c.ax == 1 and -16 or 16)
@@ -880,25 +880,20 @@ spawnNote = function(entry)
     local frameScale = mk("UIScale", {Scale=1, Parent=frame})
     n.pop = frameScale
 
-    local accent = mk("Frame", {
-        Size=UDim2.fromOffset(4,50), Position=UDim2.fromOffset(0,13),
-        BackgroundColor3=color, ZIndex=4, Parent=frame,
-    })
-    round(accent, 2)
     local icon = makeIcon(frame, cfg.Icon or firstIcon(StatusIcons[entry.kind]) or "bell",
-        22, false, {AnchorPoint=Vector2.new(0,0), Position=UDim2.fromOffset(19,27), ZIndex=5})
+        22, false, {AnchorPoint=Vector2.new(0,0), Position=UDim2.fromOffset(15,27), ZIndex=5})
     n.iconImage = icon
 
     local title = tx("TextLabel", {
         Text=tostring(cfg.Name or cfg.Title or "Notification"),
         TextSize=14, Font=Fonts[currentFont][3],
-        Position=UDim2.fromOffset(58,12), Size=UDim2.new(1,-104,0,20),
+        Position=UDim2.fromOffset(48,12), Size=UDim2.new(1,-94,0,20),
         TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd,
         ZIndex=5, Parent=frame,
     }, 3)
     local body = tx("TextLabel", {
-        Text=content, TextSize=12, Position=UDim2.fromOffset(58,35),
-        Size=UDim2.new(1,-86,0,0), TextWrapped=true,
+        Text=content, TextSize=12, Position=UDim2.fromOffset(48,35),
+        Size=UDim2.new(1,-82,0,0), TextWrapped=true,
         TextXAlignment=Enum.TextXAlignment.Left, TextYAlignment=Enum.TextYAlignment.Top,
         Visible=content ~= "", ZIndex=5, Parent=frame,
     }, 1, "Sub")
@@ -998,9 +993,9 @@ spawnNote = function(entry)
         local topPad = 13
         local bodyH = 0
         if content ~= "" then
-            local sz = measure(content, 12, Fonts[currentFont][1], Vector2.new(w - 92, 1000))
+            local sz = measure(content, 12, Fonts[currentFont][1], Vector2.new(w - 82, 1000))
             bodyH = math.max(16, math.ceil(sz.Y))
-            body.Size = UDim2.new(1, -92, 0, bodyH)
+            body.Size = UDim2.new(1, -82, 0, bodyH)
         end
         local total = topPad + 20 + bodyH + topPad
         n.height = math.max(76, total)
@@ -1791,6 +1786,8 @@ function Nihon:MakeWindow(cfg)
         end
     end
 
+    local show, hide
+
     launcher.InputEnded:Connect(function(input)
         local pointer = input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
         if pointer and not launcherMoved then show(true) end
@@ -1825,7 +1822,7 @@ function Nihon:MakeWindow(cfg)
         end))
     end
 
-    local function show(fromMorph)
+    show = function(fromMorph)
         Window.Morphing = false
         if tweens[shell] then for _, tw in pairs(tweens[shell]) do pcall(function() tw:Cancel() end) end end
         Window.Hidden = false
@@ -1882,7 +1879,7 @@ function Nihon:MakeWindow(cfg)
         play(NihonBlur, 0.4, {Size = 14}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     end
 
-    local function hide(toMorph)
+    hide = function(toMorph)
         Window.Morphing = false
         Window.Hidden = true
         Popup.close(true)
@@ -3264,16 +3261,6 @@ function ElementFactory(Window, Tab, parent, sectionName)
         bind(c, "BackgroundColor3", "Surface")
         round(c, 15)
         local st = outline(c, "Stroke", 1.2, 0.5)
-        if hover then
-            local stripe = mk("Frame", {Name="AccentStripe", AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,0,0.5,0), Size=UDim2.new(0,3,1,-16), BackgroundColor3=Pal.Accent, ZIndex=25, Parent=c})
-            round(stripe, 2)
-            local stripeGrad = mk("UIGradient", {Rotation=90, Parent=stripe})
-            bind(stripeGrad, "Color", "Accent", function(_, p) return ColorSequence.new(p.Accent, p.Accent2) end)
-            stripeGrad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 0.2)})
-            stripe.Position = UDim2.new(0,-6,0.5,0)
-            c.MouseEnter:Connect(function() play(stripe, 0.25, {Position = UDim2.new(0,0,0.5,0)}, Enum.EasingStyle.Quart) end)
-            c.MouseLeave:Connect(function() play(stripe, 0.3, {Position = UDim2.new(0,-6,0.5,0)}, Enum.EasingStyle.Quart) end)
-        end
         c:SetAttribute("NihonCard", true)
         return c, st
     end
@@ -3453,10 +3440,11 @@ function ElementFactory(Window, Tab, parent, sectionName)
         end
         function obj:Get() return state.value end
         function obj:Toggle() obj:Set(not state.value) end
-        c.Activated:Connect(function()
+        local function flip()
             if obj:IsLocked() then return end
             obj:Set(not state.value)
-        end)
+        end
+        c.Activated:Connect(flip)
         register(o.Flag, obj, o, function() return state.value end, function(v) obj:Set(v) end)
         decorate(obj, c, o, "Toggle")
         local start = o.Default and true or false
