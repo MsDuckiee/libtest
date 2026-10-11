@@ -1997,9 +1997,10 @@ function Nihon:MakeWindow(cfg)
     end)
 
     keep(UserInputService.InputBegan:Connect(function(input, gpe)
-        local k = Window.ToggleKey
+        if gpe then return end
+        local k = Window.GetToggleKey and Window.GetToggleKey() or Window.ToggleKey
         if not k then return end
-        local hit = input.KeyCode == k or input.UserInputType == k
+        local hit = (k.EnumType == Enum.KeyCode and input.KeyCode == k) or (k.EnumType == Enum.UserInputType and input.UserInputType == k)
         if not hit then return end
         if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.Unknown then return end
         Window:Toggle()
@@ -2526,7 +2527,15 @@ local function extendElements(E, ctx)
                 end)
             end
         end))
-        register(o.Flag, obj, o, function() return obj.Value end, function(v) obj:Set(v, true) end)
+        register(o.Flag, obj, o, function() return obj.Value end, function(v)
+            obj:Set(v, true)
+            if type(o.OnChange) == "function" then
+                local ok, err = pcall(o.OnChange, obj.Value)
+                if not ok then
+                    Nihon:MakeNotification({Name=label.." bind", Content=errorText(err), Type="Warning", Time=4})
+                end
+            end
+        end)
         decorate(obj, c, o, "Keybind")
         kbEntries[#kbEntries + 1] = {name=label, get=function() return obj.Value end}
         obj:Set(o.Default, true)
@@ -3814,11 +3823,13 @@ local function attachSettings(Window)
 
         local ui = tab:AddSection({Name="Interface"})
         ui:AddBind({
-            Name = "Toggle menu",
+            Name = "Close / toggle menu",
             Default = Window.ToggleKey,
             Flag = "_toggleKey",
             Save = true,
-            Callback = function() end,
+            Callback = function()
+                Window:Toggle()
+            end,
             OnChange = function(k)
                 Window.SetToggleKey(k)
             end,
