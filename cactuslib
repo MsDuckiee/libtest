@@ -78,19 +78,6 @@ local Status = {Info=Color3.fromRGB(96,156,255), Success=Color3.fromRGB(78,214,1
 local StatusIcons = {Info={"info"}, Success={"check-circle","check"}, Warning={"alert-triangle","alert-circle"}, Error={"x-circle","x"}}
 local Glyphs = {["info"]="i",["check-circle"]="+",["check"]="+",["alert-triangle"]="!",["alert-circle"]="!",["x-circle"]="x",["x"]="x",["minus"]="-",["plus"]="+",["chevron-down"]="v",["chevron-up"]="^",["chevron-right"]=">",["chevron-left"]="<",["search"]="o",["menu"]="=",["activity"]="~",["lock"]="#",["bell"]="B",["key"]="K",["discord"]="D",["sprout"]="*",["shield"]="S",["zap"]="Z",["settings"]="*",["save"]="S",["download"]="v",["trash-2"]="X",["refresh-cw"]="R",["external-link"]=">"}
 
--- Special asset overrides (checked before Lucide map)
-local SpecialIcons = {
-    searchicon       = "112780490255100",
-    ["search-icon"]  = "112780490255100",
-    search           = "112780490255100",
-    home             = "13060262529",
-    combat           = "100240689224561",
-    players          = "117259180607823",
-    settings         = "7059346373",
-    cactus           = "102094015535537",
-    always           = "102094015535537",
-}
-
 local Fonts = {Modern={Enum.Font.Gotham,Enum.Font.GothamMedium,Enum.Font.GothamBold}, Rounded={Enum.Font.Nunito,Enum.Font.Nunito,Enum.Font.FredokaOne}, Mono={Enum.Font.RobotoMono,Enum.Font.RobotoMono,Enum.Font.RobotoMono}, Classic={Enum.Font.SourceSans,Enum.Font.SourceSansSemibold,Enum.Font.SourceSansBold}, Clean={Enum.Font.Ubuntu,Enum.Font.Ubuntu,Enum.Font.Ubuntu}}
 local FontOrder = {"Modern","Rounded","Mono","Classic","Clean"}
 local currentFont, animSpeed, currentScale = "Modern", 1, 1
@@ -276,41 +263,146 @@ local function setFont(name)
     for obj, w in pairs(fontObjs) do obj.Font = Fonts[name][w] end
 end
 
+-- =========================================================
+-- ICON SYSTEM (LucideBlox JSON + Rayfield sprite sheet)
+-- =========================================================
+local SpecialIcons = {
+    searchicon      = "112780490255100",
+    ["search-icon"] = "112780490255100",
+    search          = "112780490255100",
+    home            = "13060262529",
+    combat          = "100240689224561",
+    players         = "117259180607823",
+    settings        = "7059346373",
+    cactus          = "72356031828033",
+    always          = "72356031828033",
+}
+
 local IconMap = {}
+
+-- 1) LucideBlox JSON (direct URLs / asset IDs)
 pcall(function()
     local raw = game:HttpGet("https://raw.githubusercontent.com/evoincorp/lucideblox/master/src/modules/util/icons.json")
-    IconMap = HttpService:JSONDecode(raw).icons or {}
+    local decoded = HttpService:JSONDecode(raw)
+    local icons = decoded.icons or decoded
+    if type(icons) == "table" then
+        for name, val in pairs(icons) do
+            if type(val) == "string" then
+                IconMap[name] = { url = val }
+            elseif type(val) == "number" then
+                IconMap[name] = { url = "rbxassetid://" .. val }
+            elseif type(val) == "table" then
+                if val.url then IconMap[name] = { url = tostring(val.url) }
+                elseif val[1] and type(val[1]) == "number" then
+                    local sz = val[2] or {48, 48}
+                    local off = val[3] or {0, 0}
+                    IconMap[name] = {
+                        sprite = {
+                            id = val[1],
+                            w = sz[1] or 48, h = sz[2] or 48,
+                            x = off[1] or 0, y = off[2] or 0,
+                        }
+                    }
+                end
+            end
+        end
+    end
+end)
+
+-- 2) Rayfield sprite sheet (Lua table)
+pcall(function()
+    local raw = game:HttpGet("https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/refs/heads/main/icons.lua")
+    local data
+    local ok, fn = pcall(loadstring, raw)
+    if ok and type(fn) == "function" then
+        local ok2, result = pcall(fn)
+        if ok2 then data = result end
+    end
+    if type(data) ~= "table" then
+        data = {}
+        for name, id, w, h, x, y in raw:gmatch('%[?"?([%w_%-%.]+)"?%]?%s*=%s*{(%d+),%s*{(%d+),(%d+)},%s*{(%d+),(%d+)}}') do
+            data[name] = { tonumber(id), { tonumber(w), tonumber(h) }, { tonumber(x), tonumber(y) } }
+        end
+    end
+    if type(data) == "table" then
+        local sheet = data["48px"] or data["24px"] or data["32px"]
+        if not sheet then
+            for _, v in pairs(data) do
+                if type(v) == "table" then sheet = v break end
+            end
+        end
+        if type(sheet) == "table" then
+            for name, entry in pairs(sheet) do
+                if type(entry) == "table" and type(entry[1]) == "number" then
+                    local sz = entry[2] or {48, 48}
+                    local off = entry[3] or {0, 0}
+                    IconMap[name] = {
+                        sprite = {
+                            id = entry[1],
+                            w = sz[1] or 48, h = sz[2] or 48,
+                            x = off[1] or 0, y = off[2] or 0,
+                        }
+                    }
+                end
+            end
+        end
+    end
 end)
 
 local function resolveIcon(name)
     if name == nil then return nil end
     local s = tostring(name)
     if s == "" then return nil end
-    -- Special overrides first
     local special = SpecialIcons[s:lower()]
-    if special then return "rbxassetid://" .. special end
-    if IconMap[s] then return IconMap[s] end
-    if s:find("^rbxassetid://") or s:find("^rbxasset://") or s:find("^rbxthumb://") then return s end
-    if tonumber(s) then return "rbxassetid://" .. s end
-    return nil
+    if special then return { url = "rbxassetid://" .. special } end
+    if s:find("^rbxassetid://") or s:find("^rbxasset://") or s:find("^rbxthumb://") then
+        return { url = s }
+    end
+    if tonumber(s) then return { url = "rbxassetid://" .. s } end
+    return IconMap[s]
 end
+
 local function firstIcon(list)
     for _, n in ipairs(list) do if IconMap[n] then return n end end
     return list[1]
 end
+
 local function makeIcon(parent, name, size, tone, props)
     local holder = mk("Frame", {BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size)})
     if props then for k, v in pairs(props) do holder[k] = v end end
     holder.Parent = parent
-    local img = mk("ImageLabel", {BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ScaleType = Enum.ScaleType.Fit, Parent = holder})
-    local glyph = tx("TextLabel", {Size = UDim2.fromScale(1, 1), TextSize = math.floor(size * 0.95), TextXAlignment = Enum.TextXAlignment.Center, Visible = false, Parent = holder}, 3, (tone or "Text"))
+    local img = mk("ImageLabel", {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        ScaleType = Enum.ScaleType.Fit,
+        Parent = holder,
+    })
+    local glyph = tx("TextLabel", {
+        Size = UDim2.fromScale(1, 1),
+        TextSize = math.floor(size * 0.95),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        Visible = false,
+        Parent = holder,
+    }, 3, (tone or "Text"))
     if tone ~= false then bind(img, "ImageColor3", tone or "Text") end
     local api = {Holder = holder, Image = img, Glyph = glyph}
     function api.Set(n)
-        local id = resolveIcon(n)
-        if id then img.Image = id img.Visible = true glyph.Visible = false
+        local resolved = resolveIcon(n)
+        if resolved and resolved.sprite then
+            img.Image = "rbxassetid://" .. resolved.sprite.id
+            img.ImageRectSize = Vector2.new(resolved.sprite.w, resolved.sprite.h)
+            img.ImageRectOffset = Vector2.new(resolved.sprite.x, resolved.sprite.y)
+            img.Visible = true
+            glyph.Visible = false
+        elseif resolved and resolved.url then
+            img.Image = resolved.url
+            img.ImageRectSize = Vector2.new(0, 0)
+            img.ImageRectOffset = Vector2.new(0, 0)
+            img.Visible = true
+            glyph.Visible = false
         else
-            img.Visible = false glyph.Visible = true
+            img.Visible = false
+            glyph.Visible = true
             local key = tostring(n or "")
             glyph.Text = Glyphs[key] or key:sub(1, 1):upper()
         end
@@ -326,6 +418,7 @@ local function makeIcon(parent, name, size, tone, props)
     api.Set(name)
     return api
 end
+
 local function isPointer(i)
     return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
 end
