@@ -77,6 +77,20 @@ loadPalette("Midnight")
 local Status = {Info=Color3.fromRGB(96,156,255), Success=Color3.fromRGB(78,214,140), Warning=Color3.fromRGB(255,192,72), Error=Color3.fromRGB(255,90,102)}
 local StatusIcons = {Info={"info"}, Success={"check-circle","check"}, Warning={"alert-triangle","alert-circle"}, Error={"x-circle","x"}}
 local Glyphs = {["info"]="i",["check-circle"]="+",["check"]="+",["alert-triangle"]="!",["alert-circle"]="!",["x-circle"]="x",["x"]="x",["minus"]="-",["plus"]="+",["chevron-down"]="v",["chevron-up"]="^",["chevron-right"]=">",["chevron-left"]="<",["search"]="o",["menu"]="=",["activity"]="~",["lock"]="#",["bell"]="B",["key"]="K",["discord"]="D",["sprout"]="*",["shield"]="S",["zap"]="Z",["settings"]="*",["save"]="S",["download"]="v",["trash-2"]="X",["refresh-cw"]="R",["external-link"]=">"}
+
+-- Special asset overrides (checked before Lucide map)
+local SpecialIcons = {
+    searchicon       = "112780490255100",
+    ["search-icon"]  = "112780490255100",
+    search           = "112780490255100",
+    home             = "13060262529",
+    combat           = "100240689224561",
+    players          = "117259180607823",
+    settings         = "7059346373",
+    cactus           = "102094015535537",
+    always           = "102094015535537",
+}
+
 local Fonts = {Modern={Enum.Font.Gotham,Enum.Font.GothamMedium,Enum.Font.GothamBold}, Rounded={Enum.Font.Nunito,Enum.Font.Nunito,Enum.Font.FredokaOne}, Mono={Enum.Font.RobotoMono,Enum.Font.RobotoMono,Enum.Font.RobotoMono}, Classic={Enum.Font.SourceSans,Enum.Font.SourceSansSemibold,Enum.Font.SourceSansBold}, Clean={Enum.Font.Ubuntu,Enum.Font.Ubuntu,Enum.Font.Ubuntu}}
 local FontOrder = {"Modern","Rounded","Mono","Classic","Clean"}
 local currentFont, animSpeed, currentScale = "Modern", 1, 1
@@ -272,6 +286,9 @@ local function resolveIcon(name)
     if name == nil then return nil end
     local s = tostring(name)
     if s == "" then return nil end
+    -- Special overrides first
+    local special = SpecialIcons[s:lower()]
+    if special then return "rbxassetid://" .. special end
     if IconMap[s] then return IconMap[s] end
     if s:find("^rbxassetid://") or s:find("^rbxasset://") or s:find("^rbxthumb://") then return s end
     if tonumber(s) then return "rbxassetid://" .. s end
@@ -1466,9 +1483,9 @@ Cactus.Started = os.clock()
 -- =========================================================
 local Hooks = {attach=nil, _pending=nil}
 local Sizes = {desktop={w=700,h=480,topH=76}, mobile={w=540,h=360,topH=66}}
-local ALWAYS_ICON = "11454816998"
+local ALWAYS_ICON = "cactus"
 local ALWAYS_NAME = "Home - CactusLib"
-local SEARCH_ICON = "118685771787843"
+local SEARCH_ICON = "searchicon"
 
 function Cactus:MakeWindow(cfg)
     cfg = cfg or {}
@@ -2108,6 +2125,18 @@ function TabImpl.make(Window, tcfg)
     Tab.Remember = function() scrollMemory = scroll.CanvasPosition.Y end
     Tab.Restore = function() scroll.CanvasPosition = Vector2.new(0, scrollMemory) end
     Window.Tabs[index] = Tab
+
+    -- Force Settings tab to always be last
+    if name:lower() == "settings" then
+        for i, t in ipairs(Window.Tabs) do
+            if t == Tab then table.remove(Window.Tabs, i) break end
+        end
+        table.insert(Window.Tabs, Tab)
+        for i, t in ipairs(Window.Tabs) do
+            t.Index = i
+            t.Button.LayoutOrder = i
+        end
+    end
 
     btn.MouseEnter:Connect(function()
         if Window.Selected ~= Tab then
@@ -3267,7 +3296,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
         bind(c, "BackgroundColor3", "Surface")
         round(c, 15)
         local st = outline(c, "Stroke", 1.2, 0.5)
-        c:SetAttribute("NihonCard", true)
+        c:SetAttribute("CactusCard", true)
         return c, st
     end
 
@@ -4006,19 +4035,6 @@ end
 -- =========================================================
 function Cactus:Init()
     if Cactus._ready then return end
-    if Cactus._keyCfg and not Cactus._keyVerified then
-        if Cactus.KeyFile and Cactus.AutoVerify then
-            local saved = Cactus:LoadKeyFromFile()
-            if saved and saved ~= "" and Cactus:_validateKey(saved) then
-                Cactus._keyVerified = true
-                if Cactus._keyCfg.OnSuccess then pcall(Cactus._keyCfg.OnSuccess, saved) end
-            end
-        end
-        if not Cactus._keyVerified then
-            Cactus:_showKeyGate(function() Cactus:Init() end)
-            return
-        end
-    end
     local window = Cactus.Windows[1]
     local cfg = window and window.Cfg or {}
     local function finish()
@@ -4061,7 +4077,26 @@ function Cactus:Init()
             window.Launcher.BackgroundTransparency = 0
         end
     end
-    loadingScreen(cfg, window and window.Name or "CactusLib", finish)
+    local function afterKey()
+        finish()
+    end
+    local function afterLoading()
+        if Cactus._keyCfg and not Cactus._keyVerified then
+            if Cactus.KeyFile and Cactus.AutoVerify then
+                local saved = Cactus:LoadKeyFromFile()
+                if saved and saved ~= "" and Cactus:_validateKey(saved) then
+                    Cactus._keyVerified = true
+                    if Cactus._keyCfg.OnSuccess then pcall(Cactus._keyCfg.OnSuccess, saved) end
+                end
+            end
+            if not Cactus._keyVerified then
+                Cactus:_showKeyGate(function() afterKey() end)
+                return
+            end
+        end
+        afterKey()
+    end
+    loadingScreen(cfg, window and window.Name or "CactusLib", afterLoading)
 end
 
 function Cactus:Destroy()
