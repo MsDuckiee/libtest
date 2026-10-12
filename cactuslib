@@ -1,4 +1,4 @@
---[[ CactusLib | v7.7 ]]
+--[[ CactusLib | v7.8 (Smooth) ]]
 
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -24,7 +24,7 @@ if type(env.CactusLibInstance) == "table" and type(env.CactusLibInstance.Destroy
 end
 
 local Cactus = {
-    Version = "7.7.0", Flags = {}, Windows = {}, Folder = "CactusLib", Profile = "default",
+    Version = "7.8.0", Flags = {}, Windows = {}, Folder = "CactusLib", Profile = "default",
     SaveConfig = false, Autosave = false, AutosaveDelay = 1.5,
     IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
     ShowLauncher = true, ShowResize = true, ShowSearch = true, ShowMinimize = true, ShowClose = true,
@@ -111,6 +111,11 @@ local activeBindCapture = nil
 local fontObjs = setmetatable({}, {__mode = "k"})
 local themeHooks, tweens = {}, setmetatable({}, {__mode = "k"})
 
+-- =========================================================
+-- MOTION CORE
+-- =========================================================
+-- Central animation dispatcher. Every tween in the library goes through here
+-- so we can guarantee consistent easing, cancellation, and speed scaling.
 local function play(obj, dur, props, style, dir)
     if not obj or not obj.Parent then return end
     local names = {}
@@ -125,6 +130,23 @@ local function play(obj, dur, props, style, dir)
     slot[key] = tw
     tw:Play()
     return tw
+end
+
+-- Spring-out: subtle overshoot, tuned to feel physical not bouncy
+local function pop(obj, dur, props)
+    return play(obj, dur or 0.32, props, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end
+
+-- Smooth-out: soft ease-in-out for state changes
+local function smooth(obj, dur, props)
+    return play(obj, dur or 0.26, props, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+end
+
+-- Stagger helper: runs fn(index) for 1..count with delay*i offset
+local function stagger(count, delay, fn)
+    for i = 1, count do
+        task.delay(delay * (i - 1), function() fn(i) end)
+    end
 end
 
 local function after(tw, fn)
@@ -413,6 +435,16 @@ local function makeIcon(parent, name, size, tone, props)
             img.ImageColor3 = c glyph.TextColor3 = c
         end
     end
+    -- Wobble: playful little rotation for feedback
+    function api.Wobble(deg)
+        local r = deg or 8
+        play(holder, 0.14, {Rotation = r}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        task.delay(0.14, function()
+            if holder.Parent then
+                play(holder, 0.34, {Rotation = 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            end
+        end)
+    end
     api.Set(name)
     return api
 end
@@ -688,7 +720,7 @@ local function hideTip()
     if tipFollowConn then tipFollowConn:Disconnect() tipFollowConn = nil end
     if tipBox then
         local old = tipBox tipBox = nil
-        fadeGroup(old, 0.12, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        play(old, 0.14, {GroupTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         task.delay(0.2, function() if old and old.Parent then old:Destroy() end end)
     end
 end
@@ -705,7 +737,7 @@ local function showTip(text)
     box.Position = UDim2.fromOffset(math.clamp(m.X + 16, 6, v.X - size.X - 26), math.clamp(m.Y + 20, 6, v.Y - size.Y - 26))
     tipBox = box
     ensureTipFollow()
-    fadeGroup(box, 0.15, 0, Enum.EasingStyle.Quart)
+    pop(box, 0.22, {GroupTransparency = 0})
 end
 local function attachTip(gui, getText)
     if Cactus.IsMobile then return end
@@ -780,7 +812,7 @@ function Popup.open(anchor, o)
         place()
     end)
     Popup.current = cur
-    play(frame, 0.24, {Size = UDim2.fromOffset(w, h)}, Enum.EasingStyle.Quart)
+    pop(frame, 0.28, {Size = UDim2.fromOffset(w, h)})
     return frame
 end
 
@@ -839,7 +871,7 @@ function Cactus:SetAutosave(on, delay)
 end
 
 -- =========================================================
--- NOTIFICATIONS (redesigned)
+-- NOTIFICATIONS
 -- =========================================================
 local Notes = {active={}, queue={}, byKey={}, queuedKey={}, max=5, duration=4, position="TopRight"}
 local noteLayer = mk("Frame", {Name="Notifications", BackgroundTransparency=1, Size=UDim2.fromScale(1,1), ZIndex=100, Parent=Root})
@@ -870,7 +902,8 @@ local function layoutAll()
             else y = yOff - offset end
             local targetPos = UDim2.new(c.ax, xOff, c.ay, y)
             n.frame.ZIndex = 300 - i
-            play(n.frame, 0.32, {Position = targetPos, Size = UDim2.fromOffset(targetW, targetH)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            -- smooth stack reflow; longer when the note is deep so it feels settled
+            smooth(n.frame, 0.34, {Position = targetPos, Size = UDim2.fromOffset(targetW, targetH)})
             offset = offset + targetH + gap
             n.slot = i
         end
@@ -896,14 +929,13 @@ local function dismissNote(n)
         local outX = c.ax == 1 and (noteWidth() + 60) or (c.ax == 0 and -(noteWidth() + 60) or 0)
         local curPos = n.frame.Position
         local target = UDim2.new(c.ax, (c.ax == 1 and -16 or 16) + outX, c.ay, curPos.Y)
-        play(n.frame, 0.28, {Position = target}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-        local fade = play(n.frame, 0.22, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        play(n.frame, 0.26, {Position = target}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        play(n.frame, 0.2, {GroupTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         for _, d in ipairs(n.frame:GetDescendants()) do
-            if d:IsA("TextLabel") or d:IsA("ImageLabel") then
-                play(d, 0.18, d:IsA("TextLabel") and {TextTransparency = 1} or {ImageTransparency = 1})
-            end
+            if d:IsA("TextLabel") then play(d, 0.16, {TextTransparency = 1})
+            elseif d:IsA("ImageLabel") then play(d, 0.16, {ImageTransparency = 1}) end
         end
-        task.delay(0.32, function() if n.frame and n.frame.Parent then n.frame:Destroy() end end)
+        task.delay(0.3, function() if n.frame and n.frame.Parent then n.frame:Destroy() end end)
     end
     layoutAll()
     promoteQueue()
@@ -916,12 +948,14 @@ local function bumpNote(n, extra)
     if n.countLbl then
         n.countLbl.Text = "×" .. tostring(n.count)
         n.countLbl.Visible = n.count > 1
+        if n.countLbl.Visible then
+            play(n.countLbl, 0.22, {TextSize = 12}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            task.delay(0.15, function() if n.countLbl.Parent then play(n.countLbl, 0.2, {TextSize = 10}) end end)
+        end
     end
-    if n.bar then
-        n.bar.Size = UDim2.new(1, 0, 1, 0)
-    end
+    if n.bar then n.bar.Size = UDim2.new(1, 0, 1, 0) end
     if n.frame then
-        play(n.frame, 0.22, {BackgroundTransparency = 0}, Enum.EasingStyle.Quart)
+        play(n.frame, 0.18, {BackgroundTransparency = 0}, Enum.EasingStyle.Quart)
     end
 end
 
@@ -961,11 +995,12 @@ spawnNote = function(entry)
     local content = tostring(cfg.Content or "")
     local title_text = tostring(cfg.Name or cfg.Title or "Notification")
 
-    local frame = mk("Frame", {
+    local frame = mk("CanvasGroup", {
         Name = "Note",
         Size = UDim2.fromOffset(w, n.height),
         BackgroundColor3 = Pal.Surface,
         BackgroundTransparency = 0.02,
+        GroupTransparency = 1,
         Parent = noteLayer,
     })
     bind(frame, "BackgroundColor3", "Surface")
@@ -1151,10 +1186,17 @@ spawnNote = function(entry)
     local outX = c.ax == 1 and (noteWidth() + 60) or (c.ax == 0 and -(noteWidth() + 60) or 0)
     frame.AnchorPoint = Vector2.new(c.ax, c.ay)
     frame.Position = UDim2.new(c.ax, xOff + outX, c.ay, c.ay == 0 and 16 or -16)
+    -- subtle rotation for a "tilt in" entrance
+    frame.Rotation = (c.ax == 1 and 3 or -3)
 
     task.delay(0.02, function()
         if not n.dying and frame.Parent then
             n.spawned = true
+            -- spring entrance
+            local targetPos = UDim2.new(c.ax, xOff, c.ay, c.ay == 0 and (16 + (n.slot - 1) * (n.height + 8)) or (-16 - (n.slot - 1) * (n.height + 8)))
+            pop(frame, 0.42, {Position = targetPos})
+            play(frame, 0.36, {GroupTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            play(frame, 0.32, {Rotation = 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             layoutAll()
         end
     end)
@@ -1233,7 +1275,7 @@ function Cactus:Dialog(cfg)
     box.BackgroundTransparency = 0.06
     round(box, 12)
     outline(box, "Stroke", 1, 0.15)
-    local sc = mk("UIScale", {Scale=0.94, Parent=box})
+    local sc = mk("UIScale", {Scale=0.9, Parent=box})
     local col = mk("Frame", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, Parent=box})
     inset(col, 20, 20, 20, 20)
     stack(col, 8)
@@ -1273,7 +1315,7 @@ function Cactus:Dialog(cfg)
     layer.Activated:Connect(function() if cfg.Dismissable ~= false then dialog:Close() end end)
     play(layer, 0.22, {BackgroundTransparency = 0.55})
     fadeGroup(box, 0.28, 0, Enum.EasingStyle.Quart)
-    play(sc, 0.36, {Scale = 1}, Enum.EasingStyle.Back)
+    pop(sc, 0.42, {Scale = 1})
     return dialog
 end
 
@@ -1503,7 +1545,7 @@ function Watermark.set(on)
             end)
         end
         Watermark.frame.Visible = true
-        fadeGroup(Watermark.frame, 0.25, 0)
+        pop(Watermark.frame, 0.36, {BackgroundTransparency = 0.1})
     elseif Watermark.frame then
         Watermark.frame.Visible = false
     end
@@ -1678,9 +1720,26 @@ function Cactus:MakeWindow(cfg)
         round(dot, 7)
         mk("UIStroke", {Thickness=1, Color=Color3.new(0,0,0), Transparency=0.85, ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Parent=dot})
         local lbl = tx("TextLabel", {Size=UDim2.fromScale(1,1), Text=glyph or "", TextSize=10, TextXAlignment=Enum.TextXAlignment.Center, TextYAlignment=Enum.TextYAlignment.Center, TextColor3=Color3.fromRGB(60,20,20), TextTransparency=1, ZIndex=32, Parent=dot}, 3)
-        dot.MouseEnter:Connect(function() lbl.TextTransparency = 0.1 play(dot, 0.12, {BackgroundTransparency=0}) end)
-        dot.MouseLeave:Connect(function() lbl.TextTransparency = 1 play(dot, 0.18, {BackgroundTransparency=0.05}) end)
-        dot.InputBegan:Connect(function(input) if isPointer(input) then play(dot, 0.08, {BackgroundTransparency=0.3}) end end)
+        dot.MouseEnter:Connect(function()
+            lbl.TextTransparency = 0.1
+            play(dot, 0.14, {BackgroundTransparency=0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            pop(dot, 0.28, {Size = UDim2.fromOffset(15, 15)})
+        end)
+        dot.MouseLeave:Connect(function()
+            lbl.TextTransparency = 1
+            play(dot, 0.18, {BackgroundTransparency=0.05})
+            smooth(dot, 0.22, {Size = UDim2.fromOffset(14, 14)})
+        end)
+        dot.InputBegan:Connect(function(input)
+            if isPointer(input) then
+                play(dot, 0.08, {BackgroundTransparency=0.35, Size = UDim2.fromOffset(12, 12)})
+            end
+        end)
+        dot.InputEnded:Connect(function(input)
+            if isPointer(input) then
+                pop(dot, 0.32, {Size = UDim2.fromOffset(14, 14), BackgroundTransparency = 0})
+            end
+        end)
         return dot, lbl
     end
 
@@ -1753,10 +1812,12 @@ function Cactus:MakeWindow(cfg)
     minBtnBox.MouseEnter:Connect(function()
         if Window.Minimized then return end
         play(minBtnBox, 0.15, {BackgroundTransparency = 0.85})
+        pop(minBtnBox, 0.3, {Size = UDim2.fromOffset(42, 42)})
     end)
     minBtnBox.MouseLeave:Connect(function()
         if Window.Minimized then return end
         play(minBtnBox, 0.2, {BackgroundTransparency = 0.08})
+        smooth(minBtnBox, 0.22, {Size = UDim2.fromOffset(40, 40)})
     end)
     Window.MinButton = minBtnBox
 
@@ -1776,8 +1837,16 @@ function Cactus:MakeWindow(cfg)
 
     tx("TextLabel", {Text=LocalPlayer.DisplayName, TextSize=12, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(46,7), Size=UDim2.new(1,-54,0,15), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=16, Parent=playerPill}, 3)
     tx("TextLabel", {Text="@"..LocalPlayer.Name, TextSize=10, Position=UDim2.fromOffset(46,23), Size=UDim2.new(1,-54,0,13), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=16, Parent=playerPill}, 1, "Sub")
-    playerPill.MouseEnter:Connect(function() play(playerPill, 0.15, {BackgroundTransparency = 0.85}) play(pillStroke, 0.15, {Transparency = 0.25}) end)
-    playerPill.MouseLeave:Connect(function() play(playerPill, 0.2, {BackgroundTransparency = 0.1}) play(pillStroke, 0.2, {Transparency = 0.55}) end)
+    playerPill.MouseEnter:Connect(function()
+        play(playerPill, 0.15, {BackgroundTransparency = 0.85})
+        play(pillStroke, 0.15, {Transparency = 0.25})
+        pop(playerPill, 0.3, {Size = UDim2.fromOffset(214, 44)})
+    end)
+    playerPill.MouseLeave:Connect(function()
+        play(playerPill, 0.2, {BackgroundTransparency = 0.1})
+        play(pillStroke, 0.2, {Transparency = 0.55})
+        smooth(playerPill, 0.22, {Size = UDim2.fromOffset(210, 42)})
+    end)
 
     local tabBar = mk("Frame", {Name="TabBar", Size=UDim2.fromOffset(baseW,48), LayoutOrder=2, Parent=bottomDock, ZIndex=15})
     bind(tabBar, "BackgroundColor3", "Surface")
@@ -1807,7 +1876,7 @@ function Cactus:MakeWindow(cfg)
         local visible = tabScroll.AbsoluteSize.X
         local maxX = math.max(0, canvas - visible)
         local cur = tabScroll.CanvasPosition.X
-        play(tabScroll, 0.3, {CanvasPosition = Vector2.new(math.clamp(cur + dx, 0, maxX), 0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        play(tabScroll, 0.38, {CanvasPosition = Vector2.new(math.clamp(cur + dx, 0, maxX), 0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     end
     leftArrow.Activated:Connect(function() scrollBy(-140) end)
     rightArrow.Activated:Connect(function() scrollBy(140) end)
@@ -1886,7 +1955,7 @@ function Cactus:MakeWindow(cfg)
             return Vector2.new(math.clamp(p.X, 0, math.max(0, v.X - s.X)), math.clamp(p.Y, 0, math.max(0, v.Y - s.Y)))
         end,
         onBegin = function() launcher.AnchorPoint = Vector2.new(0, 0) play(launcherScale, 0.12, {Scale = 0.94}) end,
-        onEnd = function(moved) launcherMoved = moved play(launcherScale, 0.35, {Scale = 1}, Enum.EasingStyle.Back) end,
+        onEnd = function(moved) launcherMoved = moved pop(launcherScale, 0.42, {Scale = 1}) end,
     })
 
     local function showLauncher(on)
@@ -1902,9 +1971,9 @@ function Cactus:MakeWindow(cfg)
             launcherIconBox.BackgroundTransparency = 1
             launcher.Visible = true
             launcherScale.Scale = 0.2
-            play(launcherScale, 0.5, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            pop(launcherScale, 0.55, {Scale = 1})
         else
-            local tw = play(launcherScale, 0.25, {Scale = 0}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            local tw = play(launcherScale, 0.22, {Scale = 0}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
             after(tw, function() launcher.Visible = false end)
         end
     end
@@ -1931,8 +2000,8 @@ function Cactus:MakeWindow(cfg)
         activeScale = fitScale()
         currentScale = activeScale
         if animated then
-            play(uiScale, 0.3, {Scale = activeScale})
-            play(dockScale, 0.3, {Scale = activeScale})
+            smooth(uiScale, 0.32, {Scale = activeScale})
+            smooth(dockScale, 0.32, {Scale = activeScale})
         else
             uiScale.Scale = activeScale
             dockScale.Scale = activeScale
@@ -1962,8 +2031,8 @@ function Cactus:MakeWindow(cfg)
         restoreGroup(bottomDock)
         winCard.Visible = true
         winCard.GroupTransparency = 0
-        play(minIconHolder.Image, 0.3, {Rotation = 0})
-        play(minIconHolder.Glyph, 0.3, {Rotation = 0})
+        play(minIconHolder.Image, 0.32, {Rotation = 0})
+        play(minIconHolder.Glyph, 0.32, {Rotation = 0})
         play(minBtnBox, 0.3, {BackgroundTransparency = 0.08})
         if minBtnStroke then
             local base = minBtnStroke:GetAttribute("_baseTrans") or 0.6
@@ -1972,19 +2041,19 @@ function Cactus:MakeWindow(cfg)
 
         if fromMorph and launcher.Visible then
             Window.Morphing = true
-            play(launcher, 0.32, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            play(launcherStroke, 0.32, {Transparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            play(launcherTitle, 0.22, {TextTransparency = 1})
-            play(launcherSub, 0.22, {TextTransparency = 1})
-            play(launcherIcon.Image, 0.28, {ImageTransparency = 1})
-            play(launcherIcon.Glyph, 0.28, {TextTransparency = 1})
-            play(launcherScale, 0.36, {Scale = 0.15}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(launcher, 0.3, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(launcherStroke, 0.3, {Transparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(launcherTitle, 0.2, {TextTransparency = 1})
+            play(launcherSub, 0.2, {TextTransparency = 1})
+            play(launcherIcon.Image, 0.26, {ImageTransparency = 1})
+            play(launcherIcon.Glyph, 0.26, {TextTransparency = 1})
+            play(launcherScale, 0.34, {Scale = 0.15}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
             shell.Visible = true
             shell.GroupTransparency = 1
             uiScale.Scale = activeScale * 0.6
-            play(uiScale, 0.5, {Scale = activeScale}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-            task.delay(0.02, function() if mine == closeToken then fadeGroup(shell, 0.3, 0) end end)
-            task.delay(0.40, function()
+            pop(uiScale, 0.55, {Scale = activeScale})
+            task.delay(0.02, function() if mine == closeToken then fadeGroup(shell, 0.28, 0) end end)
+            task.delay(0.42, function()
                 if mine ~= closeToken then return end
                 launcher.Visible = false
                 launcherScale.Scale = 0
@@ -1993,9 +2062,9 @@ function Cactus:MakeWindow(cfg)
         else
             shell.Visible = true
             shell.GroupTransparency = 1
-            uiScale.Scale = activeScale * 0.85
-            play(uiScale, 0.55, {Scale = activeScale}, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-            fadeGroup(shell, 0.3, 0)
+            uiScale.Scale = activeScale * 0.82
+            pop(uiScale, 0.62, {Scale = activeScale})
+            fadeGroup(shell, 0.32, 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             if Cactus.ShowLauncher then showLauncher(false) end
         end
         play(CactusBlur, 0.5, {Size = 16}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -2075,14 +2144,14 @@ function Cactus:MakeWindow(cfg)
                 local dockH = bottomDock.AbsoluteSize.Y / math.max(dockScale.Scale, 0.01)
                 local minH = minBtnBox.AbsoluteSize.Y / math.max(dockScale.Scale, 0.01)
                 local slideDown = math.max(0, dockH - minH - 2)
-                play(bottomDock, 0.5, {
+                pop(bottomDock, 0.55, {
                     Position = UDim2.new(0.5, 0, 1, -12 + slideDown)
-                }, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
+                })
             end)
         else
-            play(bottomDock, 0.5, {
+            pop(bottomDock, 0.55, {
                 Position = UDim2.new(0.5, 0, 1, -12)
-            }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            })
             play(minBtnBox, 0.35, {BackgroundTransparency = 0.08}, Enum.EasingStyle.Quart)
             if minBtnStroke then
                 local base = minBtnStroke:GetAttribute("_baseTrans") or 0.6
@@ -2097,8 +2166,8 @@ function Cactus:MakeWindow(cfg)
             end)
         end
 
-        play(minIconHolder.Image, 0.3, {Rotation = state and 180 or 0})
-        play(minIconHolder.Glyph, 0.3, {Rotation = state and 180 or 0})
+        play(minIconHolder.Image, 0.32, {Rotation = state and 180 or 0})
+        play(minIconHolder.Glyph, 0.32, {Rotation = state and 180 or 0})
     end
     Window.SetMinimized = setMinimized
 
@@ -2191,10 +2260,10 @@ local function shake(card)
     if not card or not card.Parent then return end
     local base = card.Position
     task.spawn(function()
-        for _, dx in ipairs({5,-5,3,-3,2,0}) do
+        for _, dx in ipairs({6,-6,4,-4,2,0}) do
             if not card.Parent then return end
             card.Position = base + UDim2.fromOffset(dx, 0)
-            task.wait(0.03)
+            task.wait(0.028)
         end
         if card.Parent then card.Position = base end
     end)
@@ -2241,7 +2310,9 @@ function TabImpl.make(Window, tcfg)
     Tab.Page, Tab.Scroll = page, scroll
     local scrollMemory = 0
     Tab.Remember = function() scrollMemory = scroll.CanvasPosition.Y end
-    Tab.Restore = function() scroll.CanvasPosition = Vector2.new(0, scrollMemory) end
+    Tab.Restore = function()
+        scroll.CanvasPosition = Vector2.new(0, scrollMemory)
+    end
     Window.Tabs[index] = Tab
 
     if name:lower() == "settings" then
@@ -2278,12 +2349,22 @@ function TabImpl.make(Window, tcfg)
         end
         hideTip()
     end)
-    btn.InputBegan:Connect(function(i) if isPointer(i) then hideTip() end end)
+    btn.InputBegan:Connect(function(i)
+        if isPointer(i) then
+            hideTip()
+            play(btn, 0.07, {Size = UDim2.fromOffset(pillW * 0.96, 32)})
+        end
+    end)
+    btn.InputEnded:Connect(function(i)
+        if isPointer(i) then
+            pop(btn, 0.28, {Size = UDim2.fromOffset(pillW, 34)})
+        end
+    end)
     btn.InputBegan:Connect(function(i)
         if isPointer(i) then
             Window:SelectTab(Tab)
             local target = btn.AbsolutePosition.X - P.tabScroll.AbsolutePosition.X + P.tabScroll.CanvasPosition.X - 60
-            play(P.tabScroll, 0.3, {CanvasPosition = Vector2.new(math.max(0, target), 0)}, Enum.EasingStyle.Quart)
+            play(P.tabScroll, 0.32, {CanvasPosition = Vector2.new(math.max(0, target), 0)}, Enum.EasingStyle.Quart)
         end
     end)
 
@@ -2331,12 +2412,16 @@ function TabImpl.make(Window, tcfg)
                 bodyClip.AutomaticSize = Enum.AutomaticSize.None
                 bodyClip.ClipsDescendants = true
                 bodyClip.Size = UDim2.new(1, 0, 0, fullSize)
-                collapseTween = play(bodyClip, 0.28, {Size = UDim2.new(1, 0, 0, 0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
-                play(chev.Image, 0.22, {Rotation = -90})
-                play(chev.Glyph, 0.22, {Rotation = -90})
+                -- fade children out slightly as it collapses (feels less dead)
+                for _, ch in ipairs(bodyClip:GetChildren()) do
+                    if ch:IsA("GuiObject") then play(ch, 0.18, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In) end
+                end
+                collapseTween = smooth(bodyClip, 0.3, {Size = UDim2.new(1, 0, 0, 0)})
+                play(chev.Image, 0.26, {Rotation = -90}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                play(chev.Glyph, 0.26, {Rotation = -90}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             else
-                play(chev.Image, 0.22, {Rotation = 0})
-                play(chev.Glyph, 0.22, {Rotation = 0})
+                play(chev.Image, 0.28, {Rotation = 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                play(chev.Glyph, 0.28, {Rotation = 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
                 local target = fullSize
                 bodyClip.Size = UDim2.new(1, 0, 0, 0)
                 bodyClip.AutomaticSize = Enum.AutomaticSize.Y
@@ -2346,7 +2431,7 @@ function TabImpl.make(Window, tcfg)
                     if measured > 0 then target = measured end
                     bodyClip.AutomaticSize = Enum.AutomaticSize.None
                     bodyClip.ClipsDescendants = true
-                    collapseTween = play(bodyClip, 0.3, {Size = UDim2.new(1, 0, 0, target)}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+                    collapseTween = smooth(bodyClip, 0.34, {Size = UDim2.new(1, 0, 0, target)})
                     after(collapseTween, function()
                         if not collapsed then
                             bodyClip.AutomaticSize = Enum.AutomaticSize.Y
@@ -2361,8 +2446,21 @@ function TabImpl.make(Window, tcfg)
             if sc.Collapsible == false then return end
             setCollapsed(not collapsed)
         end)
-        head.MouseEnter:Connect(function() secLabel.TextColor3 = Pal.Text end)
-        head.MouseLeave:Connect(function() secLabel.TextColor3 = Pal.Sub end)
+        head.MouseEnter:Connect(function()
+            play(secLabel, 0.14, {TextColor3 = Pal.Text})
+            if sc.Collapsible ~= false then chev.Holder.Visible = true end
+            if chev.Holder.Visible then
+                play(chev.Image, 0.18, {Rotation = (collapsed and -90 or 0) + 6})
+                play(chev.Glyph, 0.18, {Rotation = (collapsed and -90 or 0) + 6})
+            end
+        end)
+        head.MouseLeave:Connect(function()
+            play(secLabel, 0.2, {TextColor3 = Pal.Sub})
+            if chev.Holder.Visible then
+                play(chev.Image, 0.24, {Rotation = collapsed and -90 or 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                play(chev.Glyph, 0.24, {Rotation = collapsed and -90 or 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            end
+        end)
         if sc.Collapsible == false then chev.Holder.Visible = false end
         if sc.Collapsed then task.defer(function() setCollapsed(true) end) end
         function section:SetName(n) secLabel.Text = string.upper(tostring(n)) end
@@ -2393,9 +2491,9 @@ local function flipTabs(Window, from, to, forward)
         outPage.Visible = true
         outPage.Position = UDim2.fromOffset(0, 0)
         outPage.GroupTransparency = 0
-        play(outPage, 0.3, {Position = UDim2.fromOffset(-contentW * dir, 0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
-        play(outPage, 0.24, {GroupTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
-        task.delay(0.32, function()
+        play(outPage, 0.32, {Position = UDim2.fromOffset(-contentW * 0.35 * dir, 0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+        play(outPage, 0.26, {GroupTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+        task.delay(0.34, function()
             if Window.Selected ~= from then
                 outPage.Visible = false
                 outPage.Position = UDim2.fromOffset(0, 0)
@@ -2406,10 +2504,10 @@ local function flipTabs(Window, from, to, forward)
     local inPage = to.Page
     inPage.Visible = true
     inPage.GroupTransparency = 1
-    inPage.Position = UDim2.fromOffset(contentW * dir, 0)
+    inPage.Position = UDim2.fromOffset(contentW * 0.35 * dir, 0)
     to.Restore()
-    play(inPage, 0.38, {Position = UDim2.fromOffset(0, 0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-    play(inPage, 0.3, {GroupTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    play(inPage, 0.42, {Position = UDim2.fromOffset(0, 0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    play(inPage, 0.32, {GroupTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 end
 
 function TabImpl.select(Window, target, instant)
@@ -2438,10 +2536,18 @@ function TabImpl.select(Window, target, instant)
     for _, t in ipairs(Window.Tabs) do
         local active = t == target
         t.IconObj.Color(active and onAccent() or Pal.Sub, not instant)
-        if t.Label then t.Label.TextColor3 = active and onAccent() or Pal.Sub end
+        if t.Label then
+            if not instant then play(t.Label, 0.2, {TextColor3 = active and onAccent() or Pal.Sub})
+            else t.Label.TextColor3 = active and onAccent() or Pal.Sub end
+        end
         if t.ActiveDot then
-            play(t.ActiveDot, 0.25, {BackgroundTransparency = active and 0 or 1}, Enum.EasingStyle.Quart)
+            play(t.ActiveDot, 0.28, {BackgroundTransparency = active and 0 or 1}, Enum.EasingStyle.Quart)
             t.ActiveDot.BackgroundColor3 = active and onAccent() or Pal.Accent
+            -- little pop on activation
+            if active and not instant then
+                t.ActiveDot.Size = UDim2.fromOffset(6, 2)
+                pop(t.ActiveDot, 0.36, {Size = UDim2.fromOffset(14, 2)})
+            end
         end
         if active then
             t.Button.BackgroundColor3 = Pal.Accent
@@ -2507,7 +2613,7 @@ local function extendElements(E, ctx)
         accentGradient(fillBar, 0)
         local knob = mk("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.new(0,0,0.5,0), Size=UDim2.fromOffset(mobile and 16 or 14, mobile and 16 or 14), BackgroundColor3=Color3.new(1,1,1), ZIndex=19, Parent=rail})
         round(knob, 8)
-        mk("UIStroke", {Thickness=1.5, Color=Pal.Accent, Transparency=0, ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Parent=knob})
+        local knobStroke = mk("UIStroke", {Thickness=1.5, Color=Pal.Accent, Transparency=0, ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Parent=knob})
         local value = math.clamp(tonumber(o.Default) or min, min, max)
         local obj = {Value=value}
         local function fracOf(v) return math.clamp((v - min) / (max - min), 0, 1) end
@@ -2536,6 +2642,8 @@ local function extendElements(E, ctx)
             if not isPointer(input) then return end
             if obj:IsLocked() then return end
             railDragging = true fromX(input.Position.X)
+            pop(knob, 0.28, {Size = UDim2.fromOffset(mobile and 20 or 18, mobile and 20 or 18)})
+            play(knobStroke, 0.14, {Thickness = 2})
         end)
         keep(UserInputService.InputChanged:Connect(function(input)
             if not railDragging then return end
@@ -2548,7 +2656,17 @@ local function extendElements(E, ctx)
             if not railDragging then return end
             if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
             railDragging = false
+            smooth(knob, 0.22, {Size = UDim2.fromOffset(mobile and 16 or 14, mobile and 16 or 14)})
+            play(knobStroke, 0.22, {Thickness = 1.5})
         end))
+        rail.MouseEnter:Connect(function()
+            if railDragging then return end
+            pop(knob, 0.3, {Size = UDim2.fromOffset(mobile and 18 or 16, mobile and 18 or 16)})
+        end)
+        rail.MouseLeave:Connect(function()
+            if railDragging then return end
+            smooth(knob, 0.22, {Size = UDim2.fromOffset(mobile and 16 or 14, mobile and 16 or 14)})
+        end)
         valBox.FocusLost:Connect(function()
             local n = tonumber(valBox.Text:match("-?%d+%.?%d*"))
             if n then obj:Set(n) else valBox.Text = numFormat(obj.Value, step, suffix) end
@@ -2572,7 +2690,10 @@ local function extendElements(E, ctx)
         round(box, 6)
         inset(box, 0, 10, 0, 10)
         local ring = outline(box, "Accent", 1.2, 1)
-        box.Focused:Connect(function() play(ring, 0.15, {Transparency = 0.1}) end)
+        box.Focused:Connect(function()
+            play(ring, 0.15, {Transparency = 0.1})
+            smooth(box, 0.2, {Size = UDim2.new(0.52, -6, 0, 30)})
+        end)
         local obj = {Value=box.Text}
         local firer = makeFirer(function() return obj.Value end, function(v)
             local ok, err = pcall(o.Callback or function() end, v)
@@ -2580,6 +2701,7 @@ local function extendElements(E, ctx)
         end)
         box.FocusLost:Connect(function()
             play(ring, 0.2, {Transparency = 1})
+            smooth(box, 0.22, {Size = UDim2.new(0.52, -6, 0, 28)})
             obj.Value = box.Text
             firer.Sync(nil) firer.Fire() queueSave()
             if o.TextDisappear then box.Text = "" end
@@ -2610,7 +2732,7 @@ local function extendElements(E, ctx)
             local t = obj.Binding and "..." or (obj.Value and keyText(obj.Value) or "None")
             chip.Text = t
             local w = math.max(48, #t * 7 + 20)
-            play(chip, 0.22, {Size = UDim2.fromOffset(w, 24)}, Enum.EasingStyle.Quart)
+            pop(chip, 0.26, {Size = UDim2.fromOffset(w, 24)})
             if kbVisible then kbRebuild() end
         end
         function obj:Set(k, silent)
@@ -2638,6 +2760,7 @@ local function extendElements(E, ctx)
             activeBindCapture = obj
             obj.Binding = true
             refresh()
+            pop(chip, 0.3, {Size = UDim2.fromOffset(chip.AbsoluteSize.X + 6, 26)})
         end)
         keep(UserInputService.InputBegan:Connect(function(input, gpe)
             if obj.Binding then
@@ -2728,7 +2851,10 @@ local function extendElements(E, ctx)
                 if r.btn.Parent then
                     local on = selected(opt)
                     play(r.btn, 0.15, {BackgroundTransparency = on and 0.9 or 1})
-                    play(r.check, 0.15, {ImageTransparency = on and 0 or 1})
+                    if r.check then
+                        play(r.check, 0.2, {ImageTransparency = on and 0 or 1})
+                        play(r.checkGlyph, 0.2, {TextTransparency = on and 0 or 1})
+                    end
                     r.label.TextColor3 = on and Pal.Text or Pal.Sub
                 end
             end
@@ -2738,11 +2864,11 @@ local function extendElements(E, ctx)
             for _, r in pairs(rows) do if r.btn.Visible then visible = visible + 1 end end
             local searchH = (obj._hasSearch) and 34 or 0
             local h = math.min(visible * 30 + 8 + searchH, 220)
-            if obj.IsOpen then play(listFrame, 0.24, {Size = UDim2.new(1,-12,0,h)}, Enum.EasingStyle.Quart)
-            else play(listFrame, 0.18, {Size = UDim2.new(1,-12,0,0)}, Enum.EasingStyle.Quart) end
-            play(c, 0.24, {Size = UDim2.new(1,0,0,rowH + (obj.IsOpen and (h + 8) or 0))}, Enum.EasingStyle.Quart)
-            play(arrow.Image, 0.22, {Rotation = obj.IsOpen and 180 or 0}, Enum.EasingStyle.Quart)
-            play(arrow.Glyph, 0.22, {Rotation = obj.IsOpen and 180 or 0}, Enum.EasingStyle.Quart)
+            if obj.IsOpen then smooth(listFrame, 0.28, {Size = UDim2.new(1,-12,0,h)})
+            else play(listFrame, 0.2, {Size = UDim2.new(1,-12,0,0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.In) end
+            smooth(c, 0.3, {Size = UDim2.new(1,0,0,rowH + (obj.IsOpen and (h + 8) or 0))})
+            play(arrow.Image, 0.28, {Rotation = obj.IsOpen and 180 or 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            play(arrow.Glyph, 0.28, {Rotation = obj.IsOpen and 180 or 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
         local searchBox, filter = nil, ""
         local function rebuildRows()
@@ -2767,6 +2893,7 @@ local function extendElements(E, ctx)
                 end)
                 searchBox = searchHolder
             end
+            local visibleIndex = 0
             for i, opt in ipairs(obj.Options) do
                 local b = mk("TextButton", {Size=UDim2.new(1,0,0,28), BackgroundColor3=Color3.new(1,1,1), BackgroundTransparency=1, LayoutOrder=i, ZIndex=25, Parent=listScroll})
                 round(b, 6)
@@ -2775,9 +2902,19 @@ local function extendElements(E, ctx)
                 ck.Image.ZIndex = 26 ck.Glyph.ZIndex = 26
                 ck.Image.ImageTransparency = selected(opt) and 0 or 1
                 ck.Glyph.TextTransparency = selected(opt) and 0 or 1
-                rows[opt] = {btn=b, label=l, check=ck.Image}
-                b.MouseEnter:Connect(function() if not selected(opt) then play(b, 0.12, {BackgroundTransparency = 0.94}) end end)
-                b.MouseLeave:Connect(function() if not selected(opt) then play(b, 0.18, {BackgroundTransparency = 1}) end end)
+                rows[opt] = {btn=b, label=l, check=ck.Image, checkGlyph=ck.Glyph}
+                b.MouseEnter:Connect(function()
+                    if not selected(opt) then
+                        play(b, 0.12, {BackgroundTransparency = 0.94})
+                        smooth(b, 0.2, {Size = UDim2.new(1, 4, 0, 28)})
+                    end
+                end)
+                b.MouseLeave:Connect(function()
+                    if not selected(opt) then
+                        play(b, 0.18, {BackgroundTransparency = 1})
+                        smooth(b, 0.22, {Size = UDim2.new(1, 0, 0, 28)})
+                    end
+                end)
                 b.InputBegan:Connect(function(input)
                     if not isPointer(input) then return end
                     if multi then
@@ -2787,6 +2924,17 @@ local function extendElements(E, ctx)
                         obj:Set(opt) obj:Toggle()
                     end
                 end)
+                -- stagger entrance
+                if obj.IsOpen then
+                    visibleIndex = visibleIndex + 1
+                    b.Position = UDim2.fromOffset(-6, 0)
+                    b.TextTransparency = 0
+                    task.delay(0.018 * visibleIndex, function()
+                        if b.Parent then
+                            pop(b, 0.32, {Position = UDim2.fromOffset(0, 0)})
+                        end
+                    end)
+                end
             end
             restyle()
         end
@@ -2914,6 +3062,10 @@ local function extendElements(E, ctx)
                 p.InputBegan:Connect(function(input)
                     if not isPointer(input) then return end
                     h, s, v = pc:ToHSV() obj.Rainbow = false apply()
+                    pop(p, 0.3, {Size = UDim2.fromOffset((mobile and 22 or 24) + 4, 26)})
+                    task.delay(0.18, function()
+                        if p.Parent then smooth(p, 0.22, {Size = UDim2.fromOffset(mobile and 22 or 24, 22)}) end
+                    end)
                 end)
             end
             ui = {sv=sv, svKnob=svKnob, hueKnob=hueKnob, hex=hex}
@@ -2952,6 +3104,10 @@ local function extendElements(E, ctx)
                 if not isPointer(input) then return end
                 obj.Rainbow = not obj.Rainbow
                 rb.TextColor3 = obj.Rainbow and Pal.Accent or Pal.Text
+                pop(rb, 0.3, {Size = UDim2.fromOffset(76, 28)})
+                task.delay(0.18, function()
+                    if rb.Parent then smooth(rb, 0.22, {Size = UDim2.fromOffset(70, 26)}) end
+                end)
             end)
             hex.Text = "#"..obj.Value:ToHex():upper()
             svKnob.Position = UDim2.fromScale(s, 1 - v)
@@ -2959,18 +3115,18 @@ local function extendElements(E, ctx)
         function obj:Open()
             if obj.IsOpen or obj:IsLocked() then return end
             obj.IsOpen = true buildPanel()
-            play(panel, 0.24, {Size = UDim2.new(1,-12,0,224)}, Enum.EasingStyle.Quart)
-            play(c, 0.24, {Size = UDim2.new(1,0,0,rowH + 232)}, Enum.EasingStyle.Quart)
-            play(arrow.Image, 0.22, {Rotation = 180}, Enum.EasingStyle.Quart)
-            play(arrow.Glyph, 0.22, {Rotation = 180}, Enum.EasingStyle.Quart)
+            smooth(panel, 0.28, {Size = UDim2.new(1,-12,0,224)})
+            smooth(c, 0.3, {Size = UDim2.new(1,0,0,rowH + 232)})
+            play(arrow.Image, 0.28, {Rotation = 180}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            play(arrow.Glyph, 0.28, {Rotation = 180}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
         function obj:Close()
             if not obj.IsOpen then return end
             obj.IsOpen = false
-            play(panel, 0.18, {Size = UDim2.new(1,-12,0,0)}, Enum.EasingStyle.Quart)
-            play(c, 0.24, {Size = UDim2.new(1,0,0,rowH)}, Enum.EasingStyle.Quart)
-            play(arrow.Image, 0.22, {Rotation = 0}, Enum.EasingStyle.Quart)
-            play(arrow.Glyph, 0.22, {Rotation = 0}, Enum.EasingStyle.Quart)
+            play(panel, 0.2, {Size = UDim2.new(1,-12,0,0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            smooth(c, 0.3, {Size = UDim2.new(1,0,0,rowH)})
+            play(arrow.Image, 0.28, {Rotation = 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            play(arrow.Glyph, 0.28, {Rotation = 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
         function obj:Toggle() if obj.IsOpen then obj:Close() else obj:Open() end end
         keep(RunService.Heartbeat:Connect(function() if obj.Rainbow then h = (os.clock()*0.2)%1 apply() end end))
@@ -3012,7 +3168,7 @@ local function extendElements(E, ctx)
         function obj:Set(v, silent)
             v = math.clamp(tonumber(v) or 0, 0, 1)
             obj.Value = v
-            play(fill, 0.22, {Size = UDim2.new(v, 0, 1, 0)}, Enum.EasingStyle.Quart)
+            smooth(fill, 0.26, {Size = UDim2.new(v, 0, 1, 0)})
             valLbl.Text = tostring(math.floor(v * 100 + 0.5)) .. "%"
             if not silent and o.Callback then pcall(o.Callback, v) end
         end
@@ -3085,6 +3241,12 @@ local function extendElements(E, ctx)
             round(b, 6)
             local ic = makeIcon(b, glyph, 13, "Text", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=18})
             ic.Image.ZIndex = 18 ic.Glyph.ZIndex = 18
+            b.InputBegan:Connect(function(i)
+                if isPointer(i) then pop(b, 0.22, {Size = UDim2.fromOffset(28, 28)}) end
+            end)
+            b.InputEnded:Connect(function(i)
+                if isPointer(i) then smooth(b, 0.22, {Size = UDim2.fromOffset(26, 26)}) end
+            end)
             return b
         end
         local minus = stepBtn(1, "minus")
@@ -3135,12 +3297,13 @@ local function extendElements(E, ctx)
             if not ok then fail(c, label, err) end
         end)
         local buttons = {}
-        local function paint()
+        local function paint(animated)
             for opt, b in pairs(buttons) do
                 local on = opt == obj.Value
-                play(b, 0.15, {BackgroundTransparency = on and 0 or 0.9})
+                play(b, 0.16, {BackgroundTransparency = on and 0 or 0.9})
                 b.BackgroundColor3 = on and Pal.Accent or Pal.Elevated
-                b.TextColor3 = on and onAccent() or Pal.Text
+                play(b, 0.2, {TextColor3 = on and onAccent() or Pal.Text})
+                if on and animated then pop(b, 0.3, {Size = UDim2.fromOffset(b.AbsoluteSize.X / math.max(currentScale, 0.01), 30)}) end
             end
         end
         for i, opt in ipairs(options) do
@@ -3149,18 +3312,18 @@ local function extendElements(E, ctx)
             buttons[opt] = b
             b.InputBegan:Connect(function(input)
                 if not isPointer(input) then return end
-                obj.Value = opt paint() firer.Fire() queueSave()
+                obj.Value = opt paint(true) firer.Fire() queueSave()
             end)
         end
         function obj:Set(v, silent)
             if not buttons[v] then return end
-            obj.Value = v paint()
+            obj.Value = v paint(silent ~= true)
             if silent then firer.Sync(v) else firer.Fire() queueSave() end
         end
         function obj:Get() return obj.Value end
         register(o.Flag, obj, o, function() return obj.Value end, function(v) obj:Set(v, true) end)
         decorate(obj, c, o, "Radio")
-        paint()
+        paint(false)
         return obj
     end
 
@@ -3214,6 +3377,13 @@ local function extendElements(E, ctx)
                 for ci = 1, columns do
                     tx("TextLabel", {Text=tostring(r[ci] or ""), TextSize=11, Size=UDim2.new(1/columns,-8,1,0), Position=UDim2.new((ci-1)/columns,6,0,0), ZIndex=27, Parent=rf, TextTruncate=Enum.TextTruncate.AtEnd}, 2, ci==1 and "Text" or "Sub")
                 end
+                -- stagger entrance for rows
+                rf.BackgroundTransparency = 1
+                task.delay(0.014 * i, function()
+                    if rf.Parent then
+                        smooth(rf, 0.26, {BackgroundTransparency = i%2==0 and 0.94 or 1})
+                    end
+                end)
             end
         end
         function obj:SetRows(r) obj.Rows = r or {} buildRows() end
@@ -3256,7 +3426,13 @@ local function extendElements(E, ctx)
             if setclipboard then
                 pcall(setclipboard, code)
                 copy.Text = "copied"
-                task.delay(1, function() if copy.Parent then copy.Text = "copy" end end)
+                pop(copy, 0.28, {Size = UDim2.fromOffset(56, 20)})
+                task.delay(1, function()
+                    if copy.Parent then
+                        copy.Text = "copy"
+                        smooth(copy, 0.24, {Size = UDim2.fromOffset(44, 18)})
+                    end
+                end)
             else
                 Cactus:MakeNotification({Name="No clipboard", Content="setclipboard isn't available.", Type="Warning"})
             end
@@ -3317,7 +3493,12 @@ local function extendElements(E, ctx)
         inset(badge, 0, 8, 0, 8) round(badge, 9)
         badge.TextColor3 = onAccent()
         local obj = {}
-        function obj:SetCount(n) count = tonumber(n) or 0 badge.Text = tostring(count) badge.Visible = count > 0 end
+        function obj:SetCount(n)
+            count = tonumber(n) or 0
+            badge.Text = tostring(count)
+            badge.Visible = count > 0
+            pop(badge, 0.3, {Size = UDim2.fromOffset(badge.AbsoluteSize.X / math.max(currentScale,0.01), 18)})
+        end
         function obj:Get() return count end
         obj:SetCount(count)
         return decorate(obj, c, o, "Badge")
@@ -3375,7 +3556,11 @@ local function extendElements(E, ctx)
         local obj = {}
         function obj:SetImage(id) av.Image = tostring(id) end
         function obj:SetName(t) nm.Text = tostring(t) end
-        function obj:SetSubtitle(t) sl.Text = tostring(t) sl.Visible = tostring(t) ~= "" end
+        function obj:SetSubtitle(t)
+            sl.Text = tostring(t)
+            sl.Visible = tostring(t) ~= ""
+            play(sl, 0.2, {TextTransparency = 0})
+        end
         return decorate(obj, c, o, "Avatar")
     end
 
@@ -3407,6 +3592,27 @@ function ElementFactory(Window, Tab, parent, sectionName)
         round(c, 8)
         local st = outline(c, "Stroke", 1, 0.55)
         c:SetAttribute("CactusCard", true)
+        -- Subtle hover lift: brighten stroke and lighten background
+        if hover ~= false then
+            c.MouseEnter:Connect(function()
+                play(st, 0.16, {Transparency = 0.25}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                play(c, 0.18, {BackgroundTransparency = 0.32}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            end)
+            c.MouseLeave:Connect(function()
+                play(st, 0.22, {Transparency = st:GetAttribute("_baseTrans") or 0.55}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                play(c, 0.24, {BackgroundTransparency = 0.5}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            end)
+            c.InputBegan:Connect(function(input)
+                if isPointer(input) then
+                    play(c, 0.08, {BackgroundTransparency = 0.62}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                end
+            end)
+            c.InputEnded:Connect(function(input)
+                if isPointer(input) then
+                    play(c, 0.22, {BackgroundTransparency = 0.32}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                end
+            end)
+        end
         return c, st
     end
 
@@ -3421,7 +3627,12 @@ function ElementFactory(Window, Tab, parent, sectionName)
         round(veil, 8)
         local lockIco = makeIcon(veil, "lock", 14, "Sub", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=41})
         lockIco.Image.ZIndex = 41 lockIco.Glyph.ZIndex = 41
-        function obj:Lock(v) if v == nil then v = true end locked = v and true or false veil.Visible = locked end
+        function obj:Lock(v)
+            if v == nil then v = true end
+            locked = v and true or false
+            veil.Visible = locked
+            if locked then veil.GroupTransparency = 1 fadeGroup(veil, 0.22, 0) end
+        end
         function obj:IsLocked() return locked end
         function obj:SetVisible(v) c.Visible = v and true or false end
         function obj:Destroy()
@@ -3447,7 +3658,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
                     if not c.Parent then return end
                     local sc = Tab.Scroll
                     local y = c.AbsolutePosition.Y - sc.AbsolutePosition.Y + sc.CanvasPosition.Y - 10
-                    play(sc, 0.35, {CanvasPosition = Vector2.new(0, math.max(0, y))})
+                    play(sc, 0.4, {CanvasPosition = Vector2.new(0, math.max(0, y))}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                     flashCard(c, Pal.Accent, 1.1)
                 end)
             end,
@@ -3514,13 +3725,16 @@ function ElementFactory(Window, Tab, parent, sectionName)
                 return false
             end
             running = true
-            play(c, 0.08, {BackgroundTransparency = 0.35})
-            task.delay(0.09, function() play(c, 0.24, {BackgroundTransparency = 0.2}) end)
-            play(arrow.Image, 0.15, {Position = UDim2.new(1,-10,0.5,0)})
-            play(arrow.Glyph, 0.15, {Position = UDim2.new(1,-10,0.5,0)})
-            task.delay(0.18, function()
-                play(arrow.Image, 0.22, {Position = UDim2.new(1,-14,0.5,0)})
-                play(arrow.Glyph, 0.22, {Position = UDim2.new(1,-14,0.5,0)})
+            -- Press down: subtle scale + darker
+            play(c, 0.08, {BackgroundTransparency = 0.35}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            play(arrow.Image, 0.16, {Position = UDim2.new(1,-8,0.5,0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            play(arrow.Glyph, 0.16, {Position = UDim2.new(1,-8,0.5,0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            -- Release
+            task.delay(0.1, function()
+                if not c.Parent then return end
+                pop(c, 0.3, {BackgroundTransparency = 0.2})
+                play(arrow.Image, 0.26, {Position = UDim2.new(1,-14,0.5,0)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                play(arrow.Glyph, 0.26, {Position = UDim2.new(1,-14,0.5,0)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             end)
             local args = table.pack(...)
             task.spawn(function()
@@ -3537,6 +3751,7 @@ function ElementFactory(Window, Tab, parent, sectionName)
                     fail(c, label, err)
                 else
                     flashCard(c, Status.Success, 0.5)
+                    arrow.Wobble(10)
                 end
             end)
             return true
@@ -3565,10 +3780,16 @@ function ElementFactory(Window, Tab, parent, sectionName)
         local state = {value = false}
         local obj = {Value = false}
         local function paint(v, animated)
-            local dur = animated and 0.24 or 0.001
-            play(fill, dur, {BackgroundTransparency = v and 0 or 1}, Enum.EasingStyle.Quart)
-            play(trackStroke, dur, {Transparency = v and 1 or 0.4})
-            play(knob, dur, {Position = UDim2.new(0, v and 21 or 3, 0.5, 0)}, Enum.EasingStyle.Quart)
+            if animated then
+                -- use Back easing for the knob so it settles with a tiny overshoot
+                play(fill, 0.26, {BackgroundTransparency = v and 0 or 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                play(trackStroke, 0.22, {Transparency = v and 1 or 0.4}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                pop(knob, 0.34, {Position = UDim2.new(0, v and 21 or 3, 0.5, 0)})
+            else
+                fill.BackgroundTransparency = v and 0 or 1
+                trackStroke.Transparency = v and 1 or 0.4
+                knob.Position = UDim2.new(0, v and 21 or 3, 0.5, 0)
+            end
         end
         local firer = makeFirer(function() return state.value end, function(v)
             local ok, err = pcall(o.Callback or function() end, v)
@@ -3584,6 +3805,12 @@ function ElementFactory(Window, Tab, parent, sectionName)
         local function flip()
             if obj:IsLocked() then return end
             obj:Set(not state.value)
+            -- fun little response: knob squishes briefly
+            local s = state.value and 20 or 14
+            pop(knob, 0.3, {Size = UDim2.fromOffset(s, 16)})
+            task.delay(0.16, function()
+                if knob.Parent then smooth(knob, 0.22, {Size = UDim2.fromOffset(16, 16)}) end
+            end)
         end
         c.Activated:Connect(flip)
         register(o.Flag, obj, o, function() return state.value end, function(v) obj:Set(v) end)
@@ -3609,7 +3836,7 @@ local function loadingScreen(cfg, title, done)
     bind(card, "BackgroundColor3", "Bg")
     round(card, 14)
     outline(card, "Stroke", 1, 0.1)
-    local cardScale = mk("UIScale", {Scale=0.9, Parent=card})
+    local cardScale = mk("UIScale", {Scale=0.88, Parent=card})
     local orb = mk("Frame", {AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,20), Size=UDim2.fromOffset(38,38), BackgroundColor3=Color3.new(1,1,1), ZIndex=402, Parent=card})
     round(orb, 19)
     local orbGrad = accentGradient(orb, 0)
@@ -3622,20 +3849,20 @@ local function loadingScreen(cfg, title, done)
     local bar = mk("Frame", {Size=UDim2.new(0,0,1,0), BackgroundColor3=Color3.new(1,1,1), ZIndex=403, Parent=rail})
     round(bar, 2)
     accentGradient(bar, 0)
-    play(layer, 0.3, {BackgroundTransparency = 0.45})
-    fadeGroup(card, 0.32, 0)
-    play(cardScale, 0.5, {Scale = 1}, Enum.EasingStyle.Back)
-    local spin = RunService.RenderStepped:Connect(function() orbGrad.Rotation = (os.clock() * 220) % 360 end)
+    play(layer, 0.32, {BackgroundTransparency = 0.45}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    fadeGroup(card, 0.34, 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    pop(cardScale, 0.6, {Scale = 1})
+    local spin = RunService.RenderStepped:Connect(function(dt) orbGrad.Rotation = (orbGrad.Rotation + dt * 220) % 360 end)
     task.spawn(function()
-        play(bar, 0.9, {Size = UDim2.new(1, 0, 1, 0)}, Enum.EasingStyle.Quint)
-        task.wait(1.0)
+        smooth(bar, 1.0, {Size = UDim2.new(1, 0, 1, 0)})
+        task.wait(1.05)
         spin:Disconnect()
-        fadeGroup(card, 0.28, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-        play(cardScale, 0.3, {Scale = 1.06}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        play(layer, 0.3, {BackgroundTransparency = 1})
-        task.wait(0.22)
-        play(cardScale, 0.22, {Scale = 0.9}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+        fadeGroup(card, 0.3, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        play(cardScale, 0.34, {Scale = 1.06}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        play(layer, 0.32, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         task.wait(0.24)
+        play(cardScale, 0.24, {Scale = 0.9}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        task.wait(0.26)
         layer:Destroy()
         done()
     end)
@@ -3694,7 +3921,7 @@ function Cactus:_showKeyGate(onSuccess)
     box.BackgroundTransparency = 0.06
     round(box, 12)
     outline(box, "Stroke", 1, 0.2)
-    local boxScale = mk("UIScale", {Scale=0.94, Parent=box})
+    local boxScale = mk("UIScale", {Scale=0.9, Parent=box})
     local col = mk("Frame", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, Parent=box})
     inset(col, 20, 20, 20, 20)
     stack(col, 10)
@@ -3723,14 +3950,14 @@ function Cactus:_showKeyGate(onSuccess)
     verifyBtn.BackgroundTransparency = 0
     round(verifyBtn, 8)
     verifyBtn.TextColor3 = onAccent()
-    play(layer, 0.25, {BackgroundTransparency = 0.35})
-    fadeGroup(box, 0.3, 0, Enum.EasingStyle.Quart)
-    play(boxScale, 0.45, {Scale = 1}, Enum.EasingStyle.Back)
+    play(layer, 0.26, {BackgroundTransparency = 0.35}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    fadeGroup(box, 0.32, 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    pop(boxScale, 0.55, {Scale = 1})
     local function closeGate()
-        play(layer, 0.25, {BackgroundTransparency = 1})
+        play(layer, 0.26, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         fadeGroup(box, 0.26, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-        play(boxScale, 0.28, {Scale = 0.94})
-        task.delay(0.32, function() layer:Destroy() end)
+        play(boxScale, 0.28, {Scale = 0.94}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        task.delay(0.34, function() layer:Destroy() end)
     end
     local verifying = false
     local function doVerify()
@@ -3946,12 +4173,8 @@ local function attachSettings(Window)
             Default = Window.ToggleKey,
             Flag = "_toggleKey",
             Save = true,
-            Callback = function()
-                Window:Toggle()
-            end,
-            OnChange = function(k)
-                Window.SetToggleKey(k)
-            end,
+            Callback = function() Window:Toggle() end,
+            OnChange = function(k) Window.SetToggleKey(k) end,
         })
         ui:AddButton({Name="Collapse all sections", Icon="chevron-up", Callback=function()
             Window:CollapseAll()
@@ -4020,7 +4243,11 @@ local function attachSearch(Window)
     local buttons = {}
     local picked = 1
     local shown = {}
-    local function highlight() for i, b in ipairs(buttons) do play(b, 0.1, {BackgroundTransparency = i == picked and 0.88 or 1}) end end
+    local function highlight()
+        for i, b in ipairs(buttons) do
+            play(b, 0.12, {BackgroundTransparency = i == picked and 0.88 or 1})
+        end
+    end
     local function render()
         for _, b in ipairs(buttons) do b:Destroy() end
         buttons = {} shown = {}
@@ -4039,6 +4266,13 @@ local function attachSearch(Window)
             tx("TextLabel", {Text=e.tab..(e.section and (" / "..e.section) or ""), TextSize=10, Position=UDim2.fromOffset(10,20), Size=UDim2.new(1,-80,0,13), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=184, Parent=b}, 1, "Sub")
             b.InputBegan:Connect(function(input) if not isPointer(input) then return end Window:CloseSearch() e.go() end)
             buttons[i] = b
+            -- stagger entrance
+            b.BackgroundTransparency = 1
+            task.delay(0.016 * i, function()
+                if b.Parent then
+                    play(b, 0.24, {BackgroundTransparency = (i == 1) and 0.88 or 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                end
+            end)
         end
         picked = 1
         list.Size = UDim2.new(1, 0, 0, math.min(math.max(#shown, 1) * 38 + 10, mobile and 160 or 280))
@@ -4053,19 +4287,19 @@ local function attachSearch(Window)
         input.Text = ""
         layer.Visible = true
         render()
-        play(layer, 0.22, {BackgroundTransparency = 0.6})
-        fadeGroup(box, 0.26, 0, Enum.EasingStyle.Quart)
-        play(boxScale, 0.36, {Scale = 1}, Enum.EasingStyle.Quart)
+        play(layer, 0.24, {BackgroundTransparency = 0.6}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        fadeGroup(box, 0.28, 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        pop(boxScale, 0.4, {Scale = 1})
         if not mobile then task.delay(0.05, function() if open then input:CaptureFocus() end end) end
     end
     function Window:CloseSearch()
         if not open then return end
         open = false
         input:ReleaseFocus()
-        play(layer, 0.18, {BackgroundTransparency = 1})
+        play(layer, 0.2, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         fadeGroup(box, 0.2, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-        play(boxScale, 0.2, {Scale = 0.98})
-        task.delay(0.24, function() if not open then layer.Visible = false restoreGroup(box) end end)
+        play(boxScale, 0.2, {Scale = 0.98}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        task.delay(0.26, function() if not open then layer.Visible = false restoreGroup(box) end end)
     end
     layer.InputBegan:Connect(function(input) if isPointer(input) then Window:CloseSearch() end end)
     box.Active = true
