@@ -1,4 +1,4 @@
---[[ CactusLib | v7.7 ]]
+--[[ CactusLib | v8.0 ]]
 
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -24,12 +24,13 @@ if type(env.CactusLibInstance) == "table" and type(env.CactusLibInstance.Destroy
 end
 
 local Cactus = {
-    Version = "7.7.0", Flags = {}, Windows = {}, Folder = "CactusLib", Profile = "default",
+    Version = "8.0.0", Flags = {}, Windows = {}, Folder = "CactusLib", Profile = "default",
     SaveConfig = false, Autosave = false, AutosaveDelay = 1.5,
     IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
     ShowLauncher = true, ShowResize = true, ShowSearch = true, ShowMinimize = true, ShowClose = true,
     AutoShow = true, _keyCfg = nil, _keyVerified = false,
     KeyFile = false, KeyFileName = "key", AutoVerify = true,
+    AdInterval = 600,
 }
 env.CactusLibInstance = Cactus
 
@@ -264,7 +265,7 @@ local function setFont(name)
 end
 
 -- =========================================================
--- ICON SYSTEM (LucideBlox JSON + Rayfield sprite sheet)
+-- ICON SYSTEM
 -- =========================================================
 local SpecialIcons = {
     searchicon      = "112780490255100",
@@ -295,13 +296,7 @@ pcall(function()
                 elseif val[1] and type(val[1]) == "number" then
                     local sz = val[2] or {48, 48}
                     local off = val[3] or {0, 0}
-                    IconMap[name] = {
-                        sprite = {
-                            id = val[1],
-                            w = sz[1] or 48, h = sz[2] or 48,
-                            x = off[1] or 0, y = off[2] or 0,
-                        }
-                    }
+                    IconMap[name] = { sprite = { id = val[1], w = sz[1] or 48, h = sz[2] or 48, x = off[1] or 0, y = off[2] or 0 } }
                 end
             end
         end
@@ -325,22 +320,14 @@ pcall(function()
     if type(data) == "table" then
         local sheet = data["48px"] or data["24px"] or data["32px"]
         if not sheet then
-            for _, v in pairs(data) do
-                if type(v) == "table" then sheet = v break end
-            end
+            for _, v in pairs(data) do if type(v) == "table" then sheet = v break end end
         end
         if type(sheet) == "table" then
             for name, entry in pairs(sheet) do
                 if type(entry) == "table" and type(entry[1]) == "number" then
                     local sz = entry[2] or {48, 48}
                     local off = entry[3] or {0, 0}
-                    IconMap[name] = {
-                        sprite = {
-                            id = entry[1],
-                            w = sz[1] or 48, h = sz[2] or 48,
-                            x = off[1] or 0, y = off[2] or 0,
-                        }
-                    }
+                    IconMap[name] = { sprite = { id = entry[1], w = sz[1] or 48, h = sz[2] or 48, x = off[1] or 0, y = off[2] or 0 } }
                 end
             end
         end
@@ -353,9 +340,7 @@ local function resolveIcon(name)
     if s == "" then return nil end
     local special = SpecialIcons[s:lower()]
     if special then return { url = "rbxassetid://" .. special } end
-    if s:find("^rbxassetid://") or s:find("^rbxasset://") or s:find("^rbxthumb://") then
-        return { url = s }
-    end
+    if s:find("^rbxassetid://") or s:find("^rbxasset://") or s:find("^rbxthumb://") then return { url = s } end
     if tonumber(s) then return { url = "rbxassetid://" .. s } end
     return IconMap[s]
 end
@@ -369,19 +354,8 @@ local function makeIcon(parent, name, size, tone, props)
     local holder = mk("Frame", {BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size)})
     if props then for k, v in pairs(props) do holder[k] = v end end
     holder.Parent = parent
-    local img = mk("ImageLabel", {
-        BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 1),
-        ScaleType = Enum.ScaleType.Fit,
-        Parent = holder,
-    })
-    local glyph = tx("TextLabel", {
-        Size = UDim2.fromScale(1, 1),
-        TextSize = math.floor(size * 0.95),
-        TextXAlignment = Enum.TextXAlignment.Center,
-        Visible = false,
-        Parent = holder,
-    }, 3, (tone or "Text"))
+    local img = mk("ImageLabel", {BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ScaleType = Enum.ScaleType.Fit, Parent = holder})
+    local glyph = tx("TextLabel", {Size = UDim2.fromScale(1, 1), TextSize = math.floor(size * 0.95), TextXAlignment = Enum.TextXAlignment.Center, Visible = false, Parent = holder}, 3, (tone or "Text"))
     if tone ~= false then bind(img, "ImageColor3", tone or "Text") end
     local api = {Holder = holder, Image = img, Glyph = glyph}
     function api.Set(n)
@@ -390,17 +364,14 @@ local function makeIcon(parent, name, size, tone, props)
             img.Image = "rbxassetid://" .. resolved.sprite.id
             img.ImageRectSize = Vector2.new(resolved.sprite.w, resolved.sprite.h)
             img.ImageRectOffset = Vector2.new(resolved.sprite.x, resolved.sprite.y)
-            img.Visible = true
-            glyph.Visible = false
+            img.Visible = true glyph.Visible = false
         elseif resolved and resolved.url then
             img.Image = resolved.url
             img.ImageRectSize = Vector2.new(0, 0)
             img.ImageRectOffset = Vector2.new(0, 0)
-            img.Visible = true
-            glyph.Visible = false
+            img.Visible = true glyph.Visible = false
         else
-            img.Visible = false
-            glyph.Visible = true
+            img.Visible = false glyph.Visible = true
             local key = tostring(n or "")
             glyph.Text = Glyphs[key] or key:sub(1, 1):upper()
         end
@@ -585,7 +556,6 @@ end
 -- DETECTION MODULE
 -- =========================================================
 local Detect = {}
-
 local EXECUTOR_SIGNS = {
     {"Synapse", function() return syn and syn.protect_gui end},
     {"Script-Ware", function() return ScriptWare end},
@@ -602,7 +572,6 @@ local EXECUTOR_SIGNS = {
     {"Trigon", function() return trigon end},
     {"Cactus", function() return env and env.CactusLibInstance end},
 }
-
 function Detect.executor()
     if type(identifyexecutor) == "function" then
         local ok, name, ver = pcall(identifyexecutor)
@@ -616,7 +585,6 @@ function Detect.executor()
     end
     return nil, nil
 end
-
 function Detect.supportsScript()
     local caps = 0
     if type(game.HttpGet) == "function" or type(game.http_get) == "function" then caps = caps + 1 end
@@ -648,7 +616,6 @@ local function fetchFriends()
     friendsCache = list
     return list
 end
-
 function Detect.friendStats()
     local list = fetchFriends()
     local inServer, online, offline = {}, 0, 0
@@ -660,7 +627,6 @@ function Detect.friendStats()
     end
     return { total=#list, online=online, offline=offline, inServer=inServer }
 end
-
 Cactus.Detect = Detect
 Cactus._fetchFriends = fetchFriends
 
@@ -839,7 +805,8 @@ function Cactus:SetAutosave(on, delay)
 end
 
 -- =========================================================
--- NOTIFICATIONS (stacked deck)
+-- NOTIFICATIONS
+-- ✦ Improved visuals: layered glow, animated progress, sharper layout
 -- =========================================================
 local Notes = {
     active = {}, queue = {}, byKey = {}, queuedKey = {},
@@ -905,10 +872,8 @@ local function layoutAll(animated)
             end
             n.frame.ZIndex = 300 - i
             if animated then
-                play(n.frame, 0.46, {Position = pos, Size = UDim2.fromOffset(w, h)},
-                     Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                play(n.scaleObj, 0.46, {Scale = sc},
-                     Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                play(n.frame, 0.46, {Position = pos, Size = UDim2.fromOffset(w, h)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                play(n.scaleObj, 0.46, {Scale = sc}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             else
                 n.frame.Position = pos
                 n.frame.Size = UDim2.fromOffset(w, h)
@@ -948,7 +913,9 @@ local function ensureNoteLoop()
                 if n.hover or n.dragging then n.expires = (n.expires or now) + dt end
                 local left = (n.expires or now) - now
                 if not n.custom and n.bar and n.bar.Parent and n.time and n.time > 0 then
-                    n.bar.Size = UDim2.new(math.clamp(left / n.time, 0, 1), 0, 1, 0)
+                    local ratio = math.clamp(left / n.time, 0, 1)
+                    n.bar.Size = UDim2.new(ratio, 0, 1, 0)
+                    if n.barGlow then n.barGlow.Size = UDim2.new(ratio, 0, 1, 0) end
                 end
                 if left <= 0 then dismissNote(n) end
             end
@@ -968,15 +935,15 @@ local function bumpNote(n, extra)
         n.countLbl.Visible = n.count > 1
     end
     if n.bar then n.bar.Size = UDim2.new(1, 0, 1, 0) end
+    if n.barGlow then n.barGlow.Size = UDim2.new(1, 0, 1, 0) end
     if n.frame then
         play(n.frame, 0.25, {GroupTransparency = 0}, Enum.EasingStyle.Quart)
-        play(n.scaleObj, 0.18, {Scale = 1.03}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        play(n.scaleObj, 0.18, {Scale = 1.035}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         task.delay(0.2, function()
             if n.frame and n.frame.Parent and not n.dying then
                 local sc = Notes.expanded and 1
                     or math.max(0.72, 1 - (n.depth or 0) * 0.045)
-                play(n.scaleObj, 0.35, {Scale = sc},
-                     Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                play(n.scaleObj, 0.35, {Scale = sc}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             end
         end)
     end
@@ -1012,32 +979,36 @@ spawnNote = function(entry)
         Parent = noteLayer,
     })
     bind(frame, "BackgroundColor3", "Surface")
-    round(frame, 12)
-    local frameStroke = mk("UIStroke", {
-        Thickness = 1, Transparency = 0.5,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = frame,
-    })
+    round(frame, 14)
+    local frameStroke = mk("UIStroke", { Thickness = 1.1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = frame })
     bind(frameStroke, "Color", "Stroke")
+
+    -- ✦ soft glow behind the note
+    local glow = mk("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BackgroundTransparency = 1, ZIndex = 0, Parent = frame})
+    round(glow, 14)
+    glow.ZIndex = 1
 
     local scaleObj = mk("UIScale", {Scale = 0.86, Parent = frame})
     n.scaleObj = scaleObj
 
+    -- ✦ accent rail on the left instead of a floating icon block
+    local accent = mk("Frame", {Position = UDim2.fromOffset(0, 10), Size = UDim2.new(0, 3, 1, -20), BackgroundColor3 = color, ZIndex = 5, Parent = frame})
+    round(accent, 2)
+
     local iconWrap = mk("Frame", {
-        Position = UDim2.fromOffset(12, 12),
-        Size = UDim2.fromOffset(26, 26),
-        BackgroundColor3 = color, BackgroundTransparency = 0.85,
+        Position = UDim2.fromOffset(14, 14),
+        Size = UDim2.fromOffset(28, 28),
+        BackgroundColor3 = color, BackgroundTransparency = 0.82,
         ZIndex = 5, Parent = frame,
     })
-    round(iconWrap, 8)
-    local icon = makeIcon(iconWrap,
-        cfg.Icon or firstIcon(StatusIcons[entry.kind]) or "bell", 15, false,
-        {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 6})
+    round(iconWrap, 9)
+    local icon = makeIcon(iconWrap, cfg.Icon or firstIcon(StatusIcons[entry.kind]) or "bell", 16, false, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 6})
     icon.Color(color)
     n.iconImage = icon
 
     local title = tx("TextLabel", {
         Text = titleText, TextSize = 13, Font = Fonts[currentFont][3],
-        Position = UDim2.fromOffset(46, 11),
+        Position = UDim2.fromOffset(50, 11),
         Size = UDim2.new(1, -100, 0, 17),
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1047,8 +1018,8 @@ spawnNote = function(entry)
 
     local body = tx("TextLabel", {
         Text = content, TextSize = 12,
-        Position = UDim2.fromOffset(46, 30),
-        Size = UDim2.new(1, -60, 0, 15),
+        Position = UDim2.fromOffset(50, 30),
+        Size = UDim2.new(1, -64, 0, 15),
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
         Visible = content ~= "",
@@ -1076,8 +1047,7 @@ spawnNote = function(entry)
         ZIndex = 5, Parent = frame,
     })
     round(closeBtn, 6)
-    local closeIco = makeIcon(closeBtn, "x", 10, "Sub",
-        {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 6})
+    local closeIco = makeIcon(closeBtn, "x", 10, "Sub", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 6})
     closeIco.Image.ImageTransparency = 0.35
     closeIco.Glyph.TextTransparency = 0.35
     closeBtn.MouseEnter:Connect(function()
@@ -1094,20 +1064,30 @@ spawnNote = function(entry)
     end)
     closeBtn.Activated:Connect(function() dismissNote(n) end)
 
+    -- ✦ progress bar with a soft glow trail
     local barWrap = mk("Frame", {
         AnchorPoint = Vector2.new(0, 1),
-        Position = UDim2.new(0, 12, 1, -6),
-        Size = UDim2.new(1, -24, 0, 2),
+        Position = UDim2.new(0, 14, 1, -7),
+        Size = UDim2.new(1, -28, 0, 3),
         BackgroundColor3 = Pal.Elevated, BackgroundTransparency = 0.6,
         Visible = not n.sticky, ZIndex = 3, Parent = frame,
     })
-    round(barWrap, 1)
+    round(barWrap, 2)
+    local barGlow = mk("Frame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = color, BackgroundTransparency = 0.72,
+        ZIndex = 3, Parent = barWrap,
+    })
+    round(barGlow, 2)
+    n.barGlow = barGlow
     n.bar = mk("Frame", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = color, BackgroundTransparency = 0,
         ZIndex = 4, Parent = barWrap,
     })
-    round(n.bar, 1)
+    round(n.bar, 2)
+    local barGrad = mk("UIGradient", {Rotation = 0, Parent = n.bar})
+    barGrad.Color = ColorSequence.new(color, color:Lerp(Color3.new(1,1,1), 0.4))
 
     n.frame, n.title, n.body = frame, title, body
 
@@ -1115,11 +1095,13 @@ spawnNote = function(entry)
         n.hover = true
         tryExpand()
         play(frameStroke, 0.15, {Transparency = 0.2})
+        play(glow, 0.2, {BackgroundTransparency = 0.92})
     end)
     frame.MouseLeave:Connect(function()
         n.hover = false
         tryCollapse()
         play(frameStroke, 0.2, {Transparency = 0.5})
+        play(glow, 0.25, {BackgroundTransparency = 1})
     end)
 
     local dragStartX, dragStartY, dragOriginX, dragOriginY
@@ -1135,15 +1117,12 @@ spawnNote = function(entry)
     end)
     keep(UserInputService.InputChanged:Connect(function(input)
         if not n.dragging then return end
-        local isMouse = input.UserInputType == Enum.UserInputType.MouseMovement
-            and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+        local isMouse = input.UserInputType == Enum.UserInputType.MouseMovement and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
         local isTouch = input.UserInputType == Enum.UserInputType.Touch
         if not isMouse and not isTouch then return end
         local dx = input.Position.X - dragStartX
         local dy = input.Position.Y - dragStartY
-        if math.abs(dx) > DRAG_THRESHOLD or math.abs(dy) > DRAG_THRESHOLD then
-            n.moved = true
-        end
+        if math.abs(dx) > DRAG_THRESHOLD or math.abs(dy) > DRAG_THRESHOLD then n.moved = true end
         local v = viewport()
         local posX = dragOriginX.Scale + dx / math.max(v.X, 1)
         local posY = dragOriginY.Scale + dy / math.max(v.Y, 1)
@@ -1151,8 +1130,7 @@ spawnNote = function(entry)
     end))
     keep(UserInputService.InputEnded:Connect(function(input)
         if not n.dragging then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1
-            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
         n.dragging = false
         local dx = input.Position.X - dragStartX
         local dy = input.Position.Y - dragStartY
@@ -1168,15 +1146,15 @@ spawnNote = function(entry)
     task.defer(function()
         if n.dying or not frame.Parent then return end
         if content ~= "" then
-            local sz = measure(content, 12, Fonts[currentFont][1], Vector2.new(w - 60, 1000))
+            local sz = measure(content, 12, Fonts[currentFont][1], Vector2.new(w - 64, 1000))
             local lines = math.clamp(math.ceil(sz.Y / 15), 1, 3)
-            body.Size = UDim2.new(1, -60, 0, lines * 15)
+            body.Size = UDim2.new(1, -64, 0, lines * 15)
             body.TextWrapped = true
             body.TextYAlignment = Enum.TextYAlignment.Top
-            n.height = 11 + 17 + 4 + (lines * 15) + 14
+            n.height = 11 + 17 + 4 + (lines * 15) + 16
         else
-            body.Size = UDim2.new(1, -60, 0, 0)
-            n.height = 52
+            body.Size = UDim2.new(1, -64, 0, 0)
+            n.height = 54
         end
         if n.spawned then layoutAll(true) end
     end)
@@ -1189,8 +1167,7 @@ spawnNote = function(entry)
         if n.dying or not frame.Parent then return end
         n.spawned = true
         layoutAll(true)
-        play(frame, 0.5, {GroupTransparency = 0},
-             Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        play(frame, 0.5, {GroupTransparency = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     end)
 
     ensureNoteLoop()
@@ -1211,19 +1188,13 @@ dismissNote = function(n)
         if n.depth == 0 or n.moved then
             local dx, dy = spawnOffset(c)
             local curPos = n.frame.Position
-            local targetPos = UDim2.new(curPos.X.Scale, curPos.X.Offset + dx,
-                                        curPos.Y.Scale, curPos.Y.Offset + dy)
-            play(n.frame, 0.42, {Position = targetPos},
-                 Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            play(n.frame, 0.34, {GroupTransparency = 1},
-                 Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            play(n.scaleObj, 0.42, {Scale = 0.85},
-                 Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            local targetPos = UDim2.new(curPos.X.Scale, curPos.X.Offset + dx, curPos.Y.Scale, curPos.Y.Offset + dy)
+            play(n.frame, 0.42, {Position = targetPos}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(n.frame, 0.34, {GroupTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(n.scaleObj, 0.42, {Scale = 0.85}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         else
-            play(n.frame, 0.3, {GroupTransparency = 1},
-                 Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            play(n.scaleObj, 0.3, {Scale = 0.85},
-                 Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(n.frame, 0.3, {GroupTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            play(n.scaleObj, 0.3, {Scale = 0.85}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         end
         local f = n.frame
         task.delay(0.46, function() if f and f.Parent then f:Destroy() end end)
@@ -1262,9 +1233,7 @@ function Cactus:MakeNotification(cfg)
     end
     local handle = {}
     function handle:Dismiss() if handle.n then dismissNote(handle.n) end end
-    function handle:SetTitle(t)
-        if handle.n and handle.n.title then handle.n.title.Text = tostring(t) end
-    end
+    function handle:SetTitle(t) if handle.n and handle.n.title then handle.n.title.Text = tostring(t) end end
     function handle:SetContent(t)
         if handle.n and handle.n.body then
             handle.n.body.Text = tostring(t)
@@ -1277,6 +1246,7 @@ function Cactus:MakeNotification(cfg)
         n.custom = true
         if n.bar.Parent then n.bar.Parent.Visible = true end
         play(n.bar, 0.18, {Size = UDim2.new(math.clamp(p, 0, 1), 0, 1, 0)})
+        if n.barGlow then play(n.barGlow, 0.18, {Size = UDim2.new(math.clamp(p, 0, 1), 0, 1, 0)}) end
     end
     local entry = {cfg = cfg, kind = kind, key = key, count = 1, handle = handle, dedupe = dedupe}
     if #Notes.active >= Notes.max then
@@ -1289,12 +1259,8 @@ function Cactus:MakeNotification(cfg)
 end
 
 function Cactus:Notify(cfg) return Cactus:MakeNotification(cfg) end
-function Cactus:SetNotificationLimit(n)
-    Notes.max = math.clamp(math.floor(tonumber(n) or 5), 1, 10)
-end
-function Cactus:SetNotificationTime(s)
-    Notes.duration = math.clamp(tonumber(s) or 4, 1, 30)
-end
+function Cactus:SetNotificationLimit(n) Notes.max = math.clamp(math.floor(tonumber(n) or 5), 1, 10) end
+function Cactus:SetNotificationTime(s) Notes.duration = math.clamp(tonumber(s) or 4, 1, 30) end
 function Cactus:SetNotificationPosition(name)
     if not CORNERS[name] then return end
     Notes.position = name
@@ -1310,6 +1276,38 @@ function Cactus:ClearNotifications()
     Notes.queue = {} Notes.queuedKey = {}
     for i = #Notes.active, 1, -1 do dismissNote(Notes.active[i]) end
 end
+
+-- =========================================================
+-- ✦ CACTUS AUTO-AD
+-- Fires on load, then every 10 minutes. Uses cactus icon.
+-- =========================================================
+local adConn = nil
+local function fireCactusAd()
+    pcall(function()
+        Cactus:MakeNotification({
+            Name = "CactusLib",
+            Content = "This script uses CactusLib, like it? Check us out!",
+            Type = "Info",
+            Icon = "cactus",
+            Time = 7,
+        })
+    end)
+end
+local function startCactusAds()
+    if adConn then return end
+    task.spawn(function()
+        task.wait(1.5)
+        fireCactusAd()
+    end)
+    adConn = task.spawn(function()
+        while true do
+            task.wait(Cactus.AdInterval or 600)
+            fireCactusAd()
+        end
+    end)
+end
+Cactus._fireAd = fireCactusAd
+Cactus._startAds = startCactusAds
 
 -- =========================================================
 -- DIALOG
@@ -1713,6 +1711,7 @@ function Cactus:MakeWindow(cfg)
     Cactus.ShowMinimize = cfg.ShowMinimize ~= false
     Cactus.ShowClose = cfg.ShowClose ~= false
     if cfg.AutoShow ~= nil then Cactus.AutoShow = cfg.AutoShow ~= false end
+    if cfg.AdInterval then Cactus.AdInterval = tonumber(cfg.AdInterval) or 600 end
     Hud.title = title
     Watermark.text = title
     Watermark.setSub(subtitle)
@@ -1850,10 +1849,10 @@ function Cactus:MakeWindow(cfg)
     end)
     Window.MinButton = minBtnBox
 
+    -- ✦ PLAYER PILL — background stays fixed, only stroke animates on hover
     local playerPill = mk("TextButton", {Name="PlayerInfo", Size=UDim2.fromOffset(240,54), LayoutOrder=1, Parent=bottomDock, ZIndex=15})
     bind(playerPill, "BackgroundColor3", "Surface")
     playerPill.BackgroundTransparency = 0.14
-    round(playerPill, 27)
     local pillStroke = outline(playerPill, "Stroke", 1.2, 0.5)
 
     local pillAvatar = mk("ImageLabel", {AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,8,0.5,0), Size=UDim2.fromOffset(40,40), ZIndex=16, Parent=playerPill})
@@ -1866,8 +1865,15 @@ function Cactus:MakeWindow(cfg)
 
     tx("TextLabel", {Text=LocalPlayer.DisplayName, TextSize=13, Font=Fonts[currentFont][3], Position=UDim2.fromOffset(56,10), Size=UDim2.new(1,-64,0,16), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=16, Parent=playerPill}, 3)
     tx("TextLabel", {Text="@"..LocalPlayer.Name, TextSize=11, Position=UDim2.fromOffset(56,28), Size=UDim2.new(1,-64,0,14), TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=16, Parent=playerPill}, 1, "Sub")
-    playerPill.MouseEnter:Connect(function() play(playerPill, 0.15, {BackgroundTransparency = 0.88}) play(pillStroke, 0.15, {Transparency = 0.2}) end)
-    playerPill.MouseLeave:Connect(function() play(playerPill, 0.2, {BackgroundTransparency = 0.14}) play(pillStroke, 0.2, {Transparency = 0.5}) end)
+    -- ✦ Pill hover: only the stroke lights up. BackgroundTransparency is NEVER touched.
+    playerPill.MouseEnter:Connect(function()
+        play(pillStroke, 0.18, {Transparency = 0.05})
+        play(pillStroke, 0.4, {Thickness = 1.6})
+    end)
+    playerPill.MouseLeave:Connect(function()
+        play(pillStroke, 0.25, {Transparency = 0.5})
+        play(pillStroke, 0.4, {Thickness = 1.2})
+    end)
 
     local tabBar = mk("Frame", {Name="TabBar", Size=UDim2.fromOffset(baseW,56), LayoutOrder=2, Parent=bottomDock, ZIndex=15})
     bind(tabBar, "BackgroundColor3", "Surface")
@@ -1913,9 +1919,7 @@ function Cactus:MakeWindow(cfg)
     bind(launcher, "BackgroundColor3", "Surface")
     bind(launcherTitle, "TextColor3", "Text")
     bind(launcherSub, "TextColor3", "Sub")
-    onTheme(function()
-        launcher.BackgroundColor3 = Pal.Surface
-    end)
+    onTheme(function() launcher.BackgroundColor3 = Pal.Surface end)
     local launcherScale = mk("UIScale", {Scale=0, Parent=launcher})
     Window.LauncherIcon = launcherIcon
     Window.LauncherTitle = launcherTitle
@@ -1924,8 +1928,7 @@ function Cactus:MakeWindow(cfg)
 
     local function toggleText(k)
         if not k or typeof(k) ~= "EnumItem" then return "None" end
-        local map = {LeftShift="LShift", RightShift="RShift", LeftControl="LCtrl",
-            RightControl="RCtrl", LeftAlt="LAlt", RightAlt="RAlt", Backquote="`", Return="Enter"}
+        local map = {LeftShift="LShift", RightShift="RShift", LeftControl="LCtrl", RightControl="RCtrl", LeftAlt="LAlt", RightAlt="RAlt", Backquote="`", Return="Enter"}
         local name = k.Name or "?"
         return map[name] or name
     end
@@ -2133,9 +2136,7 @@ function Cactus:MakeWindow(cfg)
             end)
         end
         fadeGroup(bottomDock, 0.3, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-        task.delay(0.35, function()
-            if Window.Hidden then bottomDock.Visible = false end
-        end)
+        task.delay(0.35, function() if Window.Hidden then bottomDock.Visible = false end end)
         play(CactusBlur, 0.35, {Size = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     end
 
@@ -2151,7 +2152,6 @@ function Cactus:MakeWindow(cfg)
         if Window.Minimized == state then return end
         Window.Minimized = state
         Popup.close(true)
-
         if state then
             fadeGroup(winCard, 0.25, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
             play(CactusBlur, 0.35, {Size = 0}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -2159,20 +2159,14 @@ function Cactus:MakeWindow(cfg)
                 if not Window.Minimized then return end
                 winCard.Visible = false
                 play(minBtnBox, 0.35, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart)
-                if minBtnStroke then
-                    play(minBtnStroke, 0.35, {Transparency = 1}, Enum.EasingStyle.Quart)
-                end
+                if minBtnStroke then play(minBtnStroke, 0.35, {Transparency = 1}, Enum.EasingStyle.Quart) end
                 local dockH = bottomDock.AbsoluteSize.Y / math.max(dockScale.Scale, 0.01)
                 local minH = minBtnBox.AbsoluteSize.Y / math.max(dockScale.Scale, 0.01)
                 local slideDown = math.max(0, dockH - minH - 2)
-                play(bottomDock, 0.5, {
-                    Position = UDim2.new(0.5, 0, 1, -14 + slideDown)
-                }, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
+                play(bottomDock, 0.5, {Position = UDim2.new(0.5, 0, 1, -14 + slideDown)}, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
             end)
         else
-            play(bottomDock, 0.5, {
-                Position = UDim2.new(0.5, 0, 1, -14)
-            }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            play(bottomDock, 0.5, {Position = UDim2.new(0.5, 0, 1, -14)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             play(minBtnBox, 0.35, {BackgroundTransparency = 0.02}, Enum.EasingStyle.Quart)
             if minBtnStroke then
                 local base = minBtnStroke:GetAttribute("_baseTrans") or 0.5
@@ -2186,7 +2180,6 @@ function Cactus:MakeWindow(cfg)
                 fadeGroup(winCard, 0.3, 0, Enum.EasingStyle.Quart)
             end)
         end
-
         play(minIconHolder.Image, 0.3, {Rotation = state and 180 or 0})
         play(minIconHolder.Glyph, 0.3, {Rotation = state and 180 or 0})
     end
@@ -2571,6 +2564,9 @@ end
 
 -- =========================================================
 -- ELEMENT FACTORY
+-- ✦ Buttons never shift their icon on press.
+-- ✦ AddButton supports Primary = true (glowing gradient CTA).
+-- ✦ Aliases: E:CreateButton, E:MakeButton.
 -- =========================================================
 local function extendElements(E, ctx)
     local Window, Tab, P = ctx.Window, ctx.Tab, ctx.P
@@ -2592,17 +2588,20 @@ local function extendElements(E, ctx)
         local rail = mk("TextButton", {Position=UDim2.new(0,16,1,mobile and -22 or -20), Size=UDim2.new(1,-32,0,mobile and 12 or 10), ZIndex=16, Parent=c})
         bind(rail, "BackgroundColor3", "Elevated")
         round(rail, 6)
-        local railInner = mk("Frame", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(1,1,1), BackgroundTransparency=0.7, ZIndex=16, Parent=rail})
+        -- ✦ inner shadow line on rail for depth
+        local railInner = mk("Frame", {Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=0.75, ZIndex=16, Parent=rail})
         round(railInner, 6)
         local fillBar = mk("Frame", {Size=UDim2.new(0,0,1,0), BackgroundColor3=Color3.new(1,1,1), ZIndex=17, Parent=rail})
         round(fillBar, 6)
         accentGradient(fillBar, 0)
-        local fillGlow = mk("Frame", {Size=UDim2.new(0,0,1,0), BackgroundColor3=Pal.Accent, BackgroundTransparency=0.65, ZIndex=15, Parent=rail})
+        local fillGlow = mk("Frame", {Size=UDim2.new(0,0,1,0), BackgroundColor3=Pal.Accent, BackgroundTransparency=0.6, ZIndex=15, Parent=rail})
         round(fillGlow, 6)
-        local knob = mk("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.new(0,0,0.5,0), Size=UDim2.fromOffset(mobile and 20 or 16, mobile and 20 or 16), BackgroundColor3=Color3.new(1,1,1), ZIndex=19, Parent=rail})
-        round(knob, 10)
-        local knobGlow = mk("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.new(0,0,0.5,0), Size=UDim2.fromOffset(mobile and 20 or 16, mobile and 20 or 16), BackgroundColor3=Pal.Accent, BackgroundTransparency=0.7, ZIndex=18, Parent=rail})
+        -- ✦ thumb with glow ring behind it
+        local knobGlow = mk("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.new(0,0,0.5,0), Size=UDim2.fromOffset(mobile and 20 or 16, mobile and 20 or 16), BackgroundColor3=Pal.Accent, BackgroundTransparency=0.72, ZIndex=18, Parent=rail})
         round(knobGlow, 10)
+        local knob = mk("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.new(0,0,0.5,0), Size=UDim2.fromOffset(mobile and 20 or 16, mobile and 16 or 16), BackgroundColor3=Color3.new(1,1,1), ZIndex=19, Parent=rail})
+        round(knob, 10)
+        mk("UIStroke", {Thickness=1.4, Color=Color3.new(0,0,0), Transparency=0.75, ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Parent=knob})
         local value = math.clamp(tonumber(o.Default) or min, min, max)
         local obj = {Value=value}
         local function fracOf(v) return math.clamp((v - min) / (max - min), 0, 1) end
@@ -2633,6 +2632,8 @@ local function extendElements(E, ctx)
             if not isPointer(input) then return end
             if obj:IsLocked() then return end
             railDragging = true fromX(input.Position.X)
+            play(knob, 0.15, {Size = UDim2.fromOffset(mobile and 24 or 20, mobile and 24 or 20)}, Enum.EasingStyle.Back)
+            play(knobGlow, 0.15, {BackgroundTransparency = 0.5})
         end)
         keep(UserInputService.InputChanged:Connect(function(input)
             if not railDragging then return end
@@ -2645,6 +2646,8 @@ local function extendElements(E, ctx)
             if not railDragging then return end
             if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
             railDragging = false
+            play(knob, 0.25, {Size = UDim2.fromOffset(mobile and 20 or 16, mobile and 20 or 16)}, Enum.EasingStyle.Back)
+            play(knobGlow, 0.25, {BackgroundTransparency = 0.72})
         end))
         valBox.FocusLost:Connect(function()
             local n = tonumber(valBox.Text:match("-?%d+%.?%d*"))
@@ -2835,8 +2838,8 @@ local function extendElements(E, ctx)
             for _, r in pairs(rows) do if r.btn.Visible then visible = visible + 1 end end
             local searchH = (obj._hasSearch) and 38 or 0
             local h = math.min(visible * 34 + 8 + searchH, 240)
-            if obj.IsOpen then play(listFrame, 0.28, {Size = UDim2.new(1,-16,0,h)}, Enum.EasingStyle.Quart)
-            else play(listFrame, 0.2, {Size = UDim2.new(1,-16,0,0)}, Enum.EasingStyle.Quart) end
+            if obj.IsOpen then play(listFrame, 0.28, {Size = UDim2.new(1,-16,0,h)}, Enum.EasingStyle.Back)
+            else play(listFrame, 0.2, {Size = UDim2.new(1,-16,0,0)}, Enum.EasingStyle.Quart, Enum.EasingDirection.In) end
             play(c, 0.28, {Size = UDim2.new(1,0,0,rowH + (obj.IsOpen and (h + 8) or 0))}, Enum.EasingStyle.Quart)
             play(arrow.Image, 0.25, {Rotation = obj.IsOpen and 180 or 0}, Enum.EasingStyle.Back)
             play(arrow.Glyph, 0.25, {Rotation = obj.IsOpen and 180 or 0}, Enum.EasingStyle.Back)
@@ -3056,7 +3059,7 @@ local function extendElements(E, ctx)
         function obj:Open()
             if obj.IsOpen or obj:IsLocked() then return end
             obj.IsOpen = true buildPanel()
-            play(panel, 0.28, {Size = UDim2.new(1,-16,0,240)}, Enum.EasingStyle.Quart)
+            play(panel, 0.28, {Size = UDim2.new(1,-16,0,240)}, Enum.EasingStyle.Back)
             play(c, 0.28, {Size = UDim2.new(1,0,0,rowH + 248)}, Enum.EasingStyle.Quart)
             play(arrow.Image, 0.25, {Rotation = 180}, Enum.EasingStyle.Back)
             play(arrow.Glyph, 0.25, {Rotation = 180}, Enum.EasingStyle.Back)
@@ -3538,14 +3541,21 @@ function ElementFactory(Window, Tab, parent, sectionName)
         P.searchIndex[#P.searchIndex + 1] = {
             owner=obj, name=tostring(opts.Name or kind), tab=Tab.Name, section=sectionName, kind=kind,
             go = function()
+                -- ✦ Smoothly reopen the window, switch tab, scroll to element, flash it
                 if Window.RequestOpen then Window.RequestOpen() end
-                Window:SelectTab(Tab)
-                task.delay(0.22, function()
+                local alreadyOn = (Window.Selected == Tab)
+                if not alreadyOn then
+                    task.wait(0.06)
+                    Window:SelectTab(Tab)
+                end
+                task.delay(alreadyOn and 0.05 or 0.28, function()
                     if not c.Parent then return end
                     local sc = Tab.Scroll
                     local y = c.AbsolutePosition.Y - sc.AbsolutePosition.Y + sc.CanvasPosition.Y - 10
-                    play(sc, 0.35, {CanvasPosition = Vector2.new(0, math.max(0, y))})
-                    flashCard(c, Pal.Accent, 1.1)
+                    play(sc, 0.42, {CanvasPosition = Vector2.new(0, math.max(0, y))}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+                    task.delay(0.22, function()
+                        if c.Parent then flashCard(c, Pal.Accent, 1.2) end
+                    end)
                 end)
             end,
         }
@@ -3594,15 +3604,60 @@ function ElementFactory(Window, Tab, parent, sectionName)
         return decorate(obj, c, o, "Paragraph")
     end
 
+    -- ✦ ADD BUTTON — primary CTA support + no icon-shift on press
     function E:AddButton(o)
         o = o or {}
         local label = tostring(o.Name or "Button")
+        local isPrimary = o.Primary == true or o.Priority == true
         local c = card(rowH, true)
-        nameLabel(c, label, UDim2.new(1, -60, 1, 0))
-        local arrow = makeIcon(c, o.Icon or "chevron-right", 16, "Sub",
-            {AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,-16,0.5,0), ZIndex=25})
-        arrow.Image.ZIndex = 25 arrow.Glyph.ZIndex = 25
-        c.ClipsDescendants = true
+
+        -- icon sits on the right, never moves
+        local icon = makeIcon(c, o.Icon or "chevron-right", 16, isPrimary and "Text" or "Sub",
+            {AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,-16,0.5,0), ZIndex=30})
+        icon.Image.ZIndex = 30 icon.Glyph.ZIndex = 30
+        c.ClipsDescendants = false
+
+        local nameLbl = nameLabel(c, label, UDim2.new(1, -60, 1, 0))
+        nameLbl.Position = UDim2.fromOffset(16, 0)
+
+        if isPrimary then
+            -- Gradient fill + soft glow ring, feels like the main CTA
+            c.BackgroundTransparency = 0
+            local grad = mk("UIGradient", {Rotation = 20, Parent = c})
+            grad.Color = ColorSequence.new(Pal.Accent, Pal.Accent2)
+            bind(grad, "Color", "Accent", function(_, p) return ColorSequence.new(p.Accent, p.Accent2) end)
+            nameLbl.TextColor3 = onAccent()
+            bind(nameLbl, "TextColor3", "Accent", function() return onAccent() end)
+            icon.Color(onAccent())
+
+            local glow = mk("Frame", {Size = UDim2.fromScale(1,1), BackgroundColor3 = Pal.Accent, BackgroundTransparency = 0.72, ZIndex = 20, Parent = c})
+            round(glow, 15)
+            glow.ZIndex = 20
+
+            local glowPulse = task.spawn(function()
+                while c.Parent do
+                    play(glow, 1.6, {BackgroundTransparency = 0.85}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                    task.wait(1.6)
+                    if not c.Parent then break end
+                    play(glow, 1.6, {BackgroundTransparency = 0.68}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                    task.wait(1.6)
+                end
+            end)
+
+            c.MouseEnter:Connect(function()
+                play(glow, 0.25, {BackgroundTransparency = 0.55})
+                play(icon.Image, 0.2, {Size = UDim2.fromScale(1.15, 1.15)})
+                play(icon.Glyph, 0.2, {TextSize = 20})
+            end)
+            c.MouseLeave:Connect(function()
+                play(glow, 0.35, {BackgroundTransparency = 0.72})
+                play(icon.Image, 0.25, {Size = UDim2.fromScale(1, 1)})
+                play(icon.Glyph, 0.25, {TextSize = 16})
+            end)
+
+            c.Destroying:Connect(function() pcall(function() task.cancel(glowPulse) end) end)
+        end
+
         local obj = {}
         local running = false
         function obj:Fire(...)
@@ -3611,13 +3666,13 @@ function ElementFactory(Window, Tab, parent, sectionName)
                 return false
             end
             running = true
-            play(c, 0.08, {BackgroundTransparency = 0.32})
-            task.delay(0.09, function() play(c, 0.28, {BackgroundTransparency = 0.15}) end)
-            play(arrow.Image, 0.18, {Position = UDim2.new(1,-12,0.5,0)})
-            play(arrow.Glyph, 0.18, {Position = UDim2.new(1,-12,0.5,0)})
-            task.delay(0.2, function()
-                play(arrow.Image, 0.25, {Position = UDim2.new(1,-16,0.5,0)})
-                play(arrow.Glyph, 0.25, {Position = UDim2.new(1,-16,0.5,0)})
+            -- ✦ No icon translation. Instead: brightness + subtle scale pulse of the whole card.
+            local sc = c:FindFirstChildOfClass("UIScale") or mk("UIScale", {Scale = 1, Parent = c})
+            play(c, 0.08, {BackgroundTransparency = isPrimary and 0.06 or 0.28})
+            play(sc, 0.1, {Scale = 0.97}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            task.delay(0.1, function()
+                play(c, 0.3, {BackgroundTransparency = isPrimary and 0 or 0.15})
+                play(sc, 0.4, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             end)
             local args = table.pack(...)
             task.spawn(function()
@@ -3633,15 +3688,19 @@ function ElementFactory(Window, Tab, parent, sectionName)
                     if type(o.OnError) == "function" then pcall(o.OnError, err, label) end
                     fail(c, label, err)
                 else
-                    flashCard(c, Status.Success, 0.5)
+                    flashCard(c, isPrimary and Pal.Accent2 or Status.Success, 0.5)
                 end
             end)
             return true
         end
         c.InputBegan:Connect(function(input) if isPointer(input) then obj:Fire() end end)
         function obj:SetCallback(fn) o.Callback = fn end
-        return decorate(obj, c, o, "Button")
+        return decorate(obj, c, o, isPrimary and "Primary Button" or "Button")
     end
+
+    -- ✦ Aliases requested by user
+    E.CreateButton = E.AddButton
+    E.MakeButton   = E.AddButton
 
     function E:AddToggle(o)
         o = o or {}
@@ -3652,23 +3711,28 @@ function ElementFactory(Window, Tab, parent, sectionName)
         bind(track, "BackgroundColor3", "Elevated")
         round(track, 13)
         local trackStroke = outline(track, "Stroke", 1.2, 0.3)
-        local fill = mk("Frame", {Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(1,1,1), BackgroundTransparency=1, ZIndex=26, Parent=track})
+        local fill = mk("Frame", {Size = UDim2.fromScale(1,1), BackgroundColor3 = Color3.new(1,1,1), BackgroundTransparency = 1, ZIndex = 26, Parent = track})
         round(fill, 13)
-        local fillGrad = mk("UIGradient", {Rotation=25, Parent=fill})
+        local fillGrad = mk("UIGradient", {Rotation = 25, Parent = fill})
         bind(fillGrad, "Color", "Accent", function(_, p) return ColorSequence.new(p.Accent, p.Accent2) end)
+        -- ✦ outside glow ring pulses when toggle is ON
+        local glowRing = mk("Frame", {Size = UDim2.fromScale(1,1), BackgroundColor3 = Pal.Accent, BackgroundTransparency = 1, ZIndex = 24, Parent = track})
+        round(glowRing, 13)
         local knob = mk("Frame", {AnchorPoint=Vector2.new(0,0.5), Position=UDim2.new(0,3,0.5,0), Size=UDim2.fromOffset(20,20), BackgroundColor3=Color3.new(1,1,1), ZIndex=28, Parent=track})
         round(knob, 10)
         mk("UIStroke", {Thickness=1, Color=Color3.new(0,0,0), Transparency=0.85, ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Parent=knob})
-        local glowRing = mk("Frame", {Size=UDim2.fromScale(1,1), BackgroundColor3=Pal.Accent, BackgroundTransparency=1, ZIndex=24, Parent=track})
-        round(glowRing, 13)
+        -- ✦ small shine dot on knob
+        local shine = mk("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.35,0.35), Size=UDim2.fromOffset(6,6), BackgroundColor3=Color3.new(1,1,1), BackgroundTransparency=0.4, ZIndex=29, Parent=knob})
+        round(shine, 3)
+
         local state = {value = false}
         local obj = {Value = false}
         local function paint(v, animated)
-            local dur = animated and 0.28 or 0.001
+            local dur = animated and 0.3 or 0.001
             play(fill, dur, {BackgroundTransparency = v and 0 or 1}, Enum.EasingStyle.Quart)
             play(trackStroke, dur, {Transparency = v and 1 or 0.3})
-            play(glowRing, dur + 0.1, {BackgroundTransparency = v and 0.85 or 1})
-            play(knob, dur, {Position = UDim2.new(0, v and 23 or 3, 0.5, 0)}, Enum.EasingStyle.Back)
+            play(glowRing, dur + 0.1, {BackgroundTransparency = v and 0.78 or 1})
+            play(knob, dur + 0.05, {Position = UDim2.new(0, v and 23 or 3, 0.5, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
         local firer = makeFirer(function() return state.value end, function(v)
             local ok, err = pcall(o.Callback or function() end, v)
@@ -3889,7 +3953,7 @@ local function populateAlwaysTab(tab)
     local regionPill = server:AddStatPill({Name="Server Region", Value="-"})
     local sessionPill = server:AddStatPill({Name="In server for", Value="-"})
     server:AddButton({
-        Name = "Join Script", Icon = "download",
+        Name = "Join Script", Icon = "download", Primary = true,
         Callback = function()
             local ok = pcall(function()
                 TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
@@ -3927,7 +3991,7 @@ local function populateAlwaysTab(tab)
         Tone = supported and Status.Success or Status.Warning,
     })
     wave:AddKeyValue({Name="Executor", Value = execName or "Unknown"})
-    if execVer then wave:AddKeyValue({Name="Version", Value = execVer}) end
+    if execVer then wave:AddKeyValue({Name="Version", Value=execVer}) end
     wave:AddParagraph({
         Title = supported and "Executor supported" or "Executor may be limited",
         Content = supported
@@ -4022,7 +4086,8 @@ local function attachSettings(Window)
         local nameBox = cfgSec:AddTextbox({Name="Profile name", Placeholder="my-config"})
         local profiles = cfgSec:AddDropdown({Name="Profiles", Options=Cactus:ListProfiles(), AllowNone=true})
         local function refreshProfiles() profiles:Refresh(Cactus:ListProfiles()) end
-        cfgSec:AddButton({Name="Save profile", Icon="save", Callback=function()
+        -- ✦ Save profile is now a PRIMARY button (glowing CTA)
+        cfgSec:AddButton({Name="Save profile", Icon="save", Primary=true, Callback=function()
             local n = nameBox:Get()
             if n == "" then n = profiles:Get() or "" end
             if n == "" then error("type a profile name first") end
@@ -4046,12 +4111,8 @@ local function attachSettings(Window)
             Default = Window.ToggleKey,
             Flag = "_toggleKey",
             Save = true,
-            Callback = function()
-                Window:Toggle()
-            end,
-            OnChange = function(k)
-                Window.SetToggleKey(k)
-            end,
+            Callback = function() Window:Toggle() end,
+            OnChange = function(k) Window.SetToggleKey(k) end,
         })
         ui:AddButton({Name="Collapse all sections", Icon="chevron-up", Callback=function()
             Window:CollapseAll()
@@ -4078,6 +4139,8 @@ end
 
 -- =========================================================
 -- SEARCH
+-- ✦ Smoother open/close. Clicking a result closes the GUI
+--   and animates to the target (see decorate.go).
 -- =========================================================
 local function fuzzy(query, text)
     query, text = query:lower(), text:lower()
@@ -4137,11 +4200,17 @@ local function attachSearch(Window)
             round(b, 10)
             tx("TextLabel", {Text=e.name, TextSize=13, Position=UDim2.fromOffset(12,5), Size=UDim2.new(1,-90,0,16), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=184, Parent=b}, 2)
             tx("TextLabel", {Text=e.tab..(e.section and (" / "..e.section) or ""), TextSize=10, Position=UDim2.fromOffset(12,22), Size=UDim2.new(1,-90,0,13), TextTruncate=Enum.TextTruncate.AtEnd, ZIndex=184, Parent=b}, 1, "Sub")
-            b.InputBegan:Connect(function(input) if not isPointer(input) then return end Window:CloseSearch() e.go() end)
+            b.InputBegan:Connect(function(input)
+                if not isPointer(input) then return end
+                -- ✦ Close search first so the transition is clean, then jump
+                Window:CloseSearch()
+                task.delay(0.1, function() e.go() end)
+            end)
             buttons[i] = b
         end
         picked = 1
-        list.Size = UDim2.new(1, 0, 0, math.min(math.max(#shown, 1) * 42 + 12, mobile and 170 or 300))
+        local targetH = math.min(math.max(#shown, 1) * 42 + 12, mobile and 170 or 300)
+        play(list, 0.28, {Size = UDim2.new(1, 0, 0, targetH)}, Enum.EasingStyle.Quart)
         highlight()
     end
     input:GetPropertyChangedSignal("Text"):Connect(function() if open then render() end end)
@@ -4153,19 +4222,19 @@ local function attachSearch(Window)
         input.Text = ""
         layer.Visible = true
         render()
-        play(layer, 0.25, {BackgroundTransparency = 0.6})
-        fadeGroup(box, 0.28, 0, Enum.EasingStyle.Quart)
-        play(boxScale, 0.4, {Scale = 1}, Enum.EasingStyle.Back)
+        play(layer, 0.28, {BackgroundTransparency = 0.6}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        fadeGroup(box, 0.3, 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        play(boxScale, 0.5, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         if not mobile then task.delay(0.05, function() if open then input:CaptureFocus() end end) end
     end
     function Window:CloseSearch()
         if not open then return end
         open = false
         input:ReleaseFocus()
-        play(layer, 0.2, {BackgroundTransparency = 1})
-        fadeGroup(box, 0.22, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-        play(boxScale, 0.22, {Scale = 0.96})
-        task.delay(0.26, function() if not open then layer.Visible = false restoreGroup(box) end end)
+        play(layer, 0.22, {BackgroundTransparency = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        fadeGroup(box, 0.24, 1, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        play(boxScale, 0.24, {Scale = 0.94}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        task.delay(0.28, function() if not open then layer.Visible = false restoreGroup(box) end end)
     end
     layer.InputBegan:Connect(function(input) if isPointer(input) then Window:CloseSearch() end end)
     box.Active = true
@@ -4173,7 +4242,7 @@ local function attachSearch(Window)
         if enter and shown[picked] then
             local e = shown[picked]
             Window:CloseSearch()
-            e.go()
+            task.delay(0.1, function() e.go() end)
         end
     end)
     keep(UserInputService.InputBegan:Connect(function(i, gpe)
@@ -4283,10 +4352,10 @@ function Cactus:Init()
             window.Launcher.Visible = true
             window.Launcher.BackgroundTransparency = 0
         end
+        -- ✦ Fire the cactus advertisement loop after init (on-load + every 10 min)
+        startCactusAds()
     end
-    local function afterKey()
-        finish()
-    end
+    local function afterKey() finish() end
     local function afterLoading()
         if Cactus._keyCfg and not Cactus._keyVerified then
             if Cactus.KeyFile and Cactus.AutoVerify then
@@ -4312,6 +4381,7 @@ function Cactus:Destroy()
     hideTip()
     if rainbowConn then rainbowConn:Disconnect() rainbowConn = nil end
     if noteLoop then noteLoop:Disconnect() noteLoop = nil end
+    if adConn then pcall(function() task.cancel(adConn) end) adConn = nil end
     for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
     conns = {}
     for _, w in ipairs(Cactus.Windows) do pcall(function() w._parts.launcher:Destroy() end) end
