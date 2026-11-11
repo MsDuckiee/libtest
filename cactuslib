@@ -1249,7 +1249,7 @@ function Cactus:MakeWindow(cfg)
 
     hide = function(toMorph)
         Window.Morphing = false Window.Hidden = true
-        Popup.close(true) hideTip()
+        Popup.close(true) if type(hideTip) == "function" then hideTip() end
         closeToken = closeToken + 1
         local mine = closeToken
         if toMorph and Cactus.ShowLauncher then
@@ -1441,7 +1441,7 @@ function TabImpl.select(Window, target, instant)
     if type(target) == "string" then for _, t in ipairs(Window.Tabs) do if t.Name == target then target = t break end end end
     if type(target) ~= "table" or not target.Button then return end
     local prev = Window.Selected if prev == target then return end
-    Popup.close(true) hideTip() Window.Selected = target if target._EnsureBuilt then target:_EnsureBuilt() end
+    Popup.close(true) if type(hideTip) == "function" then hideTip() end Window.Selected = target if target._EnsureBuilt then target:_EnsureBuilt() end
     local forward = not prev or target.Index > prev.Index
     if instant or not prev then for _, t in ipairs(Window.Tabs) do t.Page.Visible = t == target t.Page.GroupTransparency = t == target and 0 or 1 t.Page.Position = UDim2.fromOffset(0, 0) end if target.Restore then target.Restore() end -- FIXED nil check
     else flipTabs(Window, prev, target, forward) end
@@ -1802,8 +1802,8 @@ function ElementFactory(Window, Tab, parent, sectionName)
         E._count = E._count + 1 local locked = false
         local veil = mk("Frame", {Name="Lock", Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(0,0,0), BackgroundTransparency=0.5, Visible=false, ZIndex=40, Parent=c}) round(veil, 8)
         local lockIco = makeIcon(veil, "lock", 15, "Sub", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), ZIndex=41}) lockIco.Image.ZIndex = 41 lockIco.Glyph.ZIndex = 41
-        function obj:Lock(v) if v == nil then v = true end locked = v and true or false veil.Visible = locked end function obj:IsLocked() return locked end function obj:SetVisible(v) c.Visible = v and true or false end function obj:Destroy() c:Destroy() for i, e in ipairs(P.searchIndex) do if e.owner == obj then table.remove(P.searchIndex, i) break end end end function obj:SetName(n) local l = c:FindFirstChild("Name") if l then l.Text = tostring(n) end end function obj:SetTooltip(t) attachTip(c, t) end
-        obj.Card = c obj.Kind = kind if opts.Locked then obj:Lock(true) end if opts.Tooltip then attachTip(c, opts.Tooltip) end if opts.Visible == false then c.Visible = false end
+        function obj:Lock(v) if v == nil then v = true end locked = v and true or false veil.Visible = locked end function obj:IsLocked() return locked end function obj:SetVisible(v) c.Visible = v and true or false end function obj:Destroy() c:Destroy() for i, e in ipairs(P.searchIndex) do if e.owner == obj then table.remove(P.searchIndex, i) break end end end function obj:SetName(n) local l = c:FindFirstChild("Name") if l then l.Text = tostring(n) end end function obj:SetTooltip(t) if type(attachTip) == "function" then attachTip(c, t) end end
+        obj.Card = c obj.Kind = kind if opts.Locked then obj:Lock(true) end if opts.Tooltip and type(attachTip) == "function" then attachTip(c, opts.Tooltip) end if opts.Visible == false then c.Visible = false end
         P.searchIndex[#P.searchIndex + 1] = { owner=obj, name=tostring(opts.Name or kind), tab=Tab.Name, section=sectionName, kind=kind, go = function() if Window.RequestOpen then Window.RequestOpen() end local alreadyOn = (Window.Selected == Tab) if not alreadyOn then task.wait(0.06) Window:SelectTab(Tab) end task.delay(alreadyOn and 0.05 or 0.28, function() if not c.Parent then return end local sc = Tab.Scroll local y = c.AbsolutePosition.Y - sc.AbsolutePosition.Y + sc.CanvasPosition.Y - 10 play(sc, 0.42, {CanvasPosition = Vector2.new(0, math.max(0, y))}, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut) task.delay(0.22, function() if c.Parent then flashCard(c, Pal.Accent, 1.2) end end) end) end, }
         return obj
     end
@@ -1846,8 +1846,8 @@ function ElementFactory(Window, Tab, parent, sectionName)
         local state = {value = false} local obj = {Value = false}
         local function paint(v, animated) local dur = animated and 0.3 or 0.001 play(fill, dur, {BackgroundTransparency = v and 0 or 1}, Enum.EasingStyle.Quart) play(knob, dur + 0.05, {Position = UDim2.new(0, v and 20 or 2, 0.5, 0)}, Enum.EasingStyle.Back) end
         local firer = makeFirer(function() return state.value end, function(v) local ok, err = pcall(o.Callback or function() end, v) if not ok then fail(c, label, err) end end)
-        function obj:Set(v, silent) v = v and true or false state.value = v obj.Value = v paint(v, true) if silent then firer.Sync(v) else firer.Fire() queueSave() end end function obj:Get() return state.value end function obj:Toggle() obj:Set(not state.value) end
-        c.Activated:Connect(function() if obj:IsLocked() then return end obj:Set(not state.value) end)
+        function obj:Set(v, silent) v = v and true or false state.value = v obj.Value = v paint(v, true) if silent then firer.Sync(v) else firer.Fire() queueSave() end end function obj:Get() return state.value end function obj:Toggle() if obj.IsLocked and obj:IsLocked() then return end obj:Set(not state.value) end
+        c.Activated:Connect(function() if obj.IsLocked and obj:IsLocked() then return end obj:Set(not state.value) end)
         register(o.Flag, obj, o, function() return state.value end, function(v) obj:Set(v) end) decorate(obj, c, o, "Toggle")
         local start = o.Default and true or false state.value = start obj.Value = start paint(start, false)
         if start then initFires[#initFires + 1] = function() firer.Fire() end else firer.Sync(false) end
@@ -2049,7 +2049,7 @@ function Cactus:Init()
 end
 
 function Cactus:Destroy()
-    Cactus._ready = false Popup.close(true) hideTip()
+    Cactus._ready = false Popup.close(true) if type(hideTip) == "function" then hideTip() end
     if rainbowConn then rainbowConn:Disconnect() rainbowConn = nil end
     if noteLoop then noteLoop:Disconnect() noteLoop = nil end
     if adConn then pcall(function() task.cancel(adConn) end) adConn = nil end
