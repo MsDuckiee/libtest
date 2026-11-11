@@ -94,6 +94,15 @@ end
 
 local binds = {}
 local activeBindCapture = nil
+local function keyText(k)
+    if typeof(k) ~= "EnumItem" then return tostring(k or "None") end
+    local n = k.Name
+    n = n:gsub("^MouseButton", "M")
+    n = n:gsub("^Left", "L")
+    n = n:gsub("^Right", "R")
+    n = n:gsub("^Keypad", "Num")
+    return n
+end
 local fontObjs = setmetatable({}, {__mode = "k"})
 local themeHooks, tweens = {}, setmetatable({}, {__mode = "k"})
 
@@ -1297,7 +1306,7 @@ local function extendElements(E, ctx)
         bind(chip, "BackgroundColor3", "Elevated") chip.BackgroundTransparency = 0 round(chip, 6)
         local obj = {Value=o.Default, Binding=false, Locked=false} function obj:IsLocked() return obj.Locked == true end function obj:SetLocked(v) obj.Locked = v and true or false return obj end
         local banned = {[Enum.KeyCode.Unknown]=true, [Enum.KeyCode.Return]=true, [Enum.KeyCode.Tab]=true}
-        local function refresh() local t = obj.Binding and "..." or (obj.Value and keyText(obj.Value) or "None") chip.Text = t local w = math.max(50, #t * 8 + 22) play(chip, 0.25, {Size = UDim2.fromOffset(w, 26)}, Enum.EasingStyle.Back) if kbVisible then kbRebuild() end end
+        local function refresh() local t = obj.Binding and "..." or (obj.Value and keyText(obj.Value) or "None") chip.Text = t local w = math.max(50, #t * 8 + 22) play(chip, 0.25, {Size = UDim2.fromOffset(w, 26)}, Enum.EasingStyle.Back) if kbVisible and type(kbRebuild) == "function" then kbRebuild() end end
         function obj:Set(k, silent) if typeof(k) == "string" then k = Enum.KeyCode[k] or Enum.UserInputType[k] or nil end local old = obj.Value obj.Value = k obj.Binding = false refresh() if not silent then queueSave() end if old ~= k and type(o.OnChange) == "function" then local ok, err = pcall(o.OnChange, k) if not ok then Cactus:MakeNotification({Name=label.." bind", Content=errorText(err), Type="Warning", Time=4}) end end end
         function obj:Get() return obj.Value end
         chip.InputBegan:Connect(function(input) if not isPointer(input) then return end if obj:IsLocked() then return end if activeBindCapture and activeBindCapture ~= obj then activeBindCapture.Binding = false activeBindCapture = nil end activeBindCapture = obj obj.Binding = true refresh() end)
