@@ -1503,7 +1503,7 @@ local function toneColor(name)
     return Pal.Accent
 end
 
-function ElementFactory(Window, Tab, parent, sectionName)
+ElementFactory = function(Window, Tab, parent, sectionName)
     local P = Window._parts local mobile = P.mobile local E = {_count = 0} local rowH = mobile and 42 or 40
 
     local function card(height, hover)
