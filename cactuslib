@@ -2058,6 +2058,8 @@ function ElementFactory(Window, Tab, parent, sectionName)
         local obj = {} function obj:SetLabel(t) nm.Text = tostring(t) end function obj:Stop() if conn then conn:Disconnect() end circle.Rotation = 0 stroke.Transparency = 1 end
         return decorate(obj, c, o, "Spinner")
     end
+
+    return E
 end
 
 -- =========================================================
